@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Application/Business.csproj" Id="d67cefe3-bb14-46b3-b4fd-d7b1ba0c81a4" />
+  <Project Path="data_access_layer/DataAccess.csproj" Id="4f3d0552-9c96-4ae5-b70e-d261d198532e" />
+  <Project Path="learning_platform/Api.csproj" />
+</Solution>
