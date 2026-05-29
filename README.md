@@ -6,7 +6,7 @@ A backend API for an e-learning platform. This service manages user authenticati
 * asp.net core 10
 * A running Supabase instance
 * A database (postgre) : i included the script to make the database 
-* i included the sql script that makes the databaes in the project
+
 
 ## Environment Variables
 To run this project, you must configure the following environment variables. 
