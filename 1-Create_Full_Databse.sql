@@ -49,8 +49,8 @@ CREATE TABLE user_refresh_tokens (
     created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     revoked_at        TIMESTAMP NULL,       
     is_used BOOLEAN NOT NULL DEFAULT FALSE, 
-    replaced_by_id INT NULL, -- Points to the eEW token_id that replaced this one
-    chain_breached BOOLEAN NOT NULL DEFAULT FALSE, -- if there is mulitple attempts to use this expired token then ignore it 
+    replaced_by_id INT NULL, -- Points to the new token_id that replaced this one
+    chain_breached BOOLEAN NOT NULL DEFAULT FALSE, -- if there are mulitple attempts to use this expired token then ignore it 
     last_used_at TIMESTAMP NULL ,
     ip_address VARCHAR(45) NULL, -- Supports both IPv4 and IPv6
 

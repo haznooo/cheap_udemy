@@ -58,46 +58,6 @@ namespace Business.Services
 
         }
 
-        public async Task<MyResult<RefreshTokenResponse>> AddNewRefreshToken(RefreshTokenRequest NewRefreshToken,string oldRefreshTokenHash) 
-        {
-            /*
-
-            if (request.UserId < 1)
-            {
-                return MyResult<RefreshTokenResponse>.Failure(ErrorType.BadRequest, "please enter a valid id ");
-            }
-
-            UserService userService = new UserService(context);
-
-           bool results = await userService.IsUserActive(request.UserId);
-
-            if (!results) 
-            {
-                return MyResult<RefreshTokenResponse>.Failure(ErrorType.BadRequest, "please enter a valid id ");
-            }
-
-
-            RefreshTokenRepository repo = new RefreshTokenRepository(context);
-
-           string? oldTken =  await repo.GetRefreshTokenByUserIdAsync(request.UserId);
-
-            if (oldTken == null)
-            {
-                return MyResult<RefreshTokenResponse>.Failure(ErrorType.NotFound, "no old refresh token was found");
-            }
-
-
-            bool isValidPassword = BCrypt.Net.BCrypt.Verify(request.RefreshToken, Convert.ToString(oldTken));
-
-            if (!isValidPassword) return MyResult<RefreshTokenResponse>.Failure(ErrorType.Unauthorized, "invalid old token");
-
-
-           string NewRefreshToken =  GenerateRefreshToken();
-           
-            */
-            throw new NotImplementedException();
-        }
-
 
         public string GenerateRefreshToken()
         {

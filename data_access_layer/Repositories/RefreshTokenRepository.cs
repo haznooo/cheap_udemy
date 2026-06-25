@@ -17,9 +17,7 @@ namespace DataAccess.Repositories
             {
 
                 context.UserRefreshToken.Add(RefreshToken);
-
                 await context.SaveChangesAsync();
-
                 return RefreshToken;
             }
             catch (Exception ex)
@@ -29,9 +27,7 @@ namespace DataAccess.Repositories
 
             }
 
-
         }
-
 
         public async Task<RefreshTokenEntity> UpdateRefreshTokenAsync(RefreshTokenEntity OldRefreshToken)
         {
