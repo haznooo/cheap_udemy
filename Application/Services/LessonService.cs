@@ -1,4 +1,5 @@
-﻿using Business.Dto.Request;
+﻿using Business.Common;
+using Business.Dto.Request;
 using DataAccess.Data;
 using DataAccess.Dto;
 using DataAccess.Entities;
@@ -12,14 +13,17 @@ using Supabase;
 
 namespace Business.Services
 {
-    // Remember to update your CreateLessonAsync method to handle mapping async if you return it there too!
     public class LessonService(AppDbContext context, Client supabaseClient)
     {
         private const string BucketName = "course-media";
 
-        public async Task<LessonDto> CreateLessonAsync(LessonRequest request)
+        public async Task<MyResult<LessonDto>> CreateLessonAsync(LessonRequest request)
         {
-            validateBlockData(request);
+            var validationErrors = ValidateBlockData(request);
+            if (validationErrors.Count > 0)
+            {
+                return MyResult<LessonDto>.Failure(ErrorType.BadRequest, [.. validationErrors]);
+            }
 
             LessonsRepository repository = new LessonsRepository(context);
             var nextSortOrder = (await repository.GetMaxSortOrderForSectionAsync(request.SectionId)) + 1;
@@ -37,27 +41,25 @@ namespace Business.Services
                 }).ToList()
             };
 
-            // 2. Save using Repository
             var savedEntity = await repository.AddLessonAsync(entity);
 
-            // 3. Map back to DTO
-            return await MapToDtoAsync(savedEntity);
+            var dto = await MapToDtoAsync(savedEntity);
+            return MyResult<LessonDto>.Success(dto);
         }
 
-  
-
-        public async Task<LessonDto?> GetLessonAsync(int lessonId)
+        public async Task<MyResult<LessonDto>> GetLessonAsync(int lessonId)
         {
             LessonsRepository repository = new LessonsRepository(context);
             var entity = await repository.GetLessonByIdAsync(lessonId);
-            if (entity == null) return null;
+            if (entity == null)
+            {
+                return MyResult<LessonDto>.Failure(ErrorType.NotFound, $"Lesson with ID {lessonId} not found.");
+            }
 
-            // We make the mapping asynchronous now because generating signed URLs requires network requests
-            return await MapToDtoAsync(entity);
+            var dto = await MapToDtoAsync(entity);
+            return MyResult<LessonDto>.Success(dto);
         }
 
-
-        // Helper method for clean mapping
         private async Task<LessonDto> MapToDtoAsync(LessonEntity entity)
         {
             var jsonOptions = new JsonSerializerOptions
@@ -86,24 +88,34 @@ namespace Business.Services
                     {
                         blockData = b.Data.Deserialize<BlockData>(jsonOptions);
 
-                        // --- SECURITY LAYER: Generate Temporary Signed Links ---
-                        // If the block contains media, exchange the stored file name for a secure 1-hour URL
                         if (blockData is ImageBlockData img && !string.IsNullOrWhiteSpace(img.Url))
                         {
-                            // img.Url currently contains just the "uniqueFileName.png" from the database
-                    
-                            img.Url = await supabaseClient.Storage.From(BucketName).CreateSignedUrl(img.Url, 3600);
+                            try
+                            {
+                                img.Url = await supabaseClient.Storage.From(BucketName).CreateSignedUrl(img.Url, 3600);
+                            }
+                            catch
+                            {
+                                img.Url = null;
+                            }
                         }
                         else if (blockData is VideoBlockData vid && !string.IsNullOrWhiteSpace(vid.VideoId) && vid.Provider == "supabase")
                         {
-                            // vid.VideoId holds our unique file name for the video
-                            vid.VideoId = await supabaseClient.Storage.From(BucketName).CreateSignedUrl(vid.VideoId, 3600);
+                            try
+                            {
+                                vid.VideoId = await supabaseClient.Storage.From(BucketName).CreateSignedUrl(vid.VideoId, 3600);
+                            }
+                            catch
+                            {
+                                vid.VideoId = null;
+                            }
                         }
                     }
                 }
                 catch (JsonException ex)
                 {
                     Console.WriteLine($"Failed to deserialize block {b.BlockId}: {ex.Message}");
+                   
                 }
 
                 dto.ContentBlocks.Add(new ContentBlockDto
@@ -117,19 +129,18 @@ namespace Business.Services
             return dto;
         }
 
-
-        private void validateBlockData(LessonRequest request)
+        private List<string> ValidateBlockData(LessonRequest request)
         {
+            var errors = new List<string>();
+
             foreach (var block in request.ContentBlocks)
             {
                 if (block.Data == null)
                 {
-                    throw new ArgumentException("A content block is missing data.");
+                    errors.Add("A content block is missing data.");
+                    continue;
                 }
-            }
-            foreach (var block in request.ContentBlocks)
-            {
-                // 1. Ensure the outer type matches the inner C# class type
+
                 bool isMatch = block.Data switch
                 {
                     TextBlockData => block.Type == "text",
@@ -141,28 +152,17 @@ namespace Business.Services
 
                 if (!isMatch)
                 {
-                    throw new ArgumentException($"Block type '{block.Type}' does not match the provided data structure.");
+                    errors.Add($"Block type '{block.Type}' does not match the provided data structure.");
+                    continue;
                 }
 
-                // 2. You can also add specific checks here
                 if (block.Data is ImageBlockData img && string.IsNullOrWhiteSpace(img.Url))
                 {
-                    throw new ArgumentException("Image blocks must contain a valid URL.");
+                    errors.Add("Image blocks must contain a valid URL.");
                 }
             }
+
+            return errors;
         }
     }
 }
-
-
-
-
-
-
-   
-
-
-
- 
-  
-

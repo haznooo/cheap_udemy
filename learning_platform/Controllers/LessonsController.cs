@@ -1,4 +1,5 @@
-﻿using Business.Dto.Request;
+﻿using Business.Common;
+using Business.Dto.Request;
 using DataAccess.Dto;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -19,22 +20,35 @@ namespace Api.Controllers
                 return BadRequest("Lesson title is required.");
             }
 
-            var createdLesson = await lessonService.CreateLessonAsync(request);
+            var result = await lessonService.CreateLessonAsync(request);
 
-            return CreatedAtAction(nameof(GetLesson), new { id = createdLesson.LessonId }, createdLesson);
+            if (!result.IsSuccess)
+            {
+                return result.FailureType switch
+                {
+                    ErrorType.BadRequest => BadRequest(result.Errors),
+                    _ => StatusCode(500, "An unexpected error occurred")
+                };
+            }
+
+            return CreatedAtAction(nameof(GetLesson), new { id = result.Value.LessonId }, result.Value);
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<LessonDto>> GetLesson(int id)
         {
-            var lesson = await lessonService.GetLessonAsync(id);
+            var result = await lessonService.GetLessonAsync(id);
 
-            if (lesson == null)
+            if (!result.IsSuccess)
             {
-                return NotFound($"Lesson with ID {id} not found.");
+                return result.FailureType switch
+                {
+                    ErrorType.NotFound => NotFound(result.Errors),
+                    _ => StatusCode(500, "An unexpected error occurred")
+                };
             }
 
-            return Ok(lesson);
+            return Ok(result.Value);
         }
     }
 
