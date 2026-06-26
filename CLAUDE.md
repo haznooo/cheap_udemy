@@ -71,7 +71,7 @@ Api (learning_platform/Api.csproj)
 - **Login logging** (DB): `LoginLogService` → `LoginLogRepository` write a row to `login_logs` (`success`/`failed`) on signup and login attempts.
 - **Admin-action auditing** (DB): `AdminActionService` → `AdminActionRepository` write an immutable row to `admin_actions` (mirrors the login-log `new`d pattern). Currently called from `UserController.DeleteUser` when an admin deletes *another* user (`action_type: "delete"`, `target_table: "users"`). `old_value`/`new_value` are JSONB and must stay small & non-sensitive (no passwords/tokens). `action_type` is constrained to `'create','update','delete','ban','unban'`.
 - **Media**: `SupabaseMediaService` uploads to the `course-media` Supabase bucket and returns the stored file name.
-- **DB triggers**: Course publish date, instructor role verification, enrollment progress sync, admin-action verification (`trg_verify_admin_action` rejects inserts whose `admin_id` isn't an admin) + immutability (`trg_lock_admin_actions` blocks UPDATE/DELETE), user anonymization on delete — all at the PostgreSQL level (see `1-Create_Full_Databse.sql`).
+- **DB triggers**: Course publish date, instructor role verification, enrollment progress sync, admin-action verification (`trg_verify_admin_action` rejects inserts whose `admin_id` isn't an admin) + immutability (`trg_lock_admin_actions` blocks UPDATE/DELETE), user anonymization on delete — all at the PostgreSQL level (see `db/01-create-schema.sql`).
 
 ## Honest state of the code (read before assuming a pattern exists)
 
@@ -93,8 +93,8 @@ Api (learning_platform/Api.csproj)
 
 ## Database setup
 
-- `1-Create_Full_Databse.sql` – full schema with tables, constraints, indexes, triggers, RLS
-- `2-Seed_database.sql` – seed data
+- `db/01-create-schema.sql` – full schema with tables, constraints, indexes, triggers, RLS
+- `db/02-seed.sql` – seed data
 - EF Core uses `Npgsql`. **No EF migrations** — schema is managed via the raw SQL scripts above.
 - **Naming**: despite `EFCore.NamingConventions` being referenced, `UseSnakeCaseNamingConvention` is **not** actually configured. Mapping works only because entity **property names are written literally in snake_case** (e.g. `user_id`, `target_table`) so they match the DB columns 1:1. **Gotcha:** a typo'd property name therefore maps to a non-existent column and fails at runtime (this happened with `admin_actions.trget_table` → fixed to `target_table` + explicit `HasColumnName`). When adding columns, match the SQL column name exactly or add `.HasColumnName(...)`.
 
