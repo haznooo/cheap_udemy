@@ -6,6 +6,8 @@ using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -22,6 +24,25 @@ namespace CheapUdemy
         {
             var builder = WebApplication.CreateBuilder(args);
 
+            builder.Services.AddRateLimiter(options =>
+            {
+                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+                // Global limiter: applies to every request (20/min per IP).
+                options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+                {
+                    var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+                    return RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: ip,
+                        factory: _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 20,
+                            Window = TimeSpan.FromMinutes(1),
+                            QueueLimit = 0
+                        });
+                });
+            });
 
             builder.Services.AddControllers();
 
@@ -114,6 +135,20 @@ namespace CheapUdemy
 
             app.UseHttpsRedirection();
             app.UseCors("CheapUdemyApiCorsPolicy");
+
+            app.UseRateLimiter();      // before auth: block abusive requests early
+
+            // Friendly message on 429 without exposing the exact limits
+            app.Use(async (context, next) =>
+            {
+                await next();
+
+                if (context.Response.StatusCode == StatusCodes.Status429TooManyRequests)
+                {
+                    await context.Response.WriteAsync("Too many login attempts. Please try again later.");
+                }
+            });
+
             app.UseAuthentication();
             app.UseAuthorization();
 
