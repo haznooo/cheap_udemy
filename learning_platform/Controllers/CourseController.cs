@@ -22,7 +22,7 @@ namespace Api.Controllers
 
             var courseService = new CourseService(context);
 
-            var Result = await courseService.GetAllCourses(request.PageNumber, request.PageSize);
+            var Result = await courseService.GetAllCourses(request);
 
             if (!Result.IsSuccess)
             {

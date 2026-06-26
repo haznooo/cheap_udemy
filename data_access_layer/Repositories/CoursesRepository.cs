@@ -14,14 +14,55 @@ namespace DataAccess.Repositories
     {
 
 
-        public async Task<PageResult<CourseDto>> GetAllCourses(int pageNumber, int pageSize)
+        public async Task<PageResult<CourseDto>> GetAllCourses(
+            int pageNumber, int pageSize,
+            string? search = null, int? categoryId = null, string? level = null,
+            decimal? minPrice = null, decimal? maxPrice = null, string? sortBy = null)
         {
 
             try
             {
-                var totalCount = await context.Courses.CountAsync();
+                // The public catalog only ever shows published, non-deleted courses.
+                var query = context.Courses
+                    .Where(c => c.status == "published" && c.deleted_at == null);
 
-                var items = await context.Courses
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    // ILIKE '%term%' is accelerated by the gin_trgm_ops GIN index on title.
+                    query = query.Where(c => EF.Functions.ILike(c.title, $"%{search}%"));
+                }
+                if (categoryId.HasValue)
+                {
+                    query = query.Where(c => c.category_id == categoryId.Value);
+                }
+                if (!string.IsNullOrWhiteSpace(level))
+                {
+                    query = query.Where(c => c.level == level);
+                }
+                if (minPrice.HasValue)
+                {
+                    query = query.Where(c => c.price >= minPrice.Value);
+                }
+                if (maxPrice.HasValue)
+                {
+                    query = query.Where(c => c.price <= maxPrice.Value);
+                }
+
+                var totalCount = await query.CountAsync();
+
+                query = sortBy switch
+                {
+                    "price_asc" => query.OrderBy(c => c.price),
+                    "price_desc" => query.OrderByDescending(c => c.price),
+                    "rating" => query.OrderByDescending(c => c.avg_rating),
+                    "newest" => query.OrderByDescending(c => c.published_date),
+                    // No explicit sort + a search term: order by trigram relevance.
+                    _ when !string.IsNullOrWhiteSpace(search)
+                        => query.OrderByDescending(c => EF.Functions.TrigramsSimilarity(c.title, search!)),
+                    _ => query.OrderByDescending(c => c.published_date)
+                };
+
+                var items = await query
                     .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
                     .AsNoTracking()
@@ -32,6 +73,18 @@ namespace DataAccess.Repositories
                         CategoryId = c.category_id,
                         // EF Core handles the join automatically behind the scenes here:
                         CategoryName = c.category.name,
+                        InstructorId = c.instructor_id,
+                        InstructorName = c.instructor.username,
+                        code = c.code,
+                        description = c.description,
+                        thumbnail_url = c.thumbnail_url,
+                        price = c.price,
+                        status = c.status,
+                        level = c.level,
+                        estimated_duration_minutes = c.estimated_duration_minutes,
+                        avg_rating = c.avg_rating,
+                        reviews_count = c.reviews_count,
+                        published_date = c.published_date,
                     })
                     .ToListAsync();
 

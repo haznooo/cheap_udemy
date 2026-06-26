@@ -19,10 +19,10 @@ namespace Business.Services
     public class CourseService(AppDbContext context)
     {
 
-        public async Task<MyResult<PageResult<CourseDto>>> GetAllCourses(int pageNumber, int pageSize)
+        public async Task<MyResult<PageResult<CourseDto>>> GetAllCourses(GetCoursesRequest request)
         {
 
-            if(pageNumber <= 0 || pageSize <= 0)
+            if(request.PageNumber <= 0 || request.PageSize <= 0)
             {
                 return MyResult<PageResult<CourseDto>>.Failure(ErrorType.BadRequest, "Invalid page number or page size.");
             }
@@ -30,7 +30,10 @@ namespace Business.Services
             CoursesRepository repo = new CoursesRepository(context);
 
 
-            var R = await repo.GetAllCourses(pageNumber, pageSize);
+            var R = await repo.GetAllCourses(
+                request.PageNumber, request.PageSize,
+                request.SearchTerm, request.CategoryId, request.Level,
+                request.MinPrice, request.MaxPrice, request.SortBy);
 
             if(R == null || R.Items == null)
             {
