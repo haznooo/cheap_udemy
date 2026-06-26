@@ -13,8 +13,11 @@ namespace Api.Controllers
     [ApiController]
     //  [Route("[controller]")] // Sets the route for this controller to "students", based on the controller name.
     [Route("api/Courses")]
-    public class CourseController(AppDbContext context) : ControllerBase
+    public class CourseController(AppDbContext context, IMediaService mediaService) : ControllerBase
     {
+        // 5 MB limit for thumbnails; images only.
+        private const long MaxThumbnailSize = 5 * 1024 * 1024;
+        private readonly string[] _allowedImageExtensions = { ".jpg", ".jpeg", ".png" };
 
         [AllowAnonymous]
         [HttpPost("get")]
@@ -68,6 +71,73 @@ namespace Api.Controllers
             }
 
             return Ok(Result.Value);
+        }
+
+        [AllowAnonymous]
+        [HttpGet("{courseId}")]
+        public async Task<ActionResult<CourseDto>> GetCourse(int courseId)
+        {
+            var courseService = new CourseService(context);
+            var Result = await courseService.GetCourseById(courseId);
+
+            if (!Result.IsSuccess)
+            {
+                return Result.FailureType switch
+                {
+                    ErrorType.NotFound => NotFound(Result.Errors),
+                    ErrorType.BadRequest => BadRequest(Result.Errors),
+                    ErrorType.Conflict => Conflict(Result.Errors),
+                    ErrorType.Unauthorized => Unauthorized(Result.Errors),
+                    _ => StatusCode(500, "An unexpected error occurred")
+                };
+            }
+
+            return Ok(Result.Value);
+        }
+
+        // Upload + attach a thumbnail to a course. Owner instructor or admin only.
+        [Authorize]
+        [HttpPut("{courseId}/thumbnail")]
+        public async Task<ActionResult<CourseDto>> SetThumbnail(int courseId, IFormFile file)
+        {
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int callerId))
+            {
+                return Unauthorized("Invalid or missing user identity.");
+            }
+
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest("No file was uploaded.");
+            }
+            if (file.Length > MaxThumbnailSize)
+            {
+                return BadRequest($"File exceeds the maximum limit of {MaxThumbnailSize / (1024 * 1024)}MB.");
+            }
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (string.IsNullOrEmpty(extension) || !_allowedImageExtensions.Contains(extension))
+            {
+                return BadRequest("Invalid file type. Only JPG and PNG are allowed.");
+            }
+
+            var courseService = new CourseService(context);
+
+            // Upload to storage, then persist the returned file name (SetThumbnail enforces ownership).
+            var fileName = await mediaService.UploadFileAsync(file);
+            var Result = await courseService.SetThumbnail(courseId, callerId, User.IsInRole("admin"), fileName);
+
+            if (!Result.IsSuccess)
+            {
+                return Result.FailureType switch
+                {
+                    ErrorType.NotFound => NotFound(Result.Errors),
+                    ErrorType.BadRequest => BadRequest(Result.Errors),
+                    ErrorType.Conflict => Conflict(Result.Errors),
+                    ErrorType.Unauthorized => Unauthorized(Result.Errors),
+                    _ => StatusCode(500, "An unexpected error occurred")
+                };
+            }
+
+            return Ok(new { thumbnail = fileName });
         }
 
         [AllowAnonymous]

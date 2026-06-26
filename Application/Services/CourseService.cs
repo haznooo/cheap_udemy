@@ -103,6 +103,54 @@ namespace Business.Services
 
         }
 
+        public async Task<MyResult<CourseDto>> GetCourseById(int courseId)
+        {
+            if (courseId <= 0)
+            {
+                return MyResult<CourseDto>.Failure(ErrorType.BadRequest, "Invalid course ID.");
+            }
+
+            CoursesRepository repo = new CoursesRepository(context);
+            var course = await repo.GetCourseById(courseId);
+
+            if (course == null)
+            {
+                return MyResult<CourseDto>.Failure(ErrorType.NotFound, "Course not found.");
+            }
+
+            return MyResult<CourseDto>.Success(course);
+        }
+
+        // Persists an already-uploaded thumbnail file name onto a course.
+        // Only the owning instructor (or an admin) may change it.
+        public async Task<MyResult<bool>> SetThumbnail(int courseId, int callerId, bool isAdmin, string fileName)
+        {
+            if (courseId <= 0)
+            {
+                return MyResult<bool>.Failure(ErrorType.BadRequest, "Invalid course ID.");
+            }
+
+            CoursesRepository repo = new CoursesRepository(context);
+            var ownerId = await repo.GetCourseInstructorId(courseId);
+
+            if (ownerId == null)
+            {
+                return MyResult<bool>.Failure(ErrorType.NotFound, "Course not found.");
+            }
+            if (!isAdmin && ownerId != callerId)
+            {
+                return MyResult<bool>.Failure(ErrorType.Unauthorized, "You do not own this course.");
+            }
+
+            var ok = await repo.UpdateThumbnail(courseId, fileName);
+            if (!ok)
+            {
+                return MyResult<bool>.Failure(ErrorType.Failure, "Failed to update thumbnail.");
+            }
+
+            return MyResult<bool>.Success(true);
+        }
+
         public async Task<MyResult<List<LessonDto>>> GetCourseLessons(int courseId)
         {
             if (courseId <= 0)
