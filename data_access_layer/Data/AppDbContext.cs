@@ -353,7 +353,7 @@ namespace DataAccess.Data
                 entity.HasIndex(e => e.performed_at, "IX_AdminActions_PerformedAt");
 
                 entity.Property(e => e.action_type).HasMaxLength(50).IsRequired();
-                entity.Property(e => e.trget_table).HasMaxLength(100);
+                entity.Property(e => e.target_table).HasColumnName("target_table").HasMaxLength(50);
 
                 // JSONB columns
                 entity.Property(e => e.old_value)

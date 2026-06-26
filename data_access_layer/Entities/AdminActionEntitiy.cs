@@ -11,7 +11,7 @@ namespace DataAccess.Entities
         public int admin_id { get; set; } // Foreign Key (Users)
         public UserEntity admin {  get; set; }
         public string action_type { get; set; }
-        public string trget_table { get; set; }
+        public string target_table { get; set; }
         public int target_id { get; set; }
         // Maps directly to JSONB
         public JsonDocument? old_value { get; set; }

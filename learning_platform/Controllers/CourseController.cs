@@ -32,7 +32,7 @@ namespace Api.Controllers
                     ErrorType.NotFound => NotFound(Result.Errors),
                     ErrorType.BadRequest => BadRequest(Result.Errors),
                     ErrorType.Conflict => Conflict(Result.Errors),
-                    ErrorType.Unauthorized => Conflict(Result.Errors),
+                    ErrorType.Unauthorized => Unauthorized(Result.Errors),
                     _ => StatusCode(500, "An unexpected error occurred")
                 };
             }
@@ -56,7 +56,7 @@ namespace Api.Controllers
                     ErrorType.NotFound => NotFound(Result.Errors),
                     ErrorType.BadRequest => BadRequest(Result.Errors),
                     ErrorType.Conflict => Conflict(Result.Errors),
-                    ErrorType.Unauthorized => Conflict(Result.Errors),
+                    ErrorType.Unauthorized => Unauthorized(Result.Errors),
                     _ => StatusCode(500, "An unexpected error occurred")
                 };
             }
@@ -78,7 +78,7 @@ namespace Api.Controllers
                     ErrorType.NotFound => NotFound(Result.Errors),
                     ErrorType.BadRequest => BadRequest(Result.Errors),
                     ErrorType.Conflict => Conflict(Result.Errors),
-                    ErrorType.Unauthorized => Conflict(Result.Errors),
+                    ErrorType.Unauthorized => Unauthorized(Result.Errors),
                     _ => StatusCode(500, "An unexpected error occurred")
                 };
             }
@@ -102,7 +102,7 @@ namespace Api.Controllers
                     ErrorType.NotFound => NotFound(Result.Errors),
                     ErrorType.BadRequest => BadRequest(Result.Errors),
                     ErrorType.Conflict => Conflict(Result.Errors),
-                    ErrorType.Unauthorized => Conflict(Result.Errors),
+                    ErrorType.Unauthorized => Unauthorized(Result.Errors),
                     _ => StatusCode(500, "An unexpected error occurred")
                 };
             }
