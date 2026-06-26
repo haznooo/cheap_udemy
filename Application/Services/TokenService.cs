@@ -59,6 +59,90 @@ namespace Business.Services
         }
 
 
+        // Validates the presented refresh token, rotates it (old one is marked used + revoked and
+        // points to its replacement), and returns a LoginResponse the controller fills with a new
+        // access token (JWT). Same simple "one row per login" model used by AddNewRefreshTokenFirstTime.
+        public async Task<MyResult<LoginResponse>> RefreshAccessToken(RefreshTokenRequest request)
+        {
+            if (request.UserId <= 0)
+                return MyResult<LoginResponse>.Failure(ErrorType.BadRequest, "invalid user id");
+
+            if (string.IsNullOrWhiteSpace(request.RefreshToken))
+                return MyResult<LoginResponse>.Failure(ErrorType.BadRequest, "refresh token is required");
+
+            RefreshTokenRepository refreshTokenRepository = new RefreshTokenRepository(context);
+
+            // Find the matching, still-usable token by verifying against every valid hash for the user.
+            var validTokens = await refreshTokenRepository.GetValidRefreshTokensByUserIdAsync(request.UserId);
+            var currentToken = validTokens
+                .FirstOrDefault(t => BCrypt.Net.BCrypt.Verify(request.RefreshToken, t.token_hash));
+
+            if (currentToken == null)
+                return MyResult<LoginResponse>.Failure(ErrorType.Unauthorized, "invalid or expired refresh token");
+
+            // Issue the replacement token first so we can link the old one to it.
+            var newTokenResult = await AddNewRefreshTokenFirstTime(new RefreshTokenRequest
+            (
+                RefreshToken: null,
+                deviceInfo: request.deviceInfo,
+                IpAddress: request.IpAddress,
+                UserId: request.UserId
+            ));
+
+            if (!newTokenResult.IsSuccess)
+                return MyResult<LoginResponse>.Failure(ErrorType.Failure, "failed to issue refresh token");
+
+            // Rotation: retire the old token and chain it to the new one.
+            currentToken.is_used = true;
+            currentToken.revoked_at = DateTime.UtcNow;
+            currentToken.last_used_at = DateTime.UtcNow;
+            currentToken.replaced_by_id = newTokenResult.Value.RefreshTokenId;
+            await refreshTokenRepository.UpdateRefreshTokenAsync(currentToken);
+
+            // Fetch the user so the controller can mint a JWT with the right claims.
+            UserAndProfileRepository userRepository = new UserAndProfileRepository(context);
+            var user = await userRepository.GetUserByIdAsync(request.UserId);
+
+            if (user == null)
+                return MyResult<LoginResponse>.Failure(ErrorType.Unauthorized, "user no longer exists");
+
+            return MyResult<LoginResponse>.Success(new LoginResponse
+            {
+                Id = user.UserId,
+                Username = user.Username,
+                Email = user.Email,
+                Role = user.Role,
+                Status = user.Status,
+                IsRefreshTokenRevoked = false,
+                RefreshToken = newTokenResult.Value.RefreshToken,
+                RefreshTokenExpiresAt = newTokenResult.Value.ExpiresAt
+            });
+        }
+
+        // Revokes the presented refresh token (logout). Never reveals whether the token existed.
+        public async Task<MyResult<bool>> RevokeRefreshToken(RefreshTokenRequest request)
+        {
+            if (request.UserId <= 0 || string.IsNullOrWhiteSpace(request.RefreshToken))
+                return MyResult<bool>.Success(true);
+
+            RefreshTokenRepository refreshTokenRepository = new RefreshTokenRepository(context);
+
+            var validTokens = await refreshTokenRepository.GetValidRefreshTokensByUserIdAsync(request.UserId);
+            var currentToken = validTokens
+                .FirstOrDefault(t => BCrypt.Net.BCrypt.Verify(request.RefreshToken, t.token_hash));
+
+            if (currentToken != null)
+            {
+                currentToken.revoked_at = DateTime.UtcNow;
+                currentToken.is_used = true;
+                currentToken.last_used_at = DateTime.UtcNow;
+                await refreshTokenRepository.UpdateRefreshTokenAsync(currentToken);
+            }
+
+            return MyResult<bool>.Success(true);
+        }
+
+
         public string GenerateRefreshToken()
         {
 

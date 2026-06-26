@@ -31,9 +31,17 @@ namespace DataAccess.Repositories
 
         public async Task<RefreshTokenEntity> UpdateRefreshTokenAsync(RefreshTokenEntity OldRefreshToken)
         {
-
-            throw new NotImplementedException();
-
+            try
+            {
+                context.UserRefreshToken.Update(OldRefreshToken);
+                await context.SaveChangesAsync();
+                return OldRefreshToken;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                return null;
+            }
         }
         public async Task<RefreshTokenEntity> GetRefreshTokenEntityByUserIdAsync(int userId)
         {
@@ -49,6 +57,26 @@ namespace DataAccess.Repositories
             }
         }
 
+        // Returns the user's tokens that are still usable (not revoked, not used, not expired).
+        // The caller BCrypt-verifies the presented token against each hash to find the match.
+        public async Task<List<RefreshTokenEntity>> GetValidRefreshTokensByUserIdAsync(int userId)
+        {
+            try
+            {
+                return await context.UserRefreshToken
+                    .Where(rt => rt.user_id == userId
+                        && rt.revoked_at == null
+                        && !rt.is_used
+                        && rt.expires_at > DateTime.UtcNow)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                return new List<RefreshTokenEntity>();
+            }
+        }
+
         public async Task<string?> GetRefreshTokenByUserIdAsync(int userId)
         {
 
@@ -60,7 +88,7 @@ namespace DataAccess.Repositories
             try
             {
                var results =   context.UserRefreshToken
-                      .Where(t => t.user_id == 5)
+                      .Where(t => t.user_id == userId)
                   .ExecuteDelete();
 
                 return results > 0;

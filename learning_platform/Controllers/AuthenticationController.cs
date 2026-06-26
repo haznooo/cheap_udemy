@@ -18,7 +18,7 @@ namespace CheapUdemy.Controllers
 {
     [ApiController]
     [Route("api/User")]
-    public class AuthenticationController(AppDbContext context,IConfiguration configuration) : ControllerBase
+    public class AuthenticationController(AppDbContext context, IConfiguration configuration, ILogger<AuthenticationController> logger) : ControllerBase
     {
 
    
@@ -55,7 +55,7 @@ namespace CheapUdemy.Controllers
                         ErrorType.NotFound => NotFound(result.Errors),
                         ErrorType.BadRequest => BadRequest(result.Errors),
                         ErrorType.Conflict => Conflict(result.Errors),
-                        ErrorType.Unauthorized => Conflict(result.Errors),
+                        ErrorType.Unauthorized => Unauthorized(result.Errors),
                         _ => StatusCode(500, "An unexpected error occurred")
                     };
                 }
@@ -120,13 +120,16 @@ namespace CheapUdemy.Controllers
 
             if (!result.IsSuccess)
             {
+                // Security event only — never log the submitted password or credentials.
+                logger.LogWarning("Failed login attempt from IP {Ip}", ipAddress);
+
                 // Handle all failure types in one switch expression
                 return result.FailureType switch
                 {
                     ErrorType.NotFound => NotFound(result.Errors),
                     ErrorType.BadRequest => BadRequest(result.Errors),
                     ErrorType.Conflict => Conflict(result.Errors),
-                    ErrorType.Unauthorized => Conflict(result.Errors),
+                    ErrorType.Unauthorized => Unauthorized(result.Errors),
                     _ => StatusCode(500, "An unexpected error occurred")
                 };
             }
@@ -164,88 +167,95 @@ namespace CheapUdemy.Controllers
             return Ok(result);
         }
 
-     
+        // Exchanges a valid refresh token for a new access token (and a rotated refresh token).
+        // Body carries UserId + RefreshToken; device/IP are taken from the request, not the client.
+        [HttpPost("refresh")]
+        public async Task<ActionResult<LoginResponse>> Refresh([FromBody] RefreshTokenRequest request)
+        {
+            var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+            string userAgent = Request.Headers.UserAgent.ToString();
 
-        /*    
+            if (string.IsNullOrWhiteSpace(userAgent))
+                userAgent = "unknown";
+            if (string.IsNullOrWhiteSpace(ipAddress))
+                ipAddress = "unknown";
 
+            TokenService tokenService = new TokenService(context);
 
-            [HttpPost("refresh")]
-            public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest request)
+            var result = await tokenService.RefreshAccessToken(new RefreshTokenRequest
+            (
+                RefreshToken: request.RefreshToken,
+                deviceInfo: userAgent,
+                IpAddress: ipAddress,
+                UserId: request.UserId
+            ));
+
+            if (!result.IsSuccess)
             {
-                var results = await sender.Send(new GetUserByEmailQuery(request.Email));
+                logger.LogWarning("Failed refresh-token attempt from IP {Ip}", ipAddress);
 
-
-                if (results == null)
-                    return Unauthorized("Invalid refresh request");
-
-                if (results.Value.RefreshTokenRevokedAt != null)
-                    return Unauthorized("Refresh token is revoked");
-
-                if (results.Value.RefreshTokenExpiresAt == null || results.Value.RefreshTokenExpiresAt <= DateTime.UtcNow)
-                    return Unauthorized("Refresh token expired");
-
-                bool refreshValid = BCrypt.Net.BCrypt.Verify(request.RefreshToken, results.Value.RefreshToken);
-                if (!refreshValid)
-                    return Unauthorized("Invalid refresh token");
-
-                // Issue NEW access token (same claims & signing settings as login)
-                var claims = new[]
+                return result.FailureType switch
                 {
-            new Claim(ClaimTypes.NameIdentifier, results.Value.Id.ToString()),
-            new Claim(ClaimTypes.Email, results.Value.Email),
-            new Claim(ClaimTypes.Role, results.Value.Role)
-        };
-
-                var key = new SymmetricSecurityKey(
-                    Encoding.UTF8.GetBytes(put the key here));
-
-                var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-                var jwt = new JwtSecurityToken(
-                    issuer: "StudentApi",
-                    audience: "StudentApiUsers",
-                    claims: claims,
-                    expires: DateTime.UtcNow.AddMinutes(30),
-                    signingCredentials: creds
-                );
-
-                var newAccessToken = new JwtSecurityTokenHandler().WriteToken(jwt);
-
-                // Rotation: replace refresh token
-                var newRefreshToken = GenerateRefreshToken();
-                results.Value.RefreshToken = BCrypt.Net.BCrypt.HashPassword(newRefreshToken);
-                results.Value.RefreshTokenExpiresAt = DateTime.UtcNow.AddDays(7);
-                results.Value.RefreshTokenRevokedAt = null;
-
-                return Ok(new TokenResponse(newAccessToken, newRefreshToken));
+                    ErrorType.NotFound => NotFound(result.Errors),
+                    ErrorType.BadRequest => BadRequest(result.Errors),
+                    ErrorType.Conflict => Conflict(result.Errors),
+                    ErrorType.Unauthorized => Unauthorized(result.Errors),
+                    _ => StatusCode(500, "An unexpected error occurred")
+                };
             }
 
-            */
+            result.Value.Token = GenerateAccessToken(result.Value);
 
-        //works fine
+            return Ok(result.Value);
+        }
 
-
-
-
-        /*
-        //not working
+        // Revokes the presented refresh token. Always returns 200 so it never reveals
+        // whether the token (or user) actually existed.
         [HttpPost("logout")]
-        public async Task<IActionResult> Logout([FromBody] LogoutRequest request)
+        public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
         {
-         
-            var results = await sender.Send(new GetUserByEmailQuery(request.Email));
+            TokenService tokenService = new TokenService(context);
 
-            if (results == null)
-                return Ok(); // Do not reveal if user exists
+            await tokenService.RevokeRefreshToken(new RefreshTokenRequest
+            (
+                RefreshToken: request.RefreshToken,
+                deviceInfo: "unknown",
+                IpAddress: "unknown",
+                UserId: request.UserId
+            ));
 
-            bool refreshValid = BCrypt.Net.BCrypt.Verify(request.RefreshToken, results.Value.RefreshToken);
-            if (!refreshValid)
-                return Ok();
-
-            results.Value.RefreshTokenRevokedAt = DateTime.UtcNow;
             return Ok("Logged out successfully");
         }
 
-        */
+        // Mints a JWT access token from the user's identity claims (same settings as login/signup).
+        private string GenerateAccessToken(LoginResponse user)
+        {
+            var claims = new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimTypes.Email, user.Email),
+                new Claim(ClaimTypes.Role, user.Role)
+            };
+
+            var SecretKey = configuration["JWT_SECRET_KEY"];
+
+            if (string.IsNullOrWhiteSpace(SecretKey))
+            {
+                throw new Exception("JWT secret key is not configured in environment variables");
+            }
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(SecretKey));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var token = new JwtSecurityToken(
+                issuer: "CheapUdemyApi",
+                audience: "CheapUdemyApiUsers",
+                claims: claims,
+                expires: DateTime.Now.AddMinutes(20),
+                signingCredentials: creds
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
     }
 }
