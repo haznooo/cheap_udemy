@@ -83,6 +83,8 @@ namespace Business.Services
 			));
 
 
+            await new LoginLogService(context).LogAsync(userE.UserId, "success", ipAddress, deviceInfo);
+
 			//make the response
 			var response = new LoginResponse
             {
@@ -105,7 +107,7 @@ namespace Business.Services
         public async Task<MyResult<LoginResponse>> LoginUser(LoginRequest request,string deviceInfo,string ipAddress)
         {
 
-        
+
             if (request.Email == null || !Regex.IsMatch(request.Email, @"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"))
             {
                 return MyResult<LoginResponse>.Failure(ErrorType.BadRequest, "Invalid email format.");
@@ -117,9 +119,17 @@ namespace Business.Services
 
             if (HashedPassword == null) return MyResult<LoginResponse>.Failure(ErrorType.NotFound, "invalid credentials");
 
+            // user exists — get their id so we can log success or failure
+            int? userId = await repo.GetUserIdByEmail(request.Email);
+
             bool isValidPassword = BCrypt.Net.BCrypt.Verify(request.Password, Convert.ToString(HashedPassword));
 
-            if (!isValidPassword) return MyResult<LoginResponse>.Failure(ErrorType.Unauthorized, "invalid credentials");
+            if (!isValidPassword)
+            {
+                if (userId.HasValue)
+                    await new LoginLogService(context).LogAsync(userId.Value, "failed", ipAddress, deviceInfo);
+                return MyResult<LoginResponse>.Failure(ErrorType.Unauthorized, "invalid credentials");
+            }
 
             var userE = await repo.GetUserByEmailAsync(request.Email);
 
@@ -135,6 +145,8 @@ namespace Business.Services
                 IpAddress: ipAddress,
                 UserId: userE.UserId
             ));
+
+            await new LoginLogService(context).LogAsync(userE.UserId, "success", ipAddress, deviceInfo);
 
             return MyResult<LoginResponse>.Success(new LoginResponse
             {

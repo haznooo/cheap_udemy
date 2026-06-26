@@ -10,7 +10,7 @@ namespace DataAccess.Entities
                                     // 
         public int user_id { get; set; } // Foreign Key
         public UserEntity user { get; set; }
-        public IPAddress? ip_dddress {  get; set; }  // Can use IPAddress type or string
+        public IPAddress? ip_address { get; set; }
         public string? user_agent { get; set; }
         public string status { get; set; }
         public DateTime attempted_at { get; set; } = DateTime.UtcNow;
