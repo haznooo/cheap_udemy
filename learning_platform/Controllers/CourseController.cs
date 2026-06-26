@@ -1,4 +1,5 @@
-﻿using Business.Common;
+﻿using System.Security.Claims;
+using Business.Common;
 using Business.Dto.Request;
 using Business.Services;
 using DataAccess.Data;
@@ -44,9 +45,14 @@ namespace Api.Controllers
         [HttpPost("add")]
         public async Task<ActionResult<clsPageResult.PageResult<CourseDto>>> AddCourse(AddCourseRequest request)
         {
+            // Instructor id is taken from the authenticated caller, never from the body.
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int instructorId))
+            {
+                return Unauthorized("Invalid or missing user identity.");
+            }
 
             var courseServic = new CourseService(context);
-            var Result = await courseServic.AddNewCourse(request);
+            var Result = await courseServic.AddNewCourse(request, instructorId);
 
             if (!Result.IsSuccess)
             {

@@ -9,6 +9,7 @@ using DataAccess.Entities;
 using DataAccess.Entities.json;
 using DataAccess.Repositories;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -52,21 +53,27 @@ namespace Business.Services
 
         }
 
-        public async Task<MyResult<CourseDto>> AddNewCourse(AddCourseRequest request)
+        public async Task<MyResult<CourseDto>> AddNewCourse(AddCourseRequest request, int instructorId)
         {
 
-            if(request.InstructorId <= 0)
+            if(instructorId <= 0)
             {
                 return MyResult<CourseDto>.Failure(ErrorType.BadRequest, "Invalid instructor ID.");
             }
-            if(request.CategoryId <= 0 || request.CategoryId > 5)
+            if(request.CategoryId <= 0)
             {
                 return MyResult<CourseDto>.Failure(ErrorType.BadRequest, "Invalid category ID.");
+            }
+            // Validate against the categories table instead of a hardcoded upper bound.
+            bool categoryExists = await context.Categories.AnyAsync(c => c.category_id == request.CategoryId);
+            if (!categoryExists)
+            {
+                return MyResult<CourseDto>.Failure(ErrorType.BadRequest, "Category does not exist.");
             }
 
             CourseEntitiy courseEntity = new CourseEntitiy
             {
-                instructor_id = request.InstructorId,
+                instructor_id = instructorId,
                 title = request.Title,
                 category_id = request.CategoryId,
                 description = request.Description,
@@ -83,8 +90,6 @@ namespace Business.Services
              
                 }
             };
-            var courseService = new CourseService(context);
-
 
             CoursesRepository repo = new CoursesRepository(context);
             var result = await repo.AddNewCourse(courseEntity);
