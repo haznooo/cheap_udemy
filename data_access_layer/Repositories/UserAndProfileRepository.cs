@@ -423,7 +423,7 @@ namespace DataAccess.Repositories
         }
         public async Task<bool> DoesUserExistByIdAsync(int userId)
         {
-            return await context.Users.AnyAsync(e => e.user_id == userId);
+            return await context.Users.AnyAsync(e => e.user_id == userId && e.status != "deleted");
         }
 
         //custom elemnts

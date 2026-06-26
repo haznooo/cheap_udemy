@@ -290,10 +290,10 @@ namespace DataAccess.Data
 
                 entity.HasIndex(e => e.course_id, "ix_enrollments_course_id");
                 entity.HasIndex(e => e.status, "ix_enrollments_status");
-                entity.HasIndex(e => e.sser_id, "ix_enrollments_user_id");
+                entity.HasIndex(e => e.user_id, "ix_enrollments_user_id");
 
                 // Prevent duplicate enrollment: Same user cannot enroll twice in the same course
-                entity.HasIndex(e => new { e.sser_id, e.course_id },
+                entity.HasIndex(e => new { e.user_id, e.course_id },
                                 "uq_enrollments_user_course")
                       .IsUnique();
 
@@ -324,7 +324,7 @@ namespace DataAccess.Data
                 // Many enrollments belong to one user
                 entity.HasOne(d => d.user)
                       .WithMany()
-                      .HasForeignKey(d => d.sser_id)
+                      .HasForeignKey(d => d.user_id)
                       .HasConstraintName("fk_enrollments_users").OnDelete(DeleteBehavior.Restrict);
 
                 entity.ToTable(t => {

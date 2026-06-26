@@ -15,6 +15,16 @@ namespace Business.Services
             if (request.UserId <= 0)
                 return MyResult<EnrollmentDto>.Failure(ErrorType.BadRequest, "Invalid user ID.");
 
+            var UserRepo = new UserAndProfileRepository(context);
+
+          var UserExist = await  UserRepo.DoesUserExistByIdAsync(request.UserId);
+
+            if (!UserExist)
+            {
+                return MyResult<EnrollmentDto>.Failure(ErrorType.NotFound, "User does not exist or deleted");
+            }
+
+
             if (request.CourseId <= 0)
                 return MyResult<EnrollmentDto>.Failure(ErrorType.BadRequest, "Invalid course ID.");
 

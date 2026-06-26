@@ -7,7 +7,7 @@ namespace DataAccess.Entities
     public class EnrollmentEntitiy
     {
         public int enrollment_id { get; set; } // Primary Key
-        public int sser_id { get; set; } // Foreign Key
+        public int user_id { get; set; } // Foreign Key
         public UserEntity user { get; set; }
         public int course_id { get; set; } // Foreign Key
         public CourseEntitiy course { get; set; }

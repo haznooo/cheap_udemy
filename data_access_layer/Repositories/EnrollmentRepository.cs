@@ -1,0 +1,149 @@
+using DataAccess.Data;
+using DataAccess.Dto;
+using DataAccess.Entities;
+using Microsoft.EntityFrameworkCore;
+using static DataAccess.Common.clsPageResult;
+
+namespace DataAccess.Repositories
+{
+    public class EnrollmentRepository(AppDbContext context)
+    {
+        public async Task<bool> IsAlreadyEnrolledAsync(int userId, int courseId)
+        {
+            return await context.Enrollments
+                .AnyAsync(e => e.user_id == userId && e.course_id == courseId);
+        }
+
+        public async Task<EnrollmentDto?> EnrollStudentAsync(EnrollmentEntitiy enrollment)
+        {
+            context.Enrollments.Add(enrollment);
+
+            try
+            {
+                var rows = await context.SaveChangesAsync();
+                if (rows <= 0) return null;
+
+                string courseTitle = await context.Courses
+                    .Where(c => c.course_id == enrollment.course_id)
+                    .Select(c => c.title)
+                    .FirstOrDefaultAsync() ?? "Unknown Course";
+
+                return new EnrollmentDto
+                {
+                    EnrollmentId = enrollment.enrollment_id,
+                    UserId = enrollment.user_id,
+                    CourseId = enrollment.course_id,
+                    CourseTitle = courseTitle,
+                    EnrollmentDate = enrollment.enrollment_date,
+                    Status = enrollment.status,
+                    ProgressPercentage = enrollment.progress_percentage
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                return null;
+            }
+        }
+
+        public async Task<PageResult<EnrollmentDto>> GetEnrollmentsByUserIdAsync(int userId, int pageNumber, int pageSize)
+        {
+            try
+            {
+                var query = context.Enrollments
+                    .Where(e => e.user_id == userId)
+                    .AsNoTracking();
+
+                var totalCount = await query.CountAsync();
+
+                var items = await query
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .Select(e => new EnrollmentDto
+                    {
+                        EnrollmentId = e.enrollment_id,
+                        UserId = e.user_id,
+                        CourseId = e.course_id,
+                        CourseTitle = e.course.title,
+                        EnrollmentDate = e.enrollment_date,
+                        Status = e.status,
+                        ProgressPercentage = e.progress_percentage
+                    })
+                    .ToListAsync();
+
+                return new PageResult<EnrollmentDto>
+                {
+                    Items = items,
+                    TotalCount = totalCount,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                return null;
+            }
+        }
+
+        public async Task<PageResult<EnrollmentDto>> GetEnrollmentsByCourseIdAsync(int courseId, int pageNumber, int pageSize)
+        {
+            try
+            {
+                var query = context.Enrollments
+                    .Where(e => e.course_id == courseId)
+                    .AsNoTracking();
+
+                var totalCount = await query.CountAsync();
+
+                var items = await query
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .Select(e => new EnrollmentDto
+                    {
+                        EnrollmentId = e.enrollment_id,
+                        UserId = e.user_id,
+                        CourseId = e.course_id,
+                        CourseTitle = e.course.title,
+                        EnrollmentDate = e.enrollment_date,
+                        Status = e.status,
+                        ProgressPercentage = e.progress_percentage
+                    })
+                    .ToListAsync();
+
+                return new PageResult<EnrollmentDto>
+                {
+                    Items = items,
+                    TotalCount = totalCount,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                return null;
+            }
+        }
+
+        public async Task<bool> DropEnrollmentAsync(int userId, int courseId)
+        {
+            try
+            {
+                var enrollment = await context.Enrollments
+                    .FirstOrDefaultAsync(e => e.user_id == userId && e.course_id == courseId);
+
+                if (enrollment == null) return false;
+
+                enrollment.status = "dropped";
+                await context.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                return false;
+            }
+        }
+    }
+}

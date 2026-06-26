@@ -40,7 +40,7 @@ namespace Api.Controllers
             return Ok(Result.Value);
         }
 
-
+        [Authorize]
         [HttpPost("add")]
         public async Task<ActionResult<clsPageResult.PageResult<CourseDto>>> AddCourse(AddCourseRequest request)
         {
@@ -64,7 +64,7 @@ namespace Api.Controllers
             return Ok(Result.Value);
         }
 
-
+        [Authorize]
         [HttpPost("section/add")]
         public async Task<ActionResult<SectionEntitiy>> AddSection(AddSectionRequest request)
         {
