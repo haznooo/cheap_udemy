@@ -12,8 +12,86 @@ namespace Api.Controllers
 {
     [ApiController]
     [Route("api/user")]
-    public class UserController(AppDbContext context, ILogger<UserController> logger) : ControllerBase
+    public class UserController(AppDbContext context, ILogger<UserController> logger, IMediaService mediaService) : ControllerBase
     {
+        // 5 MB limit for avatars; images only.
+        private const long MaxAvatarSize = 5 * 1024 * 1024;
+        private readonly string[] _allowedImageExtensions = { ".jpg", ".jpeg", ".png" };
+
+        [HttpGet("{userId}")]
+        public async Task<ActionResult<UserProfileResponse>> GetUserProfile(int userId, [FromServices] IAuthorizationService authorizationService)
+        {
+            var authResult = await authorizationService.AuthorizeAsync(User, userId, "UserOwnerOrAdmin");
+            if (!authResult.Succeeded)
+            {
+                logger.LogWarning("Forbidden access: user {CallerId} attempted GetUserProfile on user {TargetId}",
+                    User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "unknown", userId);
+                return Forbid();
+            }
+
+            UserService userService = new UserService(context);
+            var result = await userService.GetUserProfile(userId);
+
+            if (!result.IsSuccess)
+            {
+                return result.FailureType switch
+                {
+                    ErrorType.NotFound => NotFound(result.Errors),
+                    ErrorType.BadRequest => BadRequest(result.Errors),
+                    ErrorType.Conflict => Conflict(result.Errors),
+                    ErrorType.Unauthorized => Unauthorized(result.Errors),
+                    _ => StatusCode(500, "An unexpected error occurred")
+                };
+            }
+
+            return Ok(result.Value);
+        }
+
+        // Upload + attach an avatar to a user's profile. Owner or admin only.
+        [HttpPost("{userId}/avatar")]
+        public async Task<ActionResult> SetAvatar(int userId, IFormFile file, [FromServices] IAuthorizationService authorizationService)
+        {
+            var authResult = await authorizationService.AuthorizeAsync(User, userId, "UserOwnerOrAdmin");
+            if (!authResult.Succeeded)
+            {
+                logger.LogWarning("Forbidden access: user {CallerId} attempted SetAvatar on user {TargetId}",
+                    User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "unknown", userId);
+                return Forbid();
+            }
+
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest("No file was uploaded.");
+            }
+            if (file.Length > MaxAvatarSize)
+            {
+                return BadRequest($"File exceeds the maximum limit of {MaxAvatarSize / (1024 * 1024)}MB.");
+            }
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (string.IsNullOrEmpty(extension) || !_allowedImageExtensions.Contains(extension))
+            {
+                return BadRequest("Invalid file type. Only JPG and PNG are allowed.");
+            }
+
+            var fileName = await mediaService.UploadFileAsync(file);
+
+            UserService userService = new UserService(context);
+            var result = await userService.SetAvatar(userId, fileName);
+
+            if (!result.IsSuccess)
+            {
+                return result.FailureType switch
+                {
+                    ErrorType.NotFound => NotFound(result.Errors),
+                    ErrorType.BadRequest => BadRequest(result.Errors),
+                    ErrorType.Conflict => Conflict(result.Errors),
+                    ErrorType.Unauthorized => Unauthorized(result.Errors),
+                    _ => StatusCode(500, "An unexpected error occurred")
+                };
+            }
+
+            return Ok(new { avatar = fileName });
+        }
 
 
         [HttpPost("Delete/{userId}")] // Use route parameters for IDs

@@ -14,14 +14,55 @@ namespace DataAccess.Repositories
     {
 
 
-        public async Task<PageResult<CourseDto>> GetAllCourses(int pageNumber, int pageSize)
+        public async Task<PageResult<CourseDto>> GetAllCourses(
+            int pageNumber, int pageSize,
+            string? search = null, int? categoryId = null, string? level = null,
+            decimal? minPrice = null, decimal? maxPrice = null, string? sortBy = null)
         {
 
             try
             {
-                var totalCount = await context.Courses.CountAsync();
+                // The public catalog only ever shows published, non-deleted courses.
+                var query = context.Courses
+                    .Where(c => c.status == "published" && c.deleted_at == null);
 
-                var items = await context.Courses
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    // ILIKE '%term%' is accelerated by the gin_trgm_ops GIN index on title.
+                    query = query.Where(c => EF.Functions.ILike(c.title, $"%{search}%"));
+                }
+                if (categoryId.HasValue)
+                {
+                    query = query.Where(c => c.category_id == categoryId.Value);
+                }
+                if (!string.IsNullOrWhiteSpace(level))
+                {
+                    query = query.Where(c => c.level == level);
+                }
+                if (minPrice.HasValue)
+                {
+                    query = query.Where(c => c.price >= minPrice.Value);
+                }
+                if (maxPrice.HasValue)
+                {
+                    query = query.Where(c => c.price <= maxPrice.Value);
+                }
+
+                var totalCount = await query.CountAsync();
+
+                query = sortBy switch
+                {
+                    "price_asc" => query.OrderBy(c => c.price),
+                    "price_desc" => query.OrderByDescending(c => c.price),
+                    "rating" => query.OrderByDescending(c => c.avg_rating),
+                    "newest" => query.OrderByDescending(c => c.published_date),
+                    // No explicit sort + a search term: order by trigram relevance.
+                    _ when !string.IsNullOrWhiteSpace(search)
+                        => query.OrderByDescending(c => EF.Functions.TrigramsSimilarity(c.title, search!)),
+                    _ => query.OrderByDescending(c => c.published_date)
+                };
+
+                var items = await query
                     .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
                     .AsNoTracking()
@@ -32,6 +73,18 @@ namespace DataAccess.Repositories
                         CategoryId = c.category_id,
                         // EF Core handles the join automatically behind the scenes here:
                         CategoryName = c.category.name,
+                        InstructorId = c.instructor_id,
+                        InstructorName = c.instructor.username,
+                        code = c.code,
+                        description = c.description,
+                        thumbnail_url = c.thumbnail_url,
+                        price = c.price,
+                        status = c.status,
+                        level = c.level,
+                        estimated_duration_minutes = c.estimated_duration_minutes,
+                        avg_rating = c.avg_rating,
+                        reviews_count = c.reviews_count,
+                        published_date = c.published_date,
                     })
                     .ToListAsync();
 
@@ -48,6 +101,90 @@ namespace DataAccess.Repositories
                 // Consider logging via ILogger instead of Console.WriteLine in production!
                 Console.WriteLine(ex.ToString());
                 return null;
+            }
+        }
+
+        // Single published course with full detail. Returns null if it does not exist,
+        // is not published, or has been soft-deleted.
+        public async Task<CourseDto> GetCourseById(int courseId)
+        {
+            try
+            {
+                var c = await context.Courses
+                    .Where(c => c.course_id == courseId && c.status == "published" && c.deleted_at == null)
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync();
+
+                if (c == null) return null;
+
+                string categoryName = await context.Categories
+                    .Where(cat => cat.category_id == c.category_id)
+                    .Select(cat => cat.name)
+                    .FirstOrDefaultAsync() ?? "Unknown Category";
+
+                string instructorName = await context.Users
+                    .Where(u => u.user_id == c.instructor_id)
+                    .Select(u => u.username)
+                    .FirstOrDefaultAsync();
+
+                return new CourseDto
+                {
+                    CourseId = c.course_id,
+                    Title = c.title,
+                    CategoryId = c.category_id,
+                    CategoryName = categoryName,
+                    InstructorId = c.instructor_id,
+                    InstructorName = instructorName,
+                    code = c.code,
+                    description = c.description,
+                    thumbnail_url = c.thumbnail_url,
+                    price = c.price,
+                    status = c.status,
+                    level = c.level,
+                    estimated_duration_minutes = c.estimated_duration_minutes,
+                    avg_rating = c.avg_rating,
+                    reviews_count = c.reviews_count,
+                    course_metadata = c.course_metadata == null ? null : new Entities.json.course_metadata
+                    {
+                        lessons_count = c.course_metadata.lessons_count,
+                        enrollments_count = c.course_metadata.enrollments_count
+                    },
+                    published_date = c.published_date,
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                return null;
+            }
+        }
+
+        // Returns the owning instructor id, or null if the course does not exist.
+        // Used for ownership checks (e.g. setting a thumbnail).
+        public async Task<int?> GetCourseInstructorId(int courseId)
+        {
+            return await context.Courses
+                .Where(c => c.course_id == courseId && c.deleted_at == null)
+                .Select(c => (int?)c.instructor_id)
+                .FirstOrDefaultAsync();
+        }
+
+        public async Task<bool> UpdateThumbnail(int courseId, string fileName)
+        {
+            try
+            {
+                var course = await context.Courses.FirstOrDefaultAsync(c => c.course_id == courseId);
+                if (course == null) return false;
+
+                course.thumbnail_url = fileName;
+                course.updated_at = DateTime.UtcNow;
+                await context.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                return false;
             }
         }
 

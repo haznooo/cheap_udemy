@@ -47,7 +47,7 @@ Api (learning_platform/Api.csproj)
 | Prefix                          | Controller                                   |
 | ------------------------------- | -------------------------------------------- |
 | `api/User`                      | Authentication (`signUp`, `login`)           |
-| `api/user`                      | User profile (delete, update password/profile) |
+| `api/user`                      | User profile (get, delete, update password/profile, avatar upload) |
 | `api/Courses`                   | Courses                                      |
 | `api/Courses/{courseId}/reviews`| Reviews                                      |
 | `api/Lessons`                   | Lessons                                      |
@@ -55,6 +55,27 @@ Api (learning_platform/Api.csproj)
 | `api/media`                     | Media (Supabase)                             |
 
 > Note: `api/User` (auth) and `api/user` (profile) differ only by case — both are real, distinct controllers.
+
+**Course endpoints** (`api/Courses`):
+
+| Method & path                         | Auth            | Notes                                                                                   |
+| ------------------------------------- | --------------- | --------------------------------------------------------------------------------------- |
+| `POST get`                            | anonymous       | Paged catalog. **Only published, non-deleted** courses. Body (`GetCoursesRequest`) supports optional `SearchTerm` (trigram `ILIKE`, uses the `gin_trgm_ops` index), `CategoryId`, `Level`, `MinPrice`, `MaxPrice`, `SortBy` (`newest`/`price_asc`/`price_desc`/`rating`; defaults to trigram relevance when searching, else newest). |
+| `GET {courseId}`                      | anonymous       | Single **published** course, full detail incl. `course_metadata`. 404 if draft/retired/deleted/missing. |
+| `POST add`                            | authenticated   | `instructor_id` is taken from the JWT (`NameIdentifier`), **never** the body. Category validated against the `categories` table. |
+| `PUT {courseId}/thumbnail`            | owner / admin   | Multipart `file` (JPG/PNG ≤5 MB) → uploaded via `IMediaService`, file name persisted to `courses.thumbnail_url`. Ownership = the course's instructor or an admin; otherwise 401. |
+| `POST section/add`                    | authenticated   | Adds a section.                                                                          |
+| `GET {courseId}/lessons`              | anonymous       | Lessons for a course.                                                                    |
+
+**User-profile endpoints** (`api/user`, all owner-or-admin via `UserOwnerOrAdmin`):
+
+| Method & path                | Notes                                                                                  |
+| ---------------------------- | -------------------------------------------------------------------------------------- |
+| `GET {userId}`               | Read a profile (`UserProfileResponse`). `Forbid()` + `LogWarning` on cross-user access. |
+| `POST {userId}/avatar`       | Multipart `file` (JPG/PNG ≤5 MB) → uploaded via `IMediaService`, file name persisted to `users_profile.avatar_url`. |
+| `POST Delete/{userId}`       | Delete (anonymize). Admin-deleting-another-user is audited.                              |
+| `POST UpdatePassword/{userId}` | Change password.                                                                      |
+| `PUT UpdateProfile/{userId}` | Update profile fields.                                                                   |
 
 ## Key conventions (what's actually in use)
 
@@ -70,7 +91,7 @@ Api (learning_platform/Api.csproj)
 - **Logging (`ILogger`)**: used in **controllers** for security events only — failed logins (`LogWarning`, IP only, never credentials) in `AuthenticationController`, forbidden/403 attempts (`LogWarning`) on every `Forbid()` path in `UserController`, and successful admin deletes (`LogInformation`). `ILogger<T>` is injected via the controllers' primary constructors. Repositories still use `Console.WriteLine` (not migrated).
 - **Login logging** (DB): `LoginLogService` → `LoginLogRepository` write a row to `login_logs` (`success`/`failed`) on signup and login attempts.
 - **Admin-action auditing** (DB): `AdminActionService` → `AdminActionRepository` write an immutable row to `admin_actions` (mirrors the login-log `new`d pattern). Currently called from `UserController.DeleteUser` when an admin deletes *another* user (`action_type: "delete"`, `target_table: "users"`). `old_value`/`new_value` are JSONB and must stay small & non-sensitive (no passwords/tokens). `action_type` is constrained to `'create','update','delete','ban','unban'`.
-- **Media**: `SupabaseMediaService` uploads to the `course-media` Supabase bucket and returns the stored file name.
+- **Media**: `SupabaseMediaService` uploads to the `course-media` Supabase bucket and returns the stored file name. The raw `POST api/media/upload` endpoint still just returns that name, but two endpoints now persist it: `PUT api/Courses/{courseId}/thumbnail` → `courses.thumbnail_url` and `POST api/user/{userId}/avatar` → `users_profile.avatar_url` (both inject `IMediaService`; JPG/PNG ≤5 MB; ownership-checked).
 - **DB triggers**: Course publish date, instructor role verification, enrollment progress sync, admin-action verification (`trg_verify_admin_action` rejects inserts whose `admin_id` isn't an admin) + immutability (`trg_lock_admin_actions` blocks UPDATE/DELETE), user anonymization on delete — all at the PostgreSQL level (see `db/01-create-schema.sql`).
 
 ## Honest state of the code (read before assuming a pattern exists)
@@ -88,7 +109,7 @@ Api (learning_platform/Api.csproj)
 - No DI / interfaces for most services & repositories (everything is `new`d). Biggest refactor target.
 - Repos swallow exceptions and return `null`/`false`, still via `Console.WriteLine` (not migrated to `ILogger`). `ILogger` is only used in controllers for security events.
 - No global exception-handling middleware.
-- Done since this list was written: ✅ rate limiting, ✅ security logging (`ILogger`), ✅ login logging, ✅ admin-action auditing.
+- Done since this list was written: ✅ rate limiting, ✅ security logging (`ILogger`), ✅ login logging, ✅ admin-action auditing, ✅ media upload now persisted (course thumbnail + user avatar), ✅ course catalog filtered to published/non-deleted with search/filter/sort over the `pg_trgm` index, ✅ course `instructor_id` taken from the JWT (not the body), ✅ GET course-detail + GET profile read endpoints.
 - Still planned by the owner: input sanitizing (HtmlSanitizer), Docker.
 
 ## Database setup

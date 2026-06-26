@@ -228,6 +228,34 @@ namespace Business.Services
          
         }
 
+        public async Task<MyResult<UserProfileResponse>> GetUserProfile(int userId)
+        {
+            if (userId <= 0) return MyResult<UserProfileResponse>.Failure(ErrorType.BadRequest, "user id can not be zero or negative");
+
+            UserAndProfileRepository repo = new UserAndProfileRepository(context);
+
+            var p = await repo.GetUserProfileByIdAsync(userId);
+
+            if (p == null) return MyResult<UserProfileResponse>.Failure(ErrorType.NotFound, "user not found");
+
+            return MyResult<UserProfileResponse>.Success(
+                new UserProfileResponse(p.DisplayName, p.Bio, p.ImageUrl, p.CountryId, p.CountryName, p.CountryIsoCode));
+        }
+
+        // Persists an already-uploaded avatar file name onto the user's profile.
+        public async Task<MyResult<bool>> SetAvatar(int userId, string fileName)
+        {
+            if (userId <= 0) return MyResult<bool>.Failure(ErrorType.BadRequest, "user id can not be zero or negative");
+
+            UserAndProfileRepository repo = new UserAndProfileRepository(context);
+
+            var ok = await repo.UpdateUserAvatarAsync(userId, fileName);
+
+            if (!ok) return MyResult<bool>.Failure(ErrorType.NotFound, "user not found");
+
+            return MyResult<bool>.Success(true);
+        }
+
         public async Task<MyResult<UserProfileResponse>> UpdateUserProfile(int userid, UserProfileRequest request)
         {
         

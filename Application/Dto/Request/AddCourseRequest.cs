@@ -6,8 +6,9 @@ namespace Business.Dto.Request
 {
     public class AddCourseRequest
     {
-        public int InstructorId { get; set; }
-        public string Title { get; set; } = string.Empty;  
+        // InstructorId is intentionally NOT here: it is derived from the caller's JWT,
+        // never trusted from the request body.
+        public string Title { get; set; } = string.Empty;
         public int CategoryId { get; set; }
         public string Description { get; set; }
         public string Code { get; set; }

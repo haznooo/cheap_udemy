@@ -385,7 +385,37 @@ namespace DataAccess.Repositories
 
 
 
-        // profile 
+        // profile
+
+        // Read-only profile fetch. Returns null if the profile (user) does not exist.
+        public async Task<UserProfileDto?> GetUserProfileByIdAsync(int userId)
+        {
+            return await context.UsersProfile
+                .Where(p => p.user_id == userId)
+                .AsNoTracking()
+                .Select(p => new UserProfileDto
+                {
+                    DisplayName = p.display_name,
+                    Bio = p.bio,
+                    ImageUrl = p.image_url,
+                    CountryId = p.country_id,
+                    CountryName = p.country != null ? p.country.name : null,
+                    CountryIsoCode = p.country != null ? p.country.iso_code : null
+                })
+                .FirstOrDefaultAsync();
+        }
+
+        // Sets only the avatar (image_url / avatar_url column), leaving other profile fields intact.
+        public async Task<bool> UpdateUserAvatarAsync(int userId, string fileName)
+        {
+            var profile = await context.UsersProfile.FirstOrDefaultAsync(p => p.user_id == userId);
+            if (profile == null) return false;
+
+            profile.image_url = fileName;
+            await context.SaveChangesAsync();
+            return true;
+        }
+
         public async Task<UserProfileEntity> UpdateUserProfileByUserIdAsync(int UserId, UserProfileEntity NewUserProfileData)
         {
 

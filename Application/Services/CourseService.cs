@@ -9,6 +9,7 @@ using DataAccess.Entities;
 using DataAccess.Entities.json;
 using DataAccess.Repositories;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -19,10 +20,10 @@ namespace Business.Services
     public class CourseService(AppDbContext context)
     {
 
-        public async Task<MyResult<PageResult<CourseDto>>> GetAllCourses(int pageNumber, int pageSize)
+        public async Task<MyResult<PageResult<CourseDto>>> GetAllCourses(GetCoursesRequest request)
         {
 
-            if(pageNumber <= 0 || pageSize <= 0)
+            if(request.PageNumber <= 0 || request.PageSize <= 0)
             {
                 return MyResult<PageResult<CourseDto>>.Failure(ErrorType.BadRequest, "Invalid page number or page size.");
             }
@@ -30,7 +31,10 @@ namespace Business.Services
             CoursesRepository repo = new CoursesRepository(context);
 
 
-            var R = await repo.GetAllCourses(pageNumber, pageSize);
+            var R = await repo.GetAllCourses(
+                request.PageNumber, request.PageSize,
+                request.SearchTerm, request.CategoryId, request.Level,
+                request.MinPrice, request.MaxPrice, request.SortBy);
 
             if(R == null || R.Items == null)
             {
@@ -49,21 +53,27 @@ namespace Business.Services
 
         }
 
-        public async Task<MyResult<CourseDto>> AddNewCourse(AddCourseRequest request)
+        public async Task<MyResult<CourseDto>> AddNewCourse(AddCourseRequest request, int instructorId)
         {
 
-            if(request.InstructorId <= 0)
+            if(instructorId <= 0)
             {
                 return MyResult<CourseDto>.Failure(ErrorType.BadRequest, "Invalid instructor ID.");
             }
-            if(request.CategoryId <= 0 || request.CategoryId > 5)
+            if(request.CategoryId <= 0)
             {
                 return MyResult<CourseDto>.Failure(ErrorType.BadRequest, "Invalid category ID.");
+            }
+            // Validate against the categories table instead of a hardcoded upper bound.
+            bool categoryExists = await context.Categories.AnyAsync(c => c.category_id == request.CategoryId);
+            if (!categoryExists)
+            {
+                return MyResult<CourseDto>.Failure(ErrorType.BadRequest, "Category does not exist.");
             }
 
             CourseEntitiy courseEntity = new CourseEntitiy
             {
-                instructor_id = request.InstructorId,
+                instructor_id = instructorId,
                 title = request.Title,
                 category_id = request.CategoryId,
                 description = request.Description,
@@ -80,8 +90,6 @@ namespace Business.Services
              
                 }
             };
-            var courseService = new CourseService(context);
-
 
             CoursesRepository repo = new CoursesRepository(context);
             var result = await repo.AddNewCourse(courseEntity);
@@ -93,6 +101,54 @@ namespace Business.Services
 
             return MyResult<CourseDto>.Success(result);
 
+        }
+
+        public async Task<MyResult<CourseDto>> GetCourseById(int courseId)
+        {
+            if (courseId <= 0)
+            {
+                return MyResult<CourseDto>.Failure(ErrorType.BadRequest, "Invalid course ID.");
+            }
+
+            CoursesRepository repo = new CoursesRepository(context);
+            var course = await repo.GetCourseById(courseId);
+
+            if (course == null)
+            {
+                return MyResult<CourseDto>.Failure(ErrorType.NotFound, "Course not found.");
+            }
+
+            return MyResult<CourseDto>.Success(course);
+        }
+
+        // Persists an already-uploaded thumbnail file name onto a course.
+        // Only the owning instructor (or an admin) may change it.
+        public async Task<MyResult<bool>> SetThumbnail(int courseId, int callerId, bool isAdmin, string fileName)
+        {
+            if (courseId <= 0)
+            {
+                return MyResult<bool>.Failure(ErrorType.BadRequest, "Invalid course ID.");
+            }
+
+            CoursesRepository repo = new CoursesRepository(context);
+            var ownerId = await repo.GetCourseInstructorId(courseId);
+
+            if (ownerId == null)
+            {
+                return MyResult<bool>.Failure(ErrorType.NotFound, "Course not found.");
+            }
+            if (!isAdmin && ownerId != callerId)
+            {
+                return MyResult<bool>.Failure(ErrorType.Unauthorized, "You do not own this course.");
+            }
+
+            var ok = await repo.UpdateThumbnail(courseId, fileName);
+            if (!ok)
+            {
+                return MyResult<bool>.Failure(ErrorType.Failure, "Failed to update thumbnail.");
+            }
+
+            return MyResult<bool>.Success(true);
         }
 
         public async Task<MyResult<List<LessonDto>>> GetCourseLessons(int courseId)
