@@ -56,7 +56,8 @@ namespace DataAccess.Repositories
                         ReviewerName = r.user.username,
                         Rating = r.rating,
                         Comment = r.comment,
-                        CreatedAt = r.created_at
+                        CreatedAt = r.created_at,
+                        UpdatedAt = r.updated_at
                     })
                     .ToListAsync();
             }
@@ -78,6 +79,7 @@ namespace DataAccess.Repositories
 
                 review.rating = rating;
                 review.comment = comment;
+                review.updated_at = DateTime.UtcNow;
                 await context.SaveChangesAsync();
 
                 string reviewerName = await context.Users
@@ -123,7 +125,8 @@ namespace DataAccess.Repositories
             ReviewerName = reviewerName,
             Rating = r.rating,
             Comment = r.comment,
-            CreatedAt = r.created_at
+            CreatedAt = r.created_at,
+            UpdatedAt = r.updated_at
         };
     }
 }

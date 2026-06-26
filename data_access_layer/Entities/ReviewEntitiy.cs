@@ -14,5 +14,6 @@ namespace DataAccess.Entities
         public short rating { get; set; } // 1 to 5
         public string? comment { get; set; }
         public DateTime created_at { get; set; } = DateTime.UtcNow;
+        public DateTime? updated_at { get; set; }
     }
 }

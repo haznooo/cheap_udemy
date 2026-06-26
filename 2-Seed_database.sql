@@ -1,5 +1,3 @@
-select * from users
-
 
 INSERT INTO countries (name, iso_code) VALUES 
 ('Afghanistan', 'AF'), ('Albania', 'AL'), ('Algeria', 'DZ'), ('Andorra', 'AD'), ('Angola', 'AO'),

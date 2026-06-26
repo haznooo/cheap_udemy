@@ -5,7 +5,7 @@ namespace DataAccess.Repositories
 {
     public class LoginLogRepository(AppDbContext context)
     {
-        public async Task<bool> AddLoginLogAsync(int userId, string status, string? ipAddress, string? userAgent)
+        public async Task<bool> AddLoginLogAsync(int? userId, string status, string? ipAddress, string? userAgent, string? attemptedIdentifier = null)
         {
             try
             {
@@ -16,6 +16,7 @@ namespace DataAccess.Repositories
                 var log = new LoginLogEntitiy
                 {
                     user_id = userId,
+                    attempted_identifier = attemptedIdentifier,
                     status = status,
                     ip_address = parsedIp,
                     user_agent = userAgent,

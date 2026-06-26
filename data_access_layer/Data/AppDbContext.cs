@@ -64,7 +64,7 @@ namespace DataAccess.Data
             modelBuilder.Entity<CategoryEntitiy>().ToTable("categories");
             modelBuilder.Entity<ReviewEntitiy>().ToTable("reviews");
             modelBuilder.Entity<EnrollmentEntitiy>().ToTable("enrollments");
-            modelBuilder.Entity<PaymentEntitiy>().ToTable("payment");
+            modelBuilder.Entity<PaymentEntitiy>().ToTable("payments");
             modelBuilder.Entity<UserLessonProgressEntitiy>().ToTable("user_lesson_progress");
 
 
@@ -113,7 +113,7 @@ namespace DataAccess.Data
                 entity.Property(e => e.user_id)
                       .ValueGeneratedNever();
 
-                entity.Property(e => e.image_url).HasMaxLength(300);
+                entity.Property(e => e.image_url).HasColumnName("avatar_url").HasMaxLength(300);
                 entity.Property(e => e.display_name).HasMaxLength(100);
                 entity.Property(e => e.bio).HasMaxLength(500);
 
@@ -137,11 +137,11 @@ namespace DataAccess.Data
 
                 entity.Property(e => e.title).HasMaxLength(200).HasDefaultValue("Main").IsRequired();
 
-                // Default sort order
-                entity.Property(e => e.sort_order)
-                      .HasDefaultValue(0).IsRequired();
+                entity.Property(e => e.sort_order).IsRequired();
 
-                entity.HasIndex(e => e.sort_order, "uq_sort_order").IsUnique();
+                // Ordering is unique within a course, not globally.
+                entity.HasIndex(e => new { e.course_id, e.sort_order }, "uq_section_order_per_course")
+                      .IsUnique();
 
                 // FK to Course
                 entity.HasOne(d => d.course)
@@ -155,6 +155,10 @@ namespace DataAccess.Data
 
                 entity.Property(e => e.title).HasMaxLength(200).IsRequired();
                 entity.Property(e => e.sort_order).HasDefaultValue(0).IsRequired();
+
+                // Ordering is unique within a section.
+                entity.HasIndex(e => new { e.section_id, e.sort_order }, "uq_lesson_order_per_section")
+                      .IsUnique();
 
                 // Configuration for content_blocks
                 entity.Property(e => e.content_blocks)
@@ -216,6 +220,13 @@ namespace DataAccess.Data
                 entity.Property(e => e.status).HasMaxLength(50).HasDefaultValue("draft");
                 entity.Property(e => e.level).HasMaxLength(50).HasDefaultValue("beginner");
                 entity.Property(e => e.removal_reason).HasMaxLength(500);
+                entity.Property(e => e.thumbnail_url).HasMaxLength(300);
+
+                entity.Property(e => e.avg_rating)
+                      .HasPrecision(3, 2)
+                      .HasDefaultValue(0.00m);
+                entity.Property(e => e.reviews_count)
+                      .HasDefaultValue(0);
 
                 entity.Property(e => e.created_date)
                       .HasColumnType("timestamp with time zone")
@@ -240,6 +251,8 @@ namespace DataAccess.Data
                 entity.ToTable(t => {
                     t.HasCheckConstraint("CK_Courses_Price", "price >= 0");
                     t.HasCheckConstraint("CK_Courses_Duration", "estimated_duration_minutes >= 0");
+                    t.HasCheckConstraint("ck_courses_rating", "avg_rating >= 0 AND avg_rating <= 5");
+                    t.HasCheckConstraint("ck_courses_review_count", "reviews_count >= 0");
                 });
 
                 // Relationship to User (Instructor)
@@ -382,6 +395,7 @@ namespace DataAccess.Data
 
                 entity.HasIndex(e => e.attempted_at, "ix_login_logs_attempted_at");
 
+                entity.Property(e => e.attempted_identifier).HasMaxLength(254);
                 entity.Property(e => e.user_agent).HasMaxLength(500);
                 entity.Property(e => e.status).HasMaxLength(50).IsRequired();
 
@@ -390,11 +404,11 @@ namespace DataAccess.Data
                       .HasDefaultValueSql("CURRENT_TIMESTAMP")
                       .HasColumnType("timestamp with time zone").IsRequired();
 
-                // FK to User
+                // FK to User (nullable: failed attempts for an unknown email are still logged)
                 entity.HasOne(d => d.user)
                       .WithMany()
                       .HasForeignKey(d => d.user_id)
-                      .HasConstraintName("fk_login_logs_users").IsRequired();
+                      .HasConstraintName("fk_login_logs_users");
             });
 
             modelBuilder.Entity<CategoryEntitiy>(entity =>
@@ -429,6 +443,10 @@ namespace DataAccess.Data
                       .HasDefaultValueSql("CURRENT_TIMESTAMP")
                       .HasColumnType("timestamp with time zone");
 
+                // Set on edit; null means the review has never been edited.
+                entity.Property(e => e.updated_at)
+                      .HasColumnType("timestamp with time zone");
+
                 // Rating constraint: 1 to 5
                 entity.Property(e => e.rating)
                       .HasDefaultValue((short)0);
@@ -451,21 +469,47 @@ namespace DataAccess.Data
             {
                 entity.HasKey(e => e.payment_id);
 
+                entity.HasIndex(e => e.user_id, "ix_payments_user_id");
+                entity.HasIndex(e => e.course_id, "ix_payments_course_id");
+
                 // Amount decimal with precision
                 entity.Property(e => e.amount)
                       .HasColumnType("decimal(10, 2)")
                       .IsRequired();
+
+                entity.Property(e => e.currency).HasMaxLength(3).HasDefaultValue("USD").IsRequired();
+                entity.Property(e => e.status).HasMaxLength(20).HasDefaultValue("pending").IsRequired();
+                entity.Property(e => e.provider).HasMaxLength(50).HasDefaultValue("simulated").IsRequired();
+                entity.Property(e => e.provider_reference).HasMaxLength(100);
 
                 // Default payment date
                 entity.Property(e => e.payment_date)
                       .HasDefaultValueSql("CURRENT_TIMESTAMP")
                       .HasColumnType("timestamp with time zone");
 
+                entity.ToTable(t => {
+                    t.HasCheckConstraint("ck_payments_amount", "amount >= 0");
+                    t.HasCheckConstraint("valid_payment_status", "status IN ('pending', 'completed', 'failed', 'refunded')");
+                });
+
                 // FK to User
                 entity.HasOne(d => d.user)
                       .WithMany()
                       .HasForeignKey(d => d.user_id)
                       .HasConstraintName("fk_payments_users");
+
+                // FK to Course (what was bought)
+                entity.HasOne(d => d.course)
+                      .WithMany()
+                      .HasForeignKey(d => d.course_id)
+                      .HasConstraintName("fk_payments_courses");
+
+                // FK to Enrollment (the enrollment it produced, if any)
+                entity.HasOne(d => d.enrollment)
+                      .WithMany()
+                      .HasForeignKey(d => d.enrollment_id)
+                      .HasConstraintName("fk_payments_enrollments")
+                      .OnDelete(DeleteBehavior.SetNull);
             });
             modelBuilder.Entity<UserLessonProgressEntitiy>(entity =>
             {

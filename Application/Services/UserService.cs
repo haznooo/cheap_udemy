@@ -117,7 +117,12 @@ namespace Business.Services
 
             string? HashedPassword = await repo.GetHashedPasswordByEmailAsync(request.Email);
 
-            if (HashedPassword == null) return MyResult<LoginResponse>.Failure(ErrorType.NotFound, "invalid credentials");
+            if (HashedPassword == null)
+            {
+                // Unknown email: still auditable. Record the attempted identifier (never the password).
+                await new LoginLogService(context).LogAsync(null, "failed", ipAddress, deviceInfo, request.Email);
+                return MyResult<LoginResponse>.Failure(ErrorType.NotFound, "invalid credentials");
+            }
 
             // user exists — get their id so we can log success or failure
             int? userId = await repo.GetUserIdByEmail(request.Email);
@@ -126,8 +131,7 @@ namespace Business.Services
 
             if (!isValidPassword)
             {
-                if (userId.HasValue)
-                    await new LoginLogService(context).LogAsync(userId.Value, "failed", ipAddress, deviceInfo);
+                await new LoginLogService(context).LogAsync(userId, "failed", ipAddress, deviceInfo, request.Email);
                 return MyResult<LoginResponse>.Failure(ErrorType.Unauthorized, "invalid credentials");
             }
 
