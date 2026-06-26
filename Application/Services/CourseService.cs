@@ -121,9 +121,10 @@ namespace Business.Services
             return MyResult<CourseDto>.Success(course);
         }
 
-        // Persists an already-uploaded thumbnail file name onto a course.
-        // Only the owning instructor (or an admin) may change it.
-        public async Task<MyResult<bool>> SetThumbnail(int courseId, int callerId, bool isAdmin, string fileName)
+        // Verifies the caller may edit a course (owning instructor or admin).
+        // Returns NotFound if the course doesn't exist, Unauthorized if not permitted.
+        // Call this BEFORE uploading any media so non-owners can't write to storage.
+        public async Task<MyResult<bool>> CheckCourseEditPermission(int courseId, int callerId, bool isAdmin)
         {
             if (courseId <= 0)
             {
@@ -142,6 +143,21 @@ namespace Business.Services
                 return MyResult<bool>.Failure(ErrorType.Unauthorized, "You do not own this course.");
             }
 
+            return MyResult<bool>.Success(true);
+        }
+
+        // Persists an already-uploaded thumbnail file name onto a course.
+        // Only the owning instructor (or an admin) may change it.
+        public async Task<MyResult<bool>> SetThumbnail(int courseId, int callerId, bool isAdmin, string fileName)
+        {
+            // Defensive re-check; controllers should also verify before uploading.
+            var permission = await CheckCourseEditPermission(courseId, callerId, isAdmin);
+            if (!permission.IsSuccess)
+            {
+                return permission;
+            }
+
+            CoursesRepository repo = new CoursesRepository(context);
             var ok = await repo.UpdateThumbnail(courseId, fileName);
             if (!ok)
             {

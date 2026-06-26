@@ -120,10 +120,26 @@ namespace Api.Controllers
             }
 
             var courseService = new CourseService(context);
+            bool isAdmin = User.IsInRole("admin");
 
-            // Upload to storage, then persist the returned file name (SetThumbnail enforces ownership).
+            // Verify ownership BEFORE uploading anything to storage, so a non-owner
+            // can't write objects to the shared bucket on a course they don't own.
+            var permission = await courseService.CheckCourseEditPermission(courseId, callerId, isAdmin);
+            if (!permission.IsSuccess)
+            {
+                return permission.FailureType switch
+                {
+                    ErrorType.NotFound => NotFound(permission.Errors),
+                    ErrorType.BadRequest => BadRequest(permission.Errors),
+                    ErrorType.Conflict => Conflict(permission.Errors),
+                    ErrorType.Unauthorized => Unauthorized(permission.Errors),
+                    _ => StatusCode(500, "An unexpected error occurred")
+                };
+            }
+
+            // Ownership confirmed; upload then persist the returned file name.
             var fileName = await mediaService.UploadFileAsync(file);
-            var Result = await courseService.SetThumbnail(courseId, callerId, User.IsInRole("admin"), fileName);
+            var Result = await courseService.SetThumbnail(courseId, callerId, isAdmin, fileName);
 
             if (!Result.IsSuccess)
             {
