@@ -76,6 +76,26 @@ namespace Api.Controllers
             return Ok(result.Value);
         }
 
+        [HttpPost("progress/mark")]
+        public async Task<ActionResult<EnrollmentDto>> MarkLessonProgress(MarkLessonProgressRequest request)
+        {
+            var service = new EnrollmentService(context);
+            var result = await service.MarkLessonProgress(request);
+
+            if (!result.IsSuccess)
+            {
+                return result.FailureType switch
+                {
+                    ErrorType.BadRequest => BadRequest(result.Errors),
+                    ErrorType.NotFound => NotFound(result.Errors),
+                    ErrorType.Conflict => Conflict(result.Errors),
+                    _ => StatusCode(500, "An unexpected error occurred")
+                };
+            }
+
+            return Ok(result.Value);
+        }
+
         [HttpPost("drop")]
         public async Task<ActionResult<bool>> DropEnrollment(DropEnrollmentRequest request)
         {

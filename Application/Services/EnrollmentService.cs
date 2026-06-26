@@ -96,6 +96,41 @@ namespace Business.Services
             });
         }
 
+        public async Task<MyResult<EnrollmentDto>> MarkLessonProgress(MarkLessonProgressRequest request)
+        {
+            if (request.UserId <= 0)
+                return MyResult<EnrollmentDto>.Failure(ErrorType.BadRequest, "Invalid user ID.");
+
+            if (request.LessonId <= 0)
+                return MyResult<EnrollmentDto>.Failure(ErrorType.BadRequest, "Invalid lesson ID.");
+
+            var repo = new EnrollmentRepository(context);
+
+            int? courseId = await repo.GetCourseIdByLessonAsync(request.LessonId);
+            if (courseId == null)
+                return MyResult<EnrollmentDto>.Failure(ErrorType.NotFound, "Lesson not found.");
+
+            string? enrollmentStatus = await repo.GetEnrollmentStatusAsync(request.UserId, courseId.Value);
+            if (enrollmentStatus == null)
+                return MyResult<EnrollmentDto>.Failure(ErrorType.BadRequest, "User is not enrolled in this course.");
+
+            if (enrollmentStatus is "dropped" or "suspended")
+                return MyResult<EnrollmentDto>.Failure(ErrorType.BadRequest, "Enrollment is not active.");
+
+            if (enrollmentStatus == "completed")
+                return MyResult<EnrollmentDto>.Failure(ErrorType.Conflict, "Course is already completed.");
+
+            bool lessonDone = await repo.IsLessonAlreadyCompletedAsync(request.UserId, request.LessonId);
+            if (lessonDone)
+                return MyResult<EnrollmentDto>.Failure(ErrorType.Conflict, "Lesson is already completed.");
+
+            var result = await repo.MarkLessonProgressAsync(request.UserId, request.LessonId, courseId.Value);
+            if (result == null)
+                return MyResult<EnrollmentDto>.Failure(ErrorType.Failure, "Failed to mark lesson progress.");
+
+            return MyResult<EnrollmentDto>.Success(result);
+        }
+
         public async Task<MyResult<bool>> DropEnrollment(DropEnrollmentRequest request)
         {
             if (request.UserId <= 0)

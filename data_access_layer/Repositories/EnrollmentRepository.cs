@@ -14,6 +14,28 @@ namespace DataAccess.Repositories
                 .AnyAsync(e => e.user_id == userId && e.course_id == courseId);
         }
 
+        public async Task<int?> GetCourseIdByLessonAsync(int lessonId)
+        {
+            return await context.Lessons
+                .Where(l => l.lesson_id == lessonId)
+                .Select(l => (int?)l.section.course_id)
+                .FirstOrDefaultAsync();
+        }
+
+        public async Task<string?> GetEnrollmentStatusAsync(int userId, int courseId)
+        {
+            return await context.Enrollments
+                .Where(e => e.user_id == userId && e.course_id == courseId)
+                .Select(e => e.status)
+                .FirstOrDefaultAsync();
+        }
+
+        public async Task<bool> IsLessonAlreadyCompletedAsync(int userId, int lessonId)
+        {
+            return await context.UserLessonProgress
+                .AnyAsync(p => p.user_id == userId && p.lesson_id == lessonId && p.is_completed);
+        }
+
         public async Task<EnrollmentDto?> EnrollStudentAsync(EnrollmentEntitiy enrollment)
         {
             context.Enrollments.Add(enrollment);
@@ -35,6 +57,7 @@ namespace DataAccess.Repositories
                     CourseId = enrollment.course_id,
                     CourseTitle = courseTitle,
                     EnrollmentDate = enrollment.enrollment_date,
+                    CompletionDate = enrollment.completion_date,
                     Status = enrollment.status,
                     ProgressPercentage = enrollment.progress_percentage
                 };
@@ -66,6 +89,7 @@ namespace DataAccess.Repositories
                         CourseId = e.course_id,
                         CourseTitle = e.course.title,
                         EnrollmentDate = e.enrollment_date,
+                        CompletionDate = e.completion_date,
                         Status = e.status,
                         ProgressPercentage = e.progress_percentage
                     })
@@ -106,6 +130,7 @@ namespace DataAccess.Repositories
                         CourseId = e.course_id,
                         CourseTitle = e.course.title,
                         EnrollmentDate = e.enrollment_date,
+                        CompletionDate = e.completion_date,
                         Status = e.status,
                         ProgressPercentage = e.progress_percentage
                     })
@@ -117,6 +142,69 @@ namespace DataAccess.Repositories
                     TotalCount = totalCount,
                     PageNumber = pageNumber,
                     PageSize = pageSize
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                return null;
+            }
+        }
+
+        public async Task<EnrollmentDto?> MarkLessonProgressAsync(int userId, int lessonId, int courseId)
+        {
+            try
+            {
+                var progress = await context.UserLessonProgress
+                    .FirstOrDefaultAsync(p => p.user_id == userId && p.lesson_id == lessonId);
+
+                if (progress == null)
+                {
+                    context.UserLessonProgress.Add(new UserLessonProgressEntitiy
+                    {
+                        user_id = userId,
+                        lesson_id = lessonId,
+                        is_completed = true,
+                        completed_at = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    progress.is_completed = true;
+                    progress.completed_at = DateTime.UtcNow;
+                }
+
+                // DB trigger trg_sync_progress fires here and recalculates progress_percentage
+                await context.SaveChangesAsync();
+
+                // Fresh query to pick up the trigger-updated progress_percentage
+                var enrollment = await context.Enrollments
+                    .FirstOrDefaultAsync(e => e.user_id == userId && e.course_id == courseId);
+
+                if (enrollment == null) return null;
+
+                if (enrollment.progress_percentage >= 100)
+                {
+                    enrollment.status = "completed";
+                    enrollment.completion_date = DateTime.UtcNow;
+                    await context.SaveChangesAsync();
+                }
+
+                string courseTitle = await context.Courses
+                    .Where(c => c.course_id == courseId)
+                    .Select(c => c.title)
+                    .FirstOrDefaultAsync() ?? "Unknown Course";
+
+                return new EnrollmentDto
+                {
+                    EnrollmentId = enrollment.enrollment_id,
+                    UserId = enrollment.user_id,
+                    CourseId = enrollment.course_id,
+                    CourseTitle = courseTitle,
+                    EnrollmentDate = enrollment.enrollment_date,
+                    CompletionDate = enrollment.completion_date,
+                    Status = enrollment.status,
+                    ProgressPercentage = enrollment.progress_percentage
                 };
             }
             catch (Exception ex)
