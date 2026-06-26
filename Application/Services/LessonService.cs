@@ -1,4 +1,5 @@
-﻿using DataAccess.Data;
+﻿using Business.Dto.Request;
+using DataAccess.Data;
 using DataAccess.Dto;
 using DataAccess.Entities;
 using DataAccess.Entities.json;
@@ -16,23 +17,22 @@ namespace Business.Services
     {
         private const string BucketName = "course-media";
 
-        public async Task<LessonDto> CreateLessonAsync(LessonDto dto)
+        public async Task<LessonDto> CreateLessonAsync(LessonRequest request)
         {
-
-            validateBlockData(dto);
+            validateBlockData(request);
 
             LessonsRepository repository = new LessonsRepository(context);
-            // 1. Map DTO to Entity
+            var nextSortOrder = (await repository.GetMaxSortOrderForSectionAsync(request.SectionId)) + 1;
+
             var entity = new LessonEntity
             {
-                section_id = dto.SectionId,
-                title = dto.Title,
-                sort_order = dto.SortOrder,
-                content_blocks = dto.ContentBlocks.Select(b => new ContentBlock
+                section_id = request.SectionId,
+                title = request.Title,
+                sort_order = nextSortOrder,
+                content_blocks = request.ContentBlocks.Select(b => new ContentBlock
                 {
-                    BlockId = b.BlockId,
+                    BlockId = Guid.NewGuid().ToString("N")[..8],
                     Type = b.Type,
-                    // Serialize the specific BlockData into a JsonElement for EF Core
                     Data = JsonSerializer.SerializeToElement(b.Data)
                 }).ToList()
             };
@@ -91,6 +91,7 @@ namespace Business.Services
                         if (blockData is ImageBlockData img && !string.IsNullOrWhiteSpace(img.Url))
                         {
                             // img.Url currently contains just the "uniqueFileName.png" from the database
+                    
                             img.Url = await supabaseClient.Storage.From(BucketName).CreateSignedUrl(img.Url, 3600);
                         }
                         else if (blockData is VideoBlockData vid && !string.IsNullOrWhiteSpace(vid.VideoId) && vid.Provider == "supabase")
@@ -117,16 +118,16 @@ namespace Business.Services
         }
 
 
-        private void validateBlockData(LessonDto dto)
+        private void validateBlockData(LessonRequest request)
         {
-            foreach (var block in dto.ContentBlocks)
+            foreach (var block in request.ContentBlocks)
             {
                 if (block.Data == null)
                 {
-                    throw new ArgumentException($"Content block {block.BlockId} is missing data.");
+                    throw new ArgumentException("A content block is missing data.");
                 }
             }
-            foreach (var block in dto.ContentBlocks)
+            foreach (var block in request.ContentBlocks)
             {
                 // 1. Ensure the outer type matches the inner C# class type
                 bool isMatch = block.Data switch

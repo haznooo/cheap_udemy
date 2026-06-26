@@ -27,6 +27,13 @@ namespace DataAccess.Repositories
         }
 
 
-    }
-    }
+        public async Task<int> GetMaxSortOrderForSectionAsync(int sectionId)
+        {
+            var max = await context.Lessons
+                .Where(l => l.section_id == sectionId)
+                .MaxAsync(l => (int?)l.sort_order);
 
+            return max ?? -1;
+        }
+    }
+}

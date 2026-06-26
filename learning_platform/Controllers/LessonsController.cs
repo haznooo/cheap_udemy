@@ -1,4 +1,5 @@
-﻿using DataAccess.Dto;
+﻿using Business.Dto.Request;
+using DataAccess.Dto;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using DataAccess.Data;
@@ -11,7 +12,7 @@ namespace Api.Controllers
     public class LessonsController(LessonService lessonService) : ControllerBase
     {
         [HttpPost("add")]
-        public async Task<ActionResult<LessonDto>> CreateLesson([FromBody] LessonDto request)
+        public async Task<ActionResult<LessonDto>> CreateLesson([FromBody] LessonRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.Title))
             {
