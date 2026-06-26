@@ -95,6 +95,24 @@ namespace Business.Services
 
         }
 
+        public async Task<MyResult<List<LessonDto>>> GetCourseLessons(int courseId)
+        {
+            if (courseId <= 0)
+            {
+                return MyResult<List<LessonDto>>.Failure(ErrorType.BadRequest, "Invalid course ID.");
+            }
+
+            CoursesRepository repo = new CoursesRepository(context);
+            var lessons = await repo.GetCourseLessons(courseId);
+
+            if (lessons == null)
+            {
+                return MyResult<List<LessonDto>>.Failure(ErrorType.NotFound, "Failed to retrieve lessons.");
+            }
+
+            return MyResult<List<LessonDto>>.Success(lessons);
+        }
+
         public async Task<MyResult<SectionEntitiy>> AddNewSection(AddSectionRequest request)
         {
 

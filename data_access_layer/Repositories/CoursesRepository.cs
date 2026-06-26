@@ -104,6 +104,32 @@ namespace DataAccess.Repositories
             
         }
 
+        public async Task<List<LessonDto>> GetCourseLessons(int courseId)
+        {
+            try
+            {
+                return await context.Lessons
+                    .Where(l => l.section.course_id == courseId)
+                    .OrderBy(l => l.section.sort_order)
+                    .ThenBy(l => l.sort_order)
+                    .AsNoTracking()
+                    .Select(l => new LessonDto
+                    {
+                        LessonId = l.lesson_id,
+                        SectionId = l.section_id,
+                        Title = l.title,
+                        SortOrder = l.sort_order,
+                        EstimatedDurationMinutes = l.estimated_duration_minutes,
+                    })
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                return null;
+            }
+        }
+
         public async Task<SectionEntitiy> AddNewSection(SectionEntitiy section)
         {
             context.Sections.Add(section);

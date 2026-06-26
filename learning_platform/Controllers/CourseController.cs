@@ -64,6 +64,28 @@ namespace Api.Controllers
             return Ok(Result.Value);
         }
 
+        [AllowAnonymous]
+        [HttpGet("{courseId}/lessons")]
+        public async Task<ActionResult<List<LessonDto>>> GetCourseLessons(int courseId)
+        {
+            var courseService = new CourseService(context);
+            var Result = await courseService.GetCourseLessons(courseId);
+
+            if (!Result.IsSuccess)
+            {
+                return Result.FailureType switch
+                {
+                    ErrorType.NotFound => NotFound(Result.Errors),
+                    ErrorType.BadRequest => BadRequest(Result.Errors),
+                    ErrorType.Conflict => Conflict(Result.Errors),
+                    ErrorType.Unauthorized => Conflict(Result.Errors),
+                    _ => StatusCode(500, "An unexpected error occurred")
+                };
+            }
+
+            return Ok(Result.Value);
+        }
+
         [Authorize]
         [HttpPost("section/add")]
         public async Task<ActionResult<SectionEntitiy>> AddSection(AddSectionRequest request)
