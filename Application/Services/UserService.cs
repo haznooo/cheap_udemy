@@ -170,7 +170,7 @@ namespace Business.Services
         public async Task<MyResult<bool>> DeleteUser(int userid,DeleteUserRequest request)
 		{
 
-			if (userid < 0) { return MyResult<bool>.Failure(ErrorType.BadRequest, "user id can not be zero or negative"); }
+			if (userid <= 0) { return MyResult<bool>.Failure(ErrorType.BadRequest, "user id can not be zero or negative"); }
 
 			UserAndProfileRepository UserRepository = new UserAndProfileRepository(context);
 
@@ -204,7 +204,7 @@ namespace Business.Services
                 return MyResult<bool>.Failure(ErrorType.BadRequest, "Password must be at least 5 characters long.");
             }
 
-            if (userId < 0) { return MyResult<bool>.Failure(ErrorType.BadRequest, "user id can not be zero or negative"); }
+            if (userId <= 0) { return MyResult<bool>.Failure(ErrorType.BadRequest, "user id can not be zero or negative"); }
 
             UserAndProfileRepository UserRepository = new UserAndProfileRepository(context);
 
