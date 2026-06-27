@@ -135,9 +135,9 @@ namespace CheapUdemy.Controllers
                 return Unauthorized("invalid access token");
             }
 
-            TokenService tokenService = new TokenService(context);
+            RefreshTokenService refreshTokenService = new RefreshTokenService(context);
 
-            var result = await tokenService.RefreshAccessToken(request.RefreshToken, userId.Value, userAgent, ipAddress);
+            var result = await refreshTokenService.RefreshAccessToken(request.RefreshToken, userId.Value, userAgent, ipAddress);
 
             if (!result.IsSuccess)
             {
@@ -169,8 +169,8 @@ namespace CheapUdemy.Controllers
 
             if (userId != null)
             {
-                TokenService tokenService = new TokenService(context);
-                await tokenService.RevokeRefreshToken(request.RefreshToken, userId.Value);
+                RefreshTokenService refreshTokenService = new RefreshTokenService(context);
+                await refreshTokenService.RevokeRefreshToken(request.RefreshToken, userId.Value);
             }
 
             return Ok("Logged out successfully");

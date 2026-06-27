@@ -14,7 +14,7 @@ using System.Text;
 
 namespace Business.Services
 {
-    public class TokenService(AppDbContext context)
+    public class RefreshTokenService(AppDbContext context)
     {
 
 

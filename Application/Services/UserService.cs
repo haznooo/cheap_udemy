@@ -73,7 +73,7 @@ namespace Business.Services
 
 
             //generate refresh token and save it to database
-            TokenService refreshTokenService = new TokenService(context);
+            RefreshTokenService refreshTokenService = new RefreshTokenService(context);
 			var NewToken = await refreshTokenService.AddNewRefreshTokenFirstTime(userE.UserId, deviceInfo, ipAddress);
 
 
@@ -135,7 +135,7 @@ namespace Business.Services
             if (userE == null) return MyResult<LoginResponse>.Failure(ErrorType.Unauthorized, "invalid credentials");
 
 
-            TokenService refreshTokenService = new TokenService(context);
+            RefreshTokenService refreshTokenService = new RefreshTokenService(context);
             var NewRefreshToken = await refreshTokenService.AddNewRefreshTokenFirstTime(userE.UserId, deviceInfo, ipAddress);
 
             await new LoginLogService(context).LogAsync(userE.UserId, "success", ipAddress, deviceInfo);
