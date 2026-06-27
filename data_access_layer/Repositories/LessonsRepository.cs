@@ -1,6 +1,7 @@
 ﻿using DataAccess.Data;
 using DataAccess.Dto;
 using DataAccess.Entities;
+using DataAccess.Entities.json;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
@@ -29,6 +30,36 @@ namespace DataAccess.Repositories
                     && l.section.course.deleted_at == null);
         }
 
+
+        // Returns any lesson by ID without filtering by course status (for owner/admin operations).
+        public async Task<LessonEntity?> GetAnyLessonByIdAsync(int lessonId)
+        {
+            return await context.Lessons
+                .AsNoTracking()
+                .FirstOrDefaultAsync(l => l.lesson_id == lessonId);
+        }
+
+        public async Task<LessonEntity?> UpdateLessonAsync(int lessonId, string? title, int? estimatedDurationMinutes, List<ContentBlock>? contentBlocks)
+        {
+            try
+            {
+                var lesson = await context.Lessons.FirstOrDefaultAsync(l => l.lesson_id == lessonId);
+                if (lesson == null) return null;
+
+                if (!string.IsNullOrWhiteSpace(title)) lesson.title = title;
+                if (estimatedDurationMinutes.HasValue) lesson.estimated_duration_minutes = estimatedDurationMinutes.Value;
+                if (contentBlocks != null) lesson.content_blocks = contentBlocks;
+                lesson.updated_at = DateTime.UtcNow;
+
+                await context.SaveChangesAsync();
+                return lesson;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                return null;
+            }
+        }
 
         public async Task<int> GetMaxSortOrderForSectionAsync(int sectionId)
         {

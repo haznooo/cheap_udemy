@@ -47,6 +47,28 @@ namespace Api.Controllers
             return CreatedAtAction(nameof(GetLesson), new { id = result.Value.LessonId }, result.Value);
         }
 
+        [HttpPut("{id}")]
+        public async Task<ActionResult<LessonDto>> UpdateLesson(int id, [FromBody] UpdateLessonRequest request)
+        {
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int callerId))
+                return Unauthorized("Invalid or missing user identity.");
+
+            bool isAdmin = User.IsInRole("admin");
+            var result = await lessonService.UpdateLessonAsync(id, request, callerId, isAdmin);
+
+            if (!result.IsSuccess)
+                return result.FailureType switch
+                {
+                    ErrorType.NotFound => NotFound(result.Errors),
+                    ErrorType.BadRequest => BadRequest(result.Errors),
+                    ErrorType.Conflict => Conflict(result.Errors),
+                    ErrorType.Unauthorized => Unauthorized(result.Errors),
+                    _ => StatusCode(500, "An unexpected error occurred")
+                };
+
+            return Ok(result.Value);
+        }
+
         [AllowAnonymous]
         [HttpGet("{id}")]
         public async Task<ActionResult<LessonDto>> GetLesson(int id)
