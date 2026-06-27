@@ -1,10 +1,12 @@
 ﻿using Business.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers
 {
     [ApiController]
     [Route("api/media")]
+    [Authorize]
     public class MediaController(IMediaService mediaService) : ControllerBase
     {
         // 50 MB limit for this example
