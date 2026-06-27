@@ -164,7 +164,7 @@ namespace CheapUdemy.Controllers
             result.Value.Token = new JwtSecurityTokenHandler().WriteToken(token);
             // Store refresh token securely (hash + expiry + not revoked)
 
-            return Ok(result);
+            return result.Value;
         }
 
         // Exchanges a valid refresh token for a new access token (and a rotated refresh token).
