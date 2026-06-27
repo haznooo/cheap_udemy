@@ -300,6 +300,8 @@ namespace DataAccess.Repositories
                  u.UserProfile.country.name
              }).FirstOrDefaultAsync();
 
+            if (R == null) return null;
+
             UserProfileDto response = new UserProfileDto
             {
 
