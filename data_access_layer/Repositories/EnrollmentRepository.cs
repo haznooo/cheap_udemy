@@ -243,5 +243,46 @@ namespace DataAccess.Repositories
                 return false;
             }
         }
+
+        // Reactivates a previously-dropped enrollment instead of inserting a new row,
+        // which would violate the UNIQUE(user_id, course_id) constraint.
+        public async Task<EnrollmentDto?> ReactivateDroppedEnrollmentAsync(int userId, int courseId)
+        {
+            try
+            {
+                var enrollment = await context.Enrollments
+                    .FirstOrDefaultAsync(e => e.user_id == userId && e.course_id == courseId && e.status == "dropped");
+
+                if (enrollment == null) return null;
+
+                enrollment.status = "active";
+                enrollment.enrollment_date = DateTime.UtcNow;
+                enrollment.progress_percentage = 0;
+                enrollment.completion_date = null;
+                await context.SaveChangesAsync();
+
+                string courseTitle = await context.Courses
+                    .Where(c => c.course_id == courseId)
+                    .Select(c => c.title)
+                    .FirstOrDefaultAsync() ?? "Unknown Course";
+
+                return new EnrollmentDto
+                {
+                    EnrollmentId = enrollment.enrollment_id,
+                    UserId = enrollment.user_id,
+                    CourseId = enrollment.course_id,
+                    CourseTitle = courseTitle,
+                    EnrollmentDate = enrollment.enrollment_date,
+                    CompletionDate = enrollment.completion_date,
+                    Status = enrollment.status,
+                    ProgressPercentage = enrollment.progress_percentage
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                return null;
+            }
+        }
     }
 }

@@ -21,9 +21,20 @@ namespace Business.Services
 
             var repo = new EnrollmentRepository(context);
 
-            bool alreadyEnrolled = await repo.IsAlreadyEnrolledAsync(callerId, request.CourseId);
-            if (alreadyEnrolled)
+            string? existingStatus = await repo.GetEnrollmentStatusAsync(callerId, request.CourseId);
+
+            if (existingStatus != null && existingStatus != "dropped")
                 return MyResult<EnrollmentDto>.Failure(ErrorType.Conflict, "User is already enrolled in this course.");
+
+            // The enrollments table has UNIQUE(user_id, course_id), so a dropped row must
+            // be reactivated rather than a new row inserted.
+            if (existingStatus == "dropped")
+            {
+                var reactivated = await repo.ReactivateDroppedEnrollmentAsync(callerId, request.CourseId);
+                if (reactivated == null)
+                    return MyResult<EnrollmentDto>.Failure(ErrorType.Failure, "Failed to re-enroll student.");
+                return MyResult<EnrollmentDto>.Success(reactivated);
+            }
 
             var enrollment = new EnrollmentEntitiy
             {
