@@ -9,8 +9,8 @@ namespace Api.Controllers
     [Authorize]
     public class MediaController(IMediaService mediaService) : ControllerBase
     {
-        // 50 MB limit for this example
-        private const long MaxFileSize = 50 * 1024 * 1024;
+        // 5 MB limit — matches the thumbnail and avatar upload endpoints.
+        private const long MaxFileSize = 5 * 1024 * 1024;
 
         // Allowed file types
         private readonly string[] _allowedExtensions = { ".jpg", ".jpeg", ".png", ".mp4", ".mov" };
