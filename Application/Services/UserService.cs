@@ -16,6 +16,11 @@ namespace Business.Services
 {
 	public class UserService(AppDbContext context)
 	{
+		// A real BCrypt hash (default work factor) used only to spend the same verify time on the
+		// unknown-email path as on a real login, so response timing doesn't reveal whether an email
+		// exists. Computed once at class load.
+		private static readonly string DummyPasswordHash = BCrypt.Net.BCrypt.HashPassword("timing-equalizer");
+
 		public async Task<MyResult<LoginResponse>> UserSignUp(SignUpRequest request,string deviceInfo,string ipAddress)
 		{
 
@@ -115,13 +120,17 @@ namespace Business.Services
             {
                 // Unknown email: still auditable. Record the attempted identifier (never the password).
                 await new LoginLogService(context).LogAsync(null, "failed", ipAddress, deviceInfo, request.Email);
-                return MyResult<LoginResponse>.Failure(ErrorType.NotFound, "invalid credentials");
+                // Spend the same BCrypt time as a real login and return the SAME failure (401, same
+                // message) as a wrong password, so neither status code nor timing reveals that the
+                // email doesn't exist.
+                BCrypt.Net.BCrypt.Verify(request.Password ?? "", DummyPasswordHash);
+                return MyResult<LoginResponse>.Failure(ErrorType.Unauthorized, "invalid credentials");
             }
 
             // user exists — get their id so we can log success or failure
             int? userId = await repo.GetUserIdByEmail(request.Email);
 
-            bool isValidPassword = BCrypt.Net.BCrypt.Verify(request.Password, Convert.ToString(HashedPassword));
+            bool isValidPassword = BCrypt.Net.BCrypt.Verify(request.Password ?? "", Convert.ToString(HashedPassword));
 
             if (!isValidPassword)
             {
