@@ -70,6 +70,11 @@ namespace Business.Services
             {
                 return MyResult<CourseDto>.Failure(ErrorType.BadRequest, "Category does not exist.");
             }
+            string[] validLevels = { "beginner", "intermediate", "advanced" };
+            if (!validLevels.Contains(request.level))
+            {
+                return MyResult<CourseDto>.Failure(ErrorType.BadRequest, "Invalid level. Must be beginner, intermediate, or advanced.");
+            }
 
             CourseEntitiy courseEntity = new CourseEntitiy
             {
@@ -79,7 +84,9 @@ namespace Business.Services
                 description = request.Description,
                 code = request.Code,
                 price = request.Price,
-                status = request.Status,
+                // Always start as draft; publishing is a separate explicit action.
+                // Ignoring request.Status prevents a caller from bypassing the draft workflow.
+                status = "draft",
                 level = request.level,
                 estimated_duration_minutes = 0,
                 created_date = DateTime.UtcNow,
@@ -87,7 +94,7 @@ namespace Business.Services
                 {
                     lessons_count = 0,
                     enrollments_count = 0
-             
+
                 }
             };
 
@@ -96,7 +103,7 @@ namespace Business.Services
 
             if(result == null)
             {
-                return MyResult<CourseDto>.Failure(ErrorType.NotFound, "Failed to add new course.");
+                return MyResult<CourseDto>.Failure(ErrorType.Failure, "Failed to add new course.");
             }
 
             return MyResult<CourseDto>.Success(result);
@@ -208,7 +215,7 @@ namespace Business.Services
 
             if (result == null)
             {
-                return MyResult<SectionEntitiy>.Failure(ErrorType.NotFound, "Failed to add new section.");
+                return MyResult<SectionEntitiy>.Failure(ErrorType.Failure, "Failed to add new section.");
             }
 
             return MyResult<SectionEntitiy>.Success(new SectionEntitiy
