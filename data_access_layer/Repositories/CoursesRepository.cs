@@ -28,8 +28,11 @@ namespace DataAccess.Repositories
 
                 if (!string.IsNullOrWhiteSpace(search))
                 {
-                    // ILIKE '%term%' is accelerated by the gin_trgm_ops GIN index on title.
-                    query = query.Where(c => EF.Functions.ILike(c.title, $"%{search}%"));
+                    // Escape LIKE wildcards so user input like "50%" or "c_sharp" is treated
+                    // as a literal substring, not a SQL pattern. ILIKE '%term%' is accelerated
+                    // by the gin_trgm_ops GIN index on title.
+                    var escapedSearch = search.Replace(@"\", @"\\").Replace("%", @"\%").Replace("_", @"\_");
+                    query = query.Where(c => EF.Functions.ILike(c.title, $"%{escapedSearch}%", @"\"));
                 }
                 if (categoryId.HasValue)
                 {
