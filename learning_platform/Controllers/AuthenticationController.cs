@@ -60,41 +60,9 @@ namespace CheapUdemy.Controllers
                     };
                 }
 
-            var claims = new[]
-            {
-                new Claim(ClaimTypes.NameIdentifier, result.Value.Id.ToString()),
-                new Claim(ClaimTypes.Email, result.Value.Email),
-                new Claim(ClaimTypes.Role, result.Value.Role)
-            };
+            result.Value.Token = GenerateAccessToken(result.Value);
 
-            var SecretKey
-                = configuration["JWT_SECRET_KEY"];
-
-            if (string.IsNullOrWhiteSpace(SecretKey))
-            {
-                throw new Exception("JWT secret key is not configured in environment variables");
-            }
-
-
-            var key = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(SecretKey));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var token = new JwtSecurityToken(
-                issuer: "CheapUdemyApi",
-                audience: "CheapUdemyApiUsers",
-                claims: claims,
-                expires: DateTime.Now.AddMinutes(20),
-                signingCredentials: creds
-            );
-
-            result.Value.Token = new JwtSecurityTokenHandler().WriteToken(token);
-
-
-            var response = result.Value;
-            return response;
-            // Use CreatedAtAction or CreatedAtRoute for a 201 response
-            // Assuming you have a GetUserById method defined elsewhere
-          //  return CreatedAtAction("GetUserById", new { id = response.user_id }, response);
+            return result.Value;
         }
        
         [HttpPost("login")] // Use route parameters for IDs
@@ -135,33 +103,7 @@ namespace CheapUdemy.Controllers
             }
 
 
-            var claims = new[]
-            {
-                new Claim(ClaimTypes.NameIdentifier, result.Value.Id.ToString()),
-                new Claim(ClaimTypes.Email, result.Value.Email),
-                new Claim(ClaimTypes.Role, result.Value.Role)
-            };
-
-            var SecretKey = configuration["JWT_SECRET_KEY"];
-
-            if (string.IsNullOrWhiteSpace(SecretKey))
-            {
-                throw new Exception("JWT secret key is not configured in environment variables");
-            }
-
-
-            var key = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(SecretKey));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-            var token = new JwtSecurityToken(
-                issuer: "CheapUdemyApi",
-                audience: "CheapUdemyApiUsers",
-                claims: claims,
-                expires: DateTime.Now.AddMinutes(20),
-                signingCredentials: creds
-            );
-            result.Value.Token = new JwtSecurityTokenHandler().WriteToken(token);
+            result.Value.Token = GenerateAccessToken(result.Value);
             // Store refresh token securely (hash + expiry + not revoked)
 
             return result.Value;
