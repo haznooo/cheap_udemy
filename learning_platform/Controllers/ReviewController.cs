@@ -41,20 +41,18 @@ namespace Api.Controllers
             return Ok(result.Value);
         }
 
+        [AllowAnonymous]
         [HttpGet]
         public async Task<ActionResult<List<ReviewDto>>> GetReviews(int courseId)
         {
-            if (CallerId is not int callerId) return Unauthorized();
-
             var service = new ReviewService(context);
-            var result = await service.GetCourseReviews(callerId, CallerRole, courseId);
+            var result = await service.GetCourseReviews(courseId);
 
             if (!result.IsSuccess)
                 return result.FailureType switch
                 {
                     ErrorType.BadRequest => BadRequest(result.Errors),
                     ErrorType.NotFound => NotFound(result.Errors),
-                    ErrorType.Unauthorized => Forbid(),
                     _ => StatusCode(500, "An unexpected error occurred")
                 };
 

@@ -57,8 +57,8 @@ namespace Business.Services
             return MyResult<ReviewDto>.Success(result);
         }
 
-        // Accessible to: enrolled students, the course instructor, admins.
-        public async Task<MyResult<List<ReviewDto>>> GetCourseReviews(int callerId, string callerRole, int courseId)
+        // Public: anyone can read reviews of a course.
+        public async Task<MyResult<List<ReviewDto>>> GetCourseReviews(int courseId)
         {
             if (courseId <= 0)
                 return MyResult<List<ReviewDto>>.Failure(ErrorType.BadRequest, "Invalid course ID.");
@@ -68,17 +68,6 @@ namespace Business.Services
             int? instructorId = await repo.GetCourseInstructorIdAsync(courseId);
             if (instructorId == null)
                 return MyResult<List<ReviewDto>>.Failure(ErrorType.NotFound, "Course not found.");
-
-            bool isAdmin = callerRole == "admin";
-
-            if (!isAdmin)
-            {
-                bool isInstructor = callerId == instructorId;
-                bool enrolled = !isInstructor && await repo.IsEnrolledAsync(callerId, courseId);
-
-                if (!isInstructor && !enrolled)
-                    return MyResult<List<ReviewDto>>.Failure(ErrorType.Unauthorized, "Access denied.");
-            }
 
             var reviews = await repo.GetReviewsByCourseIdAsync(courseId);
             if (reviews == null)
