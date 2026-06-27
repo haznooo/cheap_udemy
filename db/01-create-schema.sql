@@ -57,6 +57,9 @@ CREATE TABLE user_refresh_tokens (
     CONSTRAINT fk_user FOREIGN KEY(user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 CREATE INDEX idx_refresh_tokens_user ON user_refresh_tokens(user_id);
+-- Refresh tokens are stored as deterministic SHA-256 hashes and looked up by (user_id, token_hash);
+-- this composite index makes that lookup a direct index seek.
+CREATE INDEX idx_refresh_tokens_user_hash ON user_refresh_tokens(user_id, token_hash);
 
 CREATE TABLE categories (
     category_id SERIAL PRIMARY KEY,

@@ -57,23 +57,24 @@ namespace DataAccess.Repositories
             }
         }
 
-        // Returns the user's tokens that are still usable (not revoked, not used, not expired).
-        // The caller BCrypt-verifies the presented token against each hash to find the match.
-        public async Task<List<RefreshTokenEntity>> GetValidRefreshTokensByUserIdAsync(int userId)
+        // Returns the single still-usable token (not revoked, not used, not expired) matching the
+        // given SHA-256 hash for the user. The hash is deterministic, so this is a direct indexed
+        // equality lookup — no need to fetch every candidate and verify one by one.
+        public async Task<RefreshTokenEntity?> GetValidRefreshTokenByHashAsync(int userId, string tokenHash)
         {
             try
             {
                 return await context.UserRefreshToken
-                    .Where(rt => rt.user_id == userId
+                    .FirstOrDefaultAsync(rt => rt.user_id == userId
+                        && rt.token_hash == tokenHash
                         && rt.revoked_at == null
                         && !rt.is_used
-                        && rt.expires_at > DateTime.UtcNow)
-                    .ToListAsync();
+                        && rt.expires_at > DateTime.UtcNow);
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex);
-                return new List<RefreshTokenEntity>();
+                return null;
             }
         }
 

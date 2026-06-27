@@ -26,7 +26,7 @@ namespace Business.Services
 
 
             string refreshToken = GenerateRefreshToken();
-            string RefreshTokenHashed = BCrypt.Net.BCrypt.HashPassword(refreshToken);
+            string RefreshTokenHashed = HashRefreshToken(refreshToken);
 
             var NewToken = await refreshTokenRepository.AddRefreshTokenAsync(new RefreshTokenEntity
             {
@@ -72,10 +72,10 @@ namespace Business.Services
 
             RefreshTokenRepository refreshTokenRepository = new RefreshTokenRepository(context);
 
-            // Find the matching, still-usable token by verifying against every valid hash for the user.
-            var validTokens = await refreshTokenRepository.GetValidRefreshTokensByUserIdAsync(userId);
-            var currentToken = validTokens
-                .FirstOrDefault(t => BCrypt.Net.BCrypt.Verify(refreshToken, t.token_hash));
+            // SHA-256 is deterministic, so we can look the token up directly by its hash (indexed
+            // equality match) instead of fetching every candidate and BCrypt-verifying each one.
+            string tokenHash = HashRefreshToken(refreshToken);
+            var currentToken = await refreshTokenRepository.GetValidRefreshTokenByHashAsync(userId, tokenHash);
 
             if (currentToken == null)
                 return MyResult<LoginResponse>.Failure(ErrorType.Unauthorized, "invalid or expired refresh token");
@@ -128,9 +128,8 @@ namespace Business.Services
 
             RefreshTokenRepository refreshTokenRepository = new RefreshTokenRepository(context);
 
-            var validTokens = await refreshTokenRepository.GetValidRefreshTokensByUserIdAsync(userId);
-            var currentToken = validTokens
-                .FirstOrDefault(t => BCrypt.Net.BCrypt.Verify(refreshToken, t.token_hash));
+            string tokenHash = HashRefreshToken(refreshToken);
+            var currentToken = await refreshTokenRepository.GetValidRefreshTokenByHashAsync(userId, tokenHash);
 
             if (currentToken != null)
             {
@@ -153,6 +152,16 @@ namespace Business.Services
             rng.GetBytes(bytes);
             return Convert.ToBase64String(bytes);
 
+        }
+
+        // Refresh tokens are high-entropy random values (64 bytes from a CSPRNG), so unlike passwords
+        // they don't need a salted/slow hash. A fast, deterministic SHA-256 is the right fit: it's
+        // irreversible (safe at rest) AND deterministic, so the stored hash can be matched with a
+        // direct indexed equality lookup. (Passwords still use BCrypt — different threat model.)
+        public static string HashRefreshToken(string refreshToken)
+        {
+            var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(refreshToken));
+            return Convert.ToHexString(bytes);
         }
     }
 }
