@@ -305,6 +305,76 @@ namespace DataAccess.Repositories
             }
         }
 
+        // Returns any non-deleted course entity regardless of status (for owner/admin operations).
+        public async Task<CourseEntitiy?> GetRawCourseAsync(int courseId)
+        {
+            try
+            {
+                return await context.Courses
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.course_id == courseId && c.deleted_at == null);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                return null;
+            }
+        }
+
+        // Updates course status and returns the updated CourseDto, or null on failure.
+        // Sets published_date on the first publish.
+        public async Task<CourseDto?> UpdateCourseStatusAsync(int courseId, string newStatus)
+        {
+            try
+            {
+                var course = await context.Courses.FirstOrDefaultAsync(c => c.course_id == courseId);
+                if (course == null) return null;
+
+                course.status = newStatus;
+                course.updated_at = DateTime.UtcNow;
+                if (newStatus == "published" && course.published_date == null)
+                    course.published_date = DateTime.UtcNow;
+
+                await context.SaveChangesAsync();
+
+                string categoryName = await context.Categories
+                    .Where(c => c.category_id == course.category_id)
+                    .Select(c => c.name)
+                    .FirstOrDefaultAsync() ?? "Unknown Category";
+
+                string instructorName = await context.Users
+                    .Where(u => u.user_id == course.instructor_id)
+                    .Select(u => u.username)
+                    .FirstOrDefaultAsync() ?? "";
+
+                return new CourseDto
+                {
+                    CourseId = course.course_id,
+                    Title = course.title,
+                    CategoryId = course.category_id,
+                    CategoryName = categoryName,
+                    InstructorId = course.instructor_id,
+                    InstructorName = instructorName,
+                    code = course.code,
+                    description = course.description,
+                    thumbnail_url = course.thumbnail_url,
+                    price = course.price,
+                    status = course.status,
+                    level = course.level,
+                    estimated_duration_minutes = course.estimated_duration_minutes,
+                    avg_rating = course.avg_rating,
+                    reviews_count = course.reviews_count,
+                    course_metadata = course.course_metadata,
+                    published_date = course.published_date
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                return null;
+            }
+        }
+
 
 
 

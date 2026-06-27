@@ -192,6 +192,54 @@ namespace Business.Services
             return MyResult<List<LessonDto>>.Success(lessons);
         }
 
+        public async Task<MyResult<CourseDto>> PublishCourse(int courseId, int callerId, bool isAdmin)
+        {
+            if (courseId <= 0)
+                return MyResult<CourseDto>.Failure(ErrorType.BadRequest, "Invalid course ID.");
+
+            var permission = await CheckCourseEditPermission(courseId, callerId, isAdmin);
+            if (!permission.IsSuccess)
+                return MyResult<CourseDto>.Failure(permission.FailureType, permission.Errors.Select(e => e.Message).ToArray());
+
+            CoursesRepository repo = new CoursesRepository(context);
+            var course = await repo.GetRawCourseAsync(courseId);
+            if (course == null)
+                return MyResult<CourseDto>.Failure(ErrorType.NotFound, "Course not found.");
+
+            if (course.status == "published")
+                return MyResult<CourseDto>.Failure(ErrorType.Conflict, "Course is already published.");
+
+            var result = await repo.UpdateCourseStatusAsync(courseId, "published");
+            if (result == null)
+                return MyResult<CourseDto>.Failure(ErrorType.Failure, "Failed to publish course.");
+
+            return MyResult<CourseDto>.Success(result);
+        }
+
+        public async Task<MyResult<CourseDto>> UnpublishCourse(int courseId, int callerId, bool isAdmin)
+        {
+            if (courseId <= 0)
+                return MyResult<CourseDto>.Failure(ErrorType.BadRequest, "Invalid course ID.");
+
+            var permission = await CheckCourseEditPermission(courseId, callerId, isAdmin);
+            if (!permission.IsSuccess)
+                return MyResult<CourseDto>.Failure(permission.FailureType, permission.Errors.Select(e => e.Message).ToArray());
+
+            CoursesRepository repo = new CoursesRepository(context);
+            var course = await repo.GetRawCourseAsync(courseId);
+            if (course == null)
+                return MyResult<CourseDto>.Failure(ErrorType.NotFound, "Course not found.");
+
+            if (course.status != "published")
+                return MyResult<CourseDto>.Failure(ErrorType.Conflict, "Course is not published.");
+
+            var result = await repo.UpdateCourseStatusAsync(courseId, "draft");
+            if (result == null)
+                return MyResult<CourseDto>.Failure(ErrorType.Failure, "Failed to unpublish course.");
+
+            return MyResult<CourseDto>.Success(result);
+        }
+
         public async Task<MyResult<SectionEntitiy>> AddNewSection(AddSectionRequest request)
         {
             if (request.CourseId <= 0)
