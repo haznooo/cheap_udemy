@@ -18,6 +18,7 @@ namespace CheapUdemy.Controllers
 {
     [ApiController]
     [Route("api/User")]
+    [AllowAnonymous] // signUp/login/refresh/logout must stay public under the authenticated-by-default fallback policy
     public class AuthenticationController(AppDbContext context, IConfiguration configuration, ILogger<AuthenticationController> logger) : ControllerBase
     {
 

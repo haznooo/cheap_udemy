@@ -95,6 +95,14 @@ namespace CheapUdemy
          
             builder.Services.AddAuthorization(options =>
             {
+                // Authenticated-by-default: every endpoint requires a logged-in user unless it
+                // explicitly opts out with [AllowAnonymous]. This prevents a forgotten [Authorize]
+                // from silently exposing a whole controller (the root cause of the Enrollment/
+                // Lessons/Media holes).
+                options.FallbackPolicy = new AuthorizationPolicyBuilder()
+                    .RequireAuthenticatedUser()
+                    .Build();
+
                 options.AddPolicy("UserOwnerOrAdmin", policy =>
                     policy.Requirements.Add(new UserOwnerOrAdminRequirement()));
             });
