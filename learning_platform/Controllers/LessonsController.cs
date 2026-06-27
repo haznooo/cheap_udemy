@@ -1,6 +1,8 @@
-﻿using Business.Common;
+﻿using System.Security.Claims;
+using Business.Common;
 using Business.Dto.Request;
 using DataAccess.Dto;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using DataAccess.Data;
@@ -10,23 +12,34 @@ namespace Api.Controllers
 {
     [ApiController]
     [Route("api/Lessons")]
+    [Authorize]
     public class LessonsController(LessonService lessonService) : ControllerBase
     {
         [HttpPost("add")]
         public async Task<ActionResult<LessonDto>> CreateLesson([FromBody] LessonRequest request)
         {
+            // Caller identity comes from the JWT; lesson ownership is resolved
+            // through the section's course in the service layer.
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int callerId))
+            {
+                return Unauthorized("Invalid or missing user identity.");
+            }
             if (string.IsNullOrWhiteSpace(request.Title))
             {
                 return BadRequest("Lesson title is required.");
             }
 
-            var result = await lessonService.CreateLessonAsync(request);
+            bool isAdmin = User.IsInRole("admin");
+            var result = await lessonService.CreateLessonAsync(request, callerId, isAdmin);
 
             if (!result.IsSuccess)
             {
                 return result.FailureType switch
                 {
+                    ErrorType.NotFound => NotFound(result.Errors),
                     ErrorType.BadRequest => BadRequest(result.Errors),
+                    ErrorType.Conflict => Conflict(result.Errors),
+                    ErrorType.Unauthorized => Unauthorized(result.Errors),
                     _ => StatusCode(500, "An unexpected error occurred")
                 };
             }
@@ -34,6 +47,7 @@ namespace Api.Controllers
             return CreatedAtAction(nameof(GetLesson), new { id = result.Value.LessonId }, result.Value);
         }
 
+        [AllowAnonymous]
         [HttpGet("{id}")]
         public async Task<ActionResult<LessonDto>> GetLesson(int id)
         {
@@ -44,6 +58,9 @@ namespace Api.Controllers
                 return result.FailureType switch
                 {
                     ErrorType.NotFound => NotFound(result.Errors),
+                    ErrorType.BadRequest => BadRequest(result.Errors),
+                    ErrorType.Conflict => Conflict(result.Errors),
+                    ErrorType.Unauthorized => Unauthorized(result.Errors),
                     _ => StatusCode(500, "An unexpected error occurred")
                 };
             }

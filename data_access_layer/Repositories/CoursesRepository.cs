@@ -169,6 +169,16 @@ namespace DataAccess.Repositories
                 .FirstOrDefaultAsync();
         }
 
+        // Resolves the course a section belongs to, or null if the section
+        // does not exist. Used for ownership checks on lessons (lesson -> section -> course).
+        public async Task<int?> GetCourseIdBySection(int sectionId)
+        {
+            return await context.Sections
+                .Where(s => s.section_id == sectionId)
+                .Select(s => (int?)s.course_id)
+                .FirstOrDefaultAsync();
+        }
+
         public async Task<bool> UpdateThumbnail(int courseId, string fileName)
         {
             try

@@ -17,8 +17,30 @@ namespace Business.Services
     {
         private const string BucketName = "course-media";
 
-        public async Task<MyResult<LessonDto>> CreateLessonAsync(LessonRequest request)
+        public async Task<MyResult<LessonDto>> CreateLessonAsync(LessonRequest request, int callerId, bool isAdmin)
         {
+            if (request.SectionId <= 0)
+            {
+                return MyResult<LessonDto>.Failure(ErrorType.BadRequest, "Invalid section ID.");
+            }
+            // A null body element would NRE the validation/mapping loops below.
+            request.ContentBlocks ??= new();
+
+            // A lesson is owned transitively: lesson -> section -> course -> instructor.
+            // Resolve the section's course and verify the caller may edit it before inserting.
+            CoursesRepository coursesRepo = new CoursesRepository(context);
+            var courseId = await coursesRepo.GetCourseIdBySection(request.SectionId);
+            if (courseId == null)
+            {
+                return MyResult<LessonDto>.Failure(ErrorType.NotFound, "Section not found.");
+            }
+
+            var permission = await new CourseService(context).CheckCourseEditPermission(courseId.Value, callerId, isAdmin);
+            if (!permission.IsSuccess)
+            {
+                return MyResult<LessonDto>.Failure(permission.FailureType, permission.Errors.Select(e => e.Message).ToArray());
+            }
+
             var validationErrors = ValidateBlockData(request);
             if (validationErrors.Count > 0)
             {
