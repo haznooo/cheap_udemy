@@ -57,6 +57,37 @@ namespace DataAccess.Repositories
             }
         }
 
+        // Finds the token by (user_id, token_hash) across ALL states — used, revoked and expired
+        // included. Reuse detection needs to SEE a replayed, already-used token; the valid-only
+        // lookup below hides it (it would just look "not found").
+        public async Task<RefreshTokenEntity?> GetRefreshTokenByHashAsync(int userId, string tokenHash)
+        {
+            try
+            {
+                return await context.UserRefreshToken
+                    .FirstOrDefaultAsync(rt => rt.user_id == userId && rt.token_hash == tokenHash);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                return null;
+            }
+        }
+
+        // Fetches a single token by its primary key. Used to walk a chain forward via replaced_by_id.
+        public async Task<RefreshTokenEntity?> GetRefreshTokenByIdAsync(int tokenId)
+        {
+            try
+            {
+                return await context.UserRefreshToken.FirstOrDefaultAsync(rt => rt.token_id == tokenId);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                return null;
+            }
+        }
+
         // Returns the single still-usable token (not revoked, not used, not expired) matching the
         // given SHA-256 hash for the user. The hash is deterministic, so this is a direct indexed
         // equality lookup — no need to fetch every candidate and verify one by one.

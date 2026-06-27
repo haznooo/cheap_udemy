@@ -19,7 +19,10 @@ namespace Business.Services
 
 
 
-        public async Task<MyResult<RefreshTokenDto>> AddNewRefreshTokenFirstTime(int userId, string deviceInfo, string ipAddress)
+        // Mints and stores a new refresh token row. Used both for a brand-new chain (login/signup,
+        // expiresAt == null → fresh 7-day deadline) AND for rotation (expiresAt == the parent's
+        // expiry, so the new token INHERITS the original login deadline — see absolute expiration).
+        public async Task<MyResult<RefreshTokenDto>> AddNewRefreshTokenFirstTime(int userId, string deviceInfo, string ipAddress, DateTime? expiresAt = null)
         {
 
             RefreshTokenRepository refreshTokenRepository = new RefreshTokenRepository(context);
@@ -32,7 +35,7 @@ namespace Business.Services
             {
                 user_id = userId,
                 token_hash = RefreshTokenHashed,
-                expires_at = DateTime.UtcNow.AddDays(7),
+                expires_at = expiresAt ?? DateTime.UtcNow.AddDays(7),
                 is_used = false,
                 device_info = deviceInfo,
                 ip_address = ipAddress,
@@ -59,9 +62,10 @@ namespace Business.Services
         }
 
 
-        // Validates the presented refresh token, rotates it (old one is marked used + revoked and
-        // points to its replacement), and returns a LoginResponse the controller fills with a new
-        // access token (JWT). Same simple "one row per login" model used by AddNewRefreshTokenFirstTime.
+        // Exchanges a refresh token for a new access token + a rotated refresh token. Enforces
+        // rotation reuse detection (a superseded token replayed = theft → kill the whole chain) and
+        // absolute expiration (the new token inherits the parent's expiry, so a chain dies at most
+        // 7 days after the ORIGINAL login). Returns a LoginResponse the controller mints a JWT from.
         public async Task<MyResult<LoginResponse>> RefreshAccessToken(string refreshToken, int userId, string deviceInfo, string ipAddress)
         {
             if (userId <= 0)
@@ -72,13 +76,31 @@ namespace Business.Services
 
             RefreshTokenRepository refreshTokenRepository = new RefreshTokenRepository(context);
 
-            // SHA-256 is deterministic, so we can look the token up directly by its hash (indexed
-            // equality match) instead of fetching every candidate and BCrypt-verifying each one.
+            // Look the token up across ALL states (SHA-256 is deterministic → direct indexed lookup).
+            // We need used/revoked/expired rows too, so a replayed used token is visible below.
             string tokenHash = HashRefreshToken(refreshToken);
-            var currentToken = await refreshTokenRepository.GetValidRefreshTokenByHashAsync(userId, tokenHash);
+            var currentToken = await refreshTokenRepository.GetRefreshTokenByHashAsync(userId, tokenHash);
 
+            // Never existed / wrong token → plain 401, no breach.
             if (currentToken == null)
+                return MyResult<LoginResponse>.Failure(ErrorType.Unauthorized, "invalid refresh token");
+
+            // REUSE DETECTION: this token was already rotated away (it points at a child via
+            // replaced_by_id) yet is being presented again → two parties hold tokens on this chain
+            // (the real user AND a thief). Kill the entire chain so both must re-login. We key on
+            // replaced_by_id (not is_used) so a logged-out token — used, but with no child — does
+            // NOT false-positive as a breach; it falls through to the plain 401 below.
+            if (currentToken.replaced_by_id != null)
+            {
+                await RevokeBreachedChainAsync(refreshTokenRepository, currentToken);
+                return MyResult<LoginResponse>.Failure(ErrorType.Unauthorized, "refresh token reuse detected");
+            }
+
+            // Dead but not a breach: used (e.g. logged out), revoked, or simply expired → re-login.
+            if (currentToken.is_used || currentToken.revoked_at != null || currentToken.expires_at <= DateTime.UtcNow)
                 return MyResult<LoginResponse>.Failure(ErrorType.Unauthorized, "invalid or expired refresh token");
+
+            // --- token is valid; rotate it ---
 
             // Bug 1 fix: validate the user BEFORE touching any tokens. A deleted/banned user
             // must fail cleanly with 401 — not after we've already burned the old token and
@@ -89,8 +111,9 @@ namespace Business.Services
             if (user == null)
                 return MyResult<LoginResponse>.Failure(ErrorType.Unauthorized, "user no longer exists");
 
-            // Issue the replacement token first so we can link the old one to it.
-            var newTokenResult = await AddNewRefreshTokenFirstTime(userId, deviceInfo, ipAddress);
+            // Issue the replacement token first so we can link the old one to it. The child INHERITS
+            // the parent's expiry (absolute expiration) — no sliding 7-day reset on every refresh.
+            var newTokenResult = await AddNewRefreshTokenFirstTime(userId, deviceInfo, ipAddress, currentToken.expires_at);
 
             if (!newTokenResult.IsSuccess)
                 return MyResult<LoginResponse>.Failure(ErrorType.Failure, "failed to issue refresh token");
@@ -118,6 +141,27 @@ namespace Business.Services
                 RefreshToken = newTokenResult.Value.RefreshToken,
                 RefreshTokenExpiresAt = newTokenResult.Value.ExpiresAt
             });
+        }
+
+        // Walks replaced_by_id FORWARD from a superseded token and kills every token on that chain,
+        // including the thief's currently-valid one. Scoped to the chain only — NEVER by user_id —
+        // so the user's other devices (separate chains) stay logged in. Sets chain_breached as an
+        // audit marker. Already-revoked links keep their original revoked_at.
+        private static async Task RevokeBreachedChainAsync(RefreshTokenRepository repo, RefreshTokenEntity start)
+        {
+            var node = start;
+            while (node != null)
+            {
+                node.chain_breached = true;
+                node.is_used = true;
+                node.revoked_at ??= DateTime.UtcNow;
+                await repo.UpdateRefreshTokenAsync(node);
+
+                if (node.replaced_by_id == null)
+                    break;
+
+                node = await repo.GetRefreshTokenByIdAsync(node.replaced_by_id.Value);
+            }
         }
 
         // Revokes the presented refresh token (logout). Never reveals whether the token existed.

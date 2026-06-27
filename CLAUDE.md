@@ -84,7 +84,7 @@ Api (learning_platform/Api.csproj)
 - **Pagination**: `clsPageResult.PageResult<T>` exists in both `Business.Common` and `DataAccess.Common`; the service copies from one to the other.
 - **Error handling in repos**: repositories `try/catch (Exception)`, `Console.WriteLine` the error, and `return null`/`false`. So "DB failed" and "no rows" look identical to the caller. Repos still do **not** use `ILogger` (see Logging below for where `ILogger` _is_ used).
 - **JSONB columns**: `LessonEntity.content_blocks`, `LessonEntity.lesson_metadata`, `CourseEntitiy.course_metadata`. Npgsql dynamic JSON serialization enabled in `data_access_layer/DependencyInjection.cs` (`NpgsqlConnection.GlobalTypeMapper.EnableDynamicJson()`).
-- **Auth**: JWT bearer with a custom `UserOwnerOrAdmin` policy + handler (checks user ID match or admin role). Issuer `CheapUdemyApi`, audience `CheapUdemyApiUsers`, expiry 20 min. Refresh tokens rotated via `TokenService` (BCrypt-hashed, stored in `user_refresh_tokens`). Controllers enforce ownership inline: `await authorizationService.AuthorizeAsync(User, userId, "UserOwnerOrAdmin")` then `Forbid()` on failure.
+- **Auth**: JWT bearer with a custom `UserOwnerOrAdmin` policy + handler (checks user ID match or admin role). Issuer `CheapUdemyApi`, audience `CheapUdemyApiUsers`, expiry 20 min. Refresh tokens rotated via `TokenService`, stored in `user_refresh_tokens` as a **deterministic SHA-256 hash** (`TokenService.HashRefreshToken`; high-entropy random tokens don't need a salt — **only passwords use BCrypt**). Controllers enforce ownership inline: `await authorizationService.AuthorizeAsync(User, userId, "UserOwnerOrAdmin")` then `Forbid()` on failure. See **"Refresh-token rotation"** below for the full `/refresh` flow (reuse detection + absolute expiry).
 - **Rate limiting** (in use): configured in `Program.cs` via `AddRateLimiter`. A single **global limiter** — fixed window, **20 requests/min per IP** (partitioned by `RemoteIpAddress`), `QueueLimit = 0`, rejection status `429`. `app.UseRateLimiter()` runs _before_ auth, followed by middleware that writes a friendly "too many attempts" message on 429 (no exact limits exposed). No per-endpoint `[EnableRateLimiting]` policies — everything is covered uniformly by the global limiter. Relies on `UseForwardedHeaders` for the client IP behind a proxy (trusted-proxy restriction is still a TODO, so `X-Forwarded-For` is currently spoofable).
 - **Logging (`ILogger`)**: used in **controllers** for security events only — failed logins (`LogWarning`, IP only, never credentials) in `AuthenticationController`, forbidden/403 attempts (`LogWarning`) on every `Forbid()` path in `UserController`, and successful admin deletes (`LogInformation`). `ILogger<T>` is injected via the controllers' primary constructors. Repositories still use `Console.WriteLine` (not migrated).
 - **Login logging** (DB): `LoginLogService` → `LoginLogRepository` write a row to `login_logs` (`success`/`failed`) on signup and login attempts.
@@ -108,8 +108,47 @@ Api (learning_platform/Api.csproj)
 - No DI / interfaces for most services & repositories (everything is `new`d). Biggest refactor target.
 - Repos swallow exceptions and return `null`/`false`, still via `Console.WriteLine` (not migrated to `ILogger`). `ILogger` is only used in controllers for security events.
 - No global exception-handling middleware.
-- Done since this list was written: ✅ rate limiting, ✅ security logging (`ILogger`), ✅ login logging, ✅ admin-action auditing, ✅ media upload now persisted (course thumbnail + user avatar), ✅ course catalog filtered to published/non-deleted with search/filter/sort over the `pg_trgm` index, ✅ course `instructor_id` taken from the JWT (not the body), ✅ GET course-detail + GET profile read endpoints.
+- Done since this list was written: ✅ rate limiting, ✅ security logging (`ILogger`), ✅ login logging, ✅ admin-action auditing, ✅ media upload now persisted (course thumbnail + user avatar), ✅ course catalog filtered to published/non-deleted with search/filter/sort over the `pg_trgm` index, ✅ course `instructor_id` taken from the JWT (not the body), ✅ GET course-detail + GET profile read endpoints, ✅ **refresh-token hardening** (SHA-256 hashing, user id from the access token, absolute expiry, rotation reuse detection — see "Refresh-token rotation" below).
 - Still planned by the owner: input sanitizing (HtmlSanitizer), Docker.
+
+## Refresh-token rotation (implemented)
+
+The `/refresh` flow (`api/User/refresh` → `TokenService.RefreshAccessToken`) hardens a *stolen* refresh token so it's actually containable, not just time-limited. `/refresh` and `/logout` both take a `RefreshTokenRequest` of **`{ RefreshToken, AccessToken }`** — no client-supplied user id.
+
+### User id comes from the access token, never the body
+
+The controller (`AuthenticationController.GetUserIdFromExpiredToken`) validates the access token's **signature/issuer/audience** but sets `ValidateLifetime = false`, so an *expired* access token still works as the trustworthy source of the user id (`NameIdentifier`). A tampered/garbage token → `null` → `401`. The client therefore sends **both** tokens; the user id scopes the refresh-token lookup.
+
+### Lookup & state branching
+
+Tokens are stored as deterministic SHA-256 hashes, so `RefreshTokenRepository.GetRefreshTokenByHashAsync(userId, tokenHash)` does a **direct indexed lookup across ALL states** (used/revoked/expired included — a valid-only filter would hide a replayed token). `RefreshAccessToken` then branches on the found row:
+
+| State | Outcome |
+| ----- | ------- |
+| not found | `401` invalid, no breach |
+| `replaced_by_id != null` (superseded, replayed) | **BREACH** → revoke whole chain → `401 "reuse detected"` |
+| `is_used` / `revoked_at` set (e.g. logged out), or expired | `401`, plain re-login, no breach |
+| valid | rotate |
+
+**The breach trigger is `replaced_by_id != null`, NOT `is_used`** — deliberate: logout sets `is_used = true` but leaves `replaced_by_id == null`, so a logged-out token falls through to a plain `401` instead of false-flagging as theft. Only a token actually rotated to a child can trip the breach.
+
+### Reuse detection (the anti-theft measure)
+
+`RevokeBreachedChainAsync` walks `replaced_by_id` **forward** from the replayed token, setting `chain_breached + is_used + revoked_at` on every link — including the thief's currently-valid token. Scoped to the chain via forward links, **never by `user_id`**, so the user's other devices (separate chains) stay logged in. Forward-only (each child has a higher id) ⇒ no cycles. Net: a thief forces the user to re-login exactly once per theft; the new chain is one the thief doesn't hold.
+
+### Absolute expiration (no sliding reset)
+
+`AddNewRefreshTokenFirstTime(userId, deviceInfo, ipAddress, DateTime? expiresAt = null)` is the shared minter. Login/signup pass no expiry → fresh `AddDays(7)`. Rotation passes `currentToken.expires_at` → the child **inherits the parent's deadline**, so the original-login deadline propagates down the chain and a session (legit or stolen) dies ≤7 days after the original login, full stop.
+
+### Bugs fixed in the same method
+
+- **Bug 1:** the user is now fetched + validated **before** any mint/revoke (a deleted/banned user fails with a clean `401` instead of burning the old token + orphaning a new one). `UserAndProfileRepository.GetUserByIdAsync` got a null guard (the `status == "active"` filter returns no row → previously NRE → 500).
+- **Bug 2:** the revoke (`UpdateRefreshTokenAsync`) result is checked, so a silent failure can't leave two valid tokens.
+
+### Explicitly OUT OF SCOPE (owner's decision — this is a CV project)
+
+- **Benign double-refresh grace window.** Strict reuse detection can false-positive when an honest client fires `/refresh` twice near-simultaneously (two tabs, retries) and the second call sees the now-used token. **Deliberately NOT handled.** Do not add it.
+- **No transaction** around the mint+revoke pair or the breach-revoke loop. Each `UpdateRefreshTokenAsync` saves independently, so a mid-loop failure can leave a chain *partially* revoked (risk = under-revoking, e.g. the thief's link survives) — accepted as-is.
 
 ## Database setup
 
@@ -130,6 +169,8 @@ There is no test project. All verification is manual via the HTTP API (see `lear
 ## CI / infra
 
 `.github/workflows/` is empty. No CI or deployment pipeline configured.
+
+**Commit workflow:** this is a solo learning repo — most commits are made (and pushed) **directly to `master`**, no feature branch / PR. Don't branch unless explicitly asked.
 
 ## Important Note
 please update this file by removing or adding anything after any major change happen or when a certain info is not longer useful.
