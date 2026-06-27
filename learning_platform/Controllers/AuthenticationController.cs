@@ -241,7 +241,7 @@ namespace CheapUdemy.Controllers
                 issuer: "CheapUdemyApi",
                 audience: "CheapUdemyApiUsers",
                 claims: claims,
-                expires: DateTime.Now.AddMinutes(20),
+                expires: DateTime.UtcNow.AddMinutes(20),
                 signingCredentials: creds
             );
 
