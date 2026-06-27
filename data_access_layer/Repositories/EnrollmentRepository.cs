@@ -14,6 +14,16 @@ namespace DataAccess.Repositories
                 .AnyAsync(e => e.user_id == userId && e.course_id == courseId);
         }
 
+        // Owning instructor of a course (null if the course doesn't exist). Used to authorize
+        // who may read a course's enrollment roster.
+        public async Task<int?> GetCourseInstructorIdAsync(int courseId)
+        {
+            return await context.Courses
+                .Where(c => c.course_id == courseId)
+                .Select(c => (int?)c.instructor_id)
+                .FirstOrDefaultAsync();
+        }
+
         public async Task<int?> GetCourseIdByLessonAsync(int lessonId)
         {
             return await context.Lessons

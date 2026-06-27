@@ -10,33 +10,24 @@ namespace Business.Services
 {
     public class EnrollmentService(AppDbContext context)
     {
-        public async Task<MyResult<EnrollmentDto>> EnrollStudent(EnrollRequest request)
+        // callerId is the authenticated user (from the JWT) — a user can only enroll themselves.
+        public async Task<MyResult<EnrollmentDto>> EnrollStudent(int callerId, EnrollRequest request)
         {
-            if (request.UserId <= 0)
+            if (callerId <= 0)
                 return MyResult<EnrollmentDto>.Failure(ErrorType.BadRequest, "Invalid user ID.");
-
-            var UserRepo = new UserAndProfileRepository(context);
-
-          var UserExist = await  UserRepo.DoesUserExistByIdAsync(request.UserId);
-
-            if (!UserExist)
-            {
-                return MyResult<EnrollmentDto>.Failure(ErrorType.NotFound, "User does not exist or deleted");
-            }
-
 
             if (request.CourseId <= 0)
                 return MyResult<EnrollmentDto>.Failure(ErrorType.BadRequest, "Invalid course ID.");
 
             var repo = new EnrollmentRepository(context);
 
-            bool alreadyEnrolled = await repo.IsAlreadyEnrolledAsync(request.UserId, request.CourseId);
+            bool alreadyEnrolled = await repo.IsAlreadyEnrolledAsync(callerId, request.CourseId);
             if (alreadyEnrolled)
                 return MyResult<EnrollmentDto>.Failure(ErrorType.Conflict, "User is already enrolled in this course.");
 
             var enrollment = new EnrollmentEntitiy
             {
-                user_id = request.UserId,
+                user_id = callerId,
                 course_id = request.CourseId,
                 enrollment_date = DateTime.UtcNow,
                 status = "active",
@@ -50,10 +41,14 @@ namespace Business.Services
             return MyResult<EnrollmentDto>.Success(result);
         }
 
-        public async Task<MyResult<PageResult<EnrollmentDto>>> GetUserEnrollments(int userId, int pageNumber, int pageSize)
+        // A user may only read their own enrollments; admins may read anyone's.
+        public async Task<MyResult<PageResult<EnrollmentDto>>> GetUserEnrollments(int callerId, string callerRole, int userId, int pageNumber, int pageSize)
         {
             if (userId <= 0)
                 return MyResult<PageResult<EnrollmentDto>>.Failure(ErrorType.BadRequest, "Invalid user ID.");
+
+            if (callerRole != "admin" && callerId != userId)
+                return MyResult<PageResult<EnrollmentDto>>.Failure(ErrorType.Unauthorized, "Access denied.");
 
             if (pageNumber <= 0 || pageSize <= 0)
                 return MyResult<PageResult<EnrollmentDto>>.Failure(ErrorType.BadRequest, "Invalid page number or page size.");
@@ -73,7 +68,8 @@ namespace Business.Services
             });
         }
 
-        public async Task<MyResult<PageResult<EnrollmentDto>>> GetCourseEnrollments(int courseId, int pageNumber, int pageSize)
+        // The course roster is readable only by the owning instructor or an admin.
+        public async Task<MyResult<PageResult<EnrollmentDto>>> GetCourseEnrollments(int callerId, string callerRole, int courseId, int pageNumber, int pageSize)
         {
             if (courseId <= 0)
                 return MyResult<PageResult<EnrollmentDto>>.Failure(ErrorType.BadRequest, "Invalid course ID.");
@@ -82,6 +78,14 @@ namespace Business.Services
                 return MyResult<PageResult<EnrollmentDto>>.Failure(ErrorType.BadRequest, "Invalid page number or page size.");
 
             var repo = new EnrollmentRepository(context);
+
+            int? instructorId = await repo.GetCourseInstructorIdAsync(courseId);
+            if (instructorId == null)
+                return MyResult<PageResult<EnrollmentDto>>.Failure(ErrorType.NotFound, "Course not found.");
+
+            if (callerRole != "admin" && callerId != instructorId)
+                return MyResult<PageResult<EnrollmentDto>>.Failure(ErrorType.Unauthorized, "Access denied.");
+
             var r = await repo.GetEnrollmentsByCourseIdAsync(courseId, pageNumber, pageSize);
 
             if (r == null)
@@ -96,9 +100,10 @@ namespace Business.Services
             });
         }
 
-        public async Task<MyResult<EnrollmentDto>> MarkLessonProgress(MarkLessonProgressRequest request)
+        // callerId (from the JWT) is the only user whose progress can be marked.
+        public async Task<MyResult<EnrollmentDto>> MarkLessonProgress(int callerId, MarkLessonProgressRequest request)
         {
-            if (request.UserId <= 0)
+            if (callerId <= 0)
                 return MyResult<EnrollmentDto>.Failure(ErrorType.BadRequest, "Invalid user ID.");
 
             if (request.LessonId <= 0)
@@ -110,7 +115,7 @@ namespace Business.Services
             if (courseId == null)
                 return MyResult<EnrollmentDto>.Failure(ErrorType.NotFound, "Lesson not found.");
 
-            string? enrollmentStatus = await repo.GetEnrollmentStatusAsync(request.UserId, courseId.Value);
+            string? enrollmentStatus = await repo.GetEnrollmentStatusAsync(callerId, courseId.Value);
             if (enrollmentStatus == null)
                 return MyResult<EnrollmentDto>.Failure(ErrorType.BadRequest, "User is not enrolled in this course.");
 
@@ -120,20 +125,21 @@ namespace Business.Services
             if (enrollmentStatus == "completed")
                 return MyResult<EnrollmentDto>.Failure(ErrorType.Conflict, "Course is already completed.");
 
-            bool lessonDone = await repo.IsLessonAlreadyCompletedAsync(request.UserId, request.LessonId);
+            bool lessonDone = await repo.IsLessonAlreadyCompletedAsync(callerId, request.LessonId);
             if (lessonDone)
                 return MyResult<EnrollmentDto>.Failure(ErrorType.Conflict, "Lesson is already completed.");
 
-            var result = await repo.MarkLessonProgressAsync(request.UserId, request.LessonId, courseId.Value);
+            var result = await repo.MarkLessonProgressAsync(callerId, request.LessonId, courseId.Value);
             if (result == null)
                 return MyResult<EnrollmentDto>.Failure(ErrorType.Failure, "Failed to mark lesson progress.");
 
             return MyResult<EnrollmentDto>.Success(result);
         }
 
-        public async Task<MyResult<bool>> DropEnrollment(DropEnrollmentRequest request)
+        // callerId (from the JWT) can only drop their own enrollment.
+        public async Task<MyResult<bool>> DropEnrollment(int callerId, DropEnrollmentRequest request)
         {
-            if (request.UserId <= 0)
+            if (callerId <= 0)
                 return MyResult<bool>.Failure(ErrorType.BadRequest, "Invalid user ID.");
 
             if (request.CourseId <= 0)
@@ -141,11 +147,11 @@ namespace Business.Services
 
             var repo = new EnrollmentRepository(context);
 
-            bool alreadyEnrolled = await repo.IsAlreadyEnrolledAsync(request.UserId, request.CourseId);
+            bool alreadyEnrolled = await repo.IsAlreadyEnrolledAsync(callerId, request.CourseId);
             if (!alreadyEnrolled)
                 return MyResult<bool>.Failure(ErrorType.NotFound, "Enrollment not found.");
 
-            var result = await repo.DropEnrollmentAsync(request.UserId, request.CourseId);
+            var result = await repo.DropEnrollmentAsync(callerId, request.CourseId);
             if (!result)
                 return MyResult<bool>.Failure(ErrorType.Failure, "Failed to drop enrollment.");
 
