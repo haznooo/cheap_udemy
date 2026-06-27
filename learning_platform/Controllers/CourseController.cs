@@ -182,8 +182,28 @@ namespace Api.Controllers
         [HttpPost("section/add")]
         public async Task<ActionResult<SectionEntitiy>> AddSection(AddSectionRequest request)
         {
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int callerId))
+            {
+                return Unauthorized("Invalid or missing user identity.");
+            }
 
             var courseServic = new CourseService(context);
+            bool isAdmin = User.IsInRole("admin");
+
+            // Only the owning instructor (or an admin) may add sections to a course.
+            var permission = await courseServic.CheckCourseEditPermission(request.CourseId, callerId, isAdmin);
+            if (!permission.IsSuccess)
+            {
+                return permission.FailureType switch
+                {
+                    ErrorType.NotFound => NotFound(permission.Errors),
+                    ErrorType.BadRequest => BadRequest(permission.Errors),
+                    ErrorType.Conflict => Conflict(permission.Errors),
+                    ErrorType.Unauthorized => Unauthorized(permission.Errors),
+                    _ => StatusCode(500, "An unexpected error occurred")
+                };
+            }
+
             var Result = await courseServic.AddNewSection(request);
 
             if (!Result.IsSuccess)

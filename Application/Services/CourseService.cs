@@ -187,6 +187,14 @@ namespace Business.Services
 
         public async Task<MyResult<SectionEntitiy>> AddNewSection(AddSectionRequest request)
         {
+            if (request.CourseId <= 0)
+            {
+                return MyResult<SectionEntitiy>.Failure(ErrorType.BadRequest, "Invalid course ID.");
+            }
+            if (string.IsNullOrWhiteSpace(request.Title))
+            {
+                return MyResult<SectionEntitiy>.Failure(ErrorType.BadRequest, "Section title is required.");
+            }
 
             SectionEntitiy sectionEntity = new SectionEntitiy
             {
