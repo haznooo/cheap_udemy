@@ -192,6 +192,37 @@ namespace Business.Services
             return MyResult<List<LessonDto>>.Success(lessons);
         }
 
+        public async Task<MyResult<CourseDto>> UpdateCourse(int courseId, UpdateCourseRequest request, int callerId, bool isAdmin)
+        {
+            if (courseId <= 0)
+                return MyResult<CourseDto>.Failure(ErrorType.BadRequest, "Invalid course ID.");
+
+            var permission = await CheckCourseEditPermission(courseId, callerId, isAdmin);
+            if (!permission.IsSuccess)
+                return MyResult<CourseDto>.Failure(permission.FailureType, permission.Errors.Select(e => e.Message).ToArray());
+
+            string[] validLevels = { "beginner", "intermediate", "advanced" };
+            if (!string.IsNullOrWhiteSpace(request.Level) && !validLevels.Contains(request.Level))
+                return MyResult<CourseDto>.Failure(ErrorType.BadRequest, "Invalid level. Must be beginner, intermediate, or advanced.");
+
+            if (request.CategoryId.HasValue)
+            {
+                bool categoryExists = await context.Categories.AnyAsync(c => c.category_id == request.CategoryId.Value);
+                if (!categoryExists)
+                    return MyResult<CourseDto>.Failure(ErrorType.BadRequest, "Category does not exist.");
+            }
+
+            if (request.Price.HasValue && request.Price.Value < 0)
+                return MyResult<CourseDto>.Failure(ErrorType.BadRequest, "Price cannot be negative.");
+
+            CoursesRepository repo = new CoursesRepository(context);
+            var result = await repo.UpdateCourseAsync(courseId, request.Title, request.Description, request.Code, request.Price, request.Level, request.CategoryId);
+            if (result == null)
+                return MyResult<CourseDto>.Failure(ErrorType.Failure, "Failed to update course.");
+
+            return MyResult<CourseDto>.Success(result);
+        }
+
         public async Task<MyResult<CourseDto>> PublishCourse(int courseId, int callerId, bool isAdmin)
         {
             if (courseId <= 0)

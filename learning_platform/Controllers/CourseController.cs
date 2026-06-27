@@ -179,6 +179,30 @@ namespace Api.Controllers
         }
 
         [Authorize]
+        [HttpPatch("{courseId}")]
+        public async Task<ActionResult<CourseDto>> UpdateCourse(int courseId, [FromBody] UpdateCourseRequest request)
+        {
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int callerId))
+                return Unauthorized("Invalid or missing user identity.");
+
+            bool isAdmin = User.IsInRole("admin");
+            var courseService = new CourseService(context);
+            var result = await courseService.UpdateCourse(courseId, request, callerId, isAdmin);
+
+            if (!result.IsSuccess)
+                return result.FailureType switch
+                {
+                    ErrorType.NotFound => NotFound(result.Errors),
+                    ErrorType.BadRequest => BadRequest(result.Errors),
+                    ErrorType.Conflict => Conflict(result.Errors),
+                    ErrorType.Unauthorized => Unauthorized(result.Errors),
+                    _ => StatusCode(500, "An unexpected error occurred")
+                };
+
+            return Ok(result.Value);
+        }
+
+        [Authorize]
         [HttpPost("{courseId}/publish")]
         public async Task<ActionResult<CourseDto>> PublishCourse(int courseId)
         {

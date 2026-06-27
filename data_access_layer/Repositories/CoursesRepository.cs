@@ -305,6 +305,61 @@ namespace DataAccess.Repositories
             }
         }
 
+        public async Task<CourseDto?> UpdateCourseAsync(int courseId, string? title, string? description, string? code, decimal? price, string? level, int? categoryId)
+        {
+            try
+            {
+                var course = await context.Courses.FirstOrDefaultAsync(c => c.course_id == courseId && c.deleted_at == null);
+                if (course == null) return null;
+
+                if (!string.IsNullOrWhiteSpace(title)) course.title = title;
+                if (description != null) course.description = description;
+                if (!string.IsNullOrWhiteSpace(code)) course.code = code;
+                if (price.HasValue) course.price = price.Value;
+                if (!string.IsNullOrWhiteSpace(level)) course.level = level;
+                if (categoryId.HasValue) course.category_id = categoryId.Value;
+                course.updated_at = DateTime.UtcNow;
+
+                await context.SaveChangesAsync();
+
+                string categoryName = await context.Categories
+                    .Where(c => c.category_id == course.category_id)
+                    .Select(c => c.name)
+                    .FirstOrDefaultAsync() ?? "Unknown Category";
+
+                string instructorName = await context.Users
+                    .Where(u => u.user_id == course.instructor_id)
+                    .Select(u => u.username)
+                    .FirstOrDefaultAsync() ?? "";
+
+                return new CourseDto
+                {
+                    CourseId = course.course_id,
+                    Title = course.title,
+                    CategoryId = course.category_id,
+                    CategoryName = categoryName,
+                    InstructorId = course.instructor_id,
+                    InstructorName = instructorName,
+                    code = course.code,
+                    description = course.description,
+                    thumbnail_url = course.thumbnail_url,
+                    price = course.price,
+                    status = course.status,
+                    level = course.level,
+                    estimated_duration_minutes = course.estimated_duration_minutes,
+                    avg_rating = course.avg_rating,
+                    reviews_count = course.reviews_count,
+                    course_metadata = course.course_metadata,
+                    published_date = course.published_date
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                return null;
+            }
+        }
+
         // Returns any non-deleted course entity regardless of status (for owner/admin operations).
         public async Task<CourseEntitiy?> GetRawCourseAsync(int courseId)
         {
