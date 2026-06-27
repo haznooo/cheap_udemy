@@ -244,6 +244,35 @@ namespace DataAccess.Repositories
             }
         }
 
+        public async Task<List<LessonProgressDto>?> GetUserCourseProgressAsync(int userId, int courseId)
+        {
+            try
+            {
+                return await context.Lessons
+                    .Where(l => l.section.course_id == courseId && l.section.course.deleted_at == null)
+                    .OrderBy(l => l.section.sort_order)
+                    .ThenBy(l => l.sort_order)
+                    .AsNoTracking()
+                    .Select(l => new LessonProgressDto
+                    {
+                        LessonId = l.lesson_id,
+                        LessonTitle = l.title,
+                        IsCompleted = context.UserLessonProgress
+                            .Any(p => p.user_id == userId && p.lesson_id == l.lesson_id && p.is_completed),
+                        CompletedAt = context.UserLessonProgress
+                            .Where(p => p.user_id == userId && p.lesson_id == l.lesson_id && p.is_completed)
+                            .Select(p => (DateTime?)p.completed_at)
+                            .FirstOrDefault()
+                    })
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                return null;
+            }
+        }
+
         // Reactivates a previously-dropped enrollment instead of inserting a new row,
         // which would violate the UNIQUE(user_id, course_id) constraint.
         public async Task<EnrollmentDto?> ReactivateDroppedEnrollmentAsync(int userId, int courseId)

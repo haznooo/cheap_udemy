@@ -147,6 +147,27 @@ namespace Business.Services
             return MyResult<EnrollmentDto>.Success(result);
         }
 
+        public async Task<MyResult<List<LessonProgressDto>>> GetCourseProgress(int callerId, int courseId)
+        {
+            if (courseId <= 0)
+                return MyResult<List<LessonProgressDto>>.Failure(ErrorType.BadRequest, "Invalid course ID.");
+
+            var repo = new EnrollmentRepository(context);
+
+            string? enrollmentStatus = await repo.GetEnrollmentStatusAsync(callerId, courseId);
+            if (enrollmentStatus == null)
+                return MyResult<List<LessonProgressDto>>.Failure(ErrorType.NotFound, "You are not enrolled in this course.");
+
+            if (enrollmentStatus is "dropped" or "suspended")
+                return MyResult<List<LessonProgressDto>>.Failure(ErrorType.Unauthorized, "Enrollment is not active.");
+
+            var progress = await repo.GetUserCourseProgressAsync(callerId, courseId);
+            if (progress == null)
+                return MyResult<List<LessonProgressDto>>.Failure(ErrorType.Failure, "Failed to retrieve progress.");
+
+            return MyResult<List<LessonProgressDto>>.Success(progress);
+        }
+
         // callerId (from the JWT) can only drop their own enrollment.
         public async Task<MyResult<bool>> DropEnrollment(int callerId, DropEnrollmentRequest request)
         {

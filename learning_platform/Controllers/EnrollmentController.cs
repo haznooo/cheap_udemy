@@ -116,6 +116,26 @@ namespace Api.Controllers
             return Ok(result.Value);
         }
 
+        [HttpGet("progress/{courseId}")]
+        public async Task<ActionResult<List<LessonProgressDto>>> GetCourseProgress(int courseId)
+        {
+            if (CallerId is not int callerId) return Unauthorized();
+
+            var service = new EnrollmentService(context);
+            var result = await service.GetCourseProgress(callerId, courseId);
+
+            if (!result.IsSuccess)
+                return result.FailureType switch
+                {
+                    ErrorType.BadRequest => BadRequest(result.Errors),
+                    ErrorType.NotFound => NotFound(result.Errors),
+                    ErrorType.Unauthorized => Forbid(),
+                    _ => StatusCode(500, "An unexpected error occurred")
+                };
+
+            return Ok(result.Value);
+        }
+
         [HttpPost("drop")]
         public async Task<ActionResult<bool>> DropEnrollment(DropEnrollmentRequest request)
         {
