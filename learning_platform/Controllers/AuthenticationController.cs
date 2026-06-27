@@ -60,7 +60,7 @@ namespace CheapUdemy.Controllers
                     };
                 }
 
-            result.Value.Token = GenerateAccessToken(result.Value);
+            result.Value.AccessToken = GenerateAccessToken(result.Value);
 
             return result.Value;
         }
@@ -103,7 +103,7 @@ namespace CheapUdemy.Controllers
             }
 
 
-            result.Value.Token = GenerateAccessToken(result.Value);
+            result.Value.AccessToken = GenerateAccessToken(result.Value);
             // Store refresh token securely (hash + expiry + not revoked)
 
             return result.Value;
@@ -153,7 +153,7 @@ namespace CheapUdemy.Controllers
                 };
             }
 
-            result.Value.Token = GenerateAccessToken(result.Value);
+            result.Value.AccessToken = GenerateAccessToken(result.Value);
 
             return Ok(result.Value);
         }

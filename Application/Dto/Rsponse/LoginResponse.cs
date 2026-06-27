@@ -12,7 +12,7 @@ namespace Business.Dto.Rsponse
         public string Email { get; set; }
         public string Role { get; set; }   // "Student", "Instructor", etc.
         public string Status { get; set; }   // "Active"
-        public string Token { get; set; }
+        public string AccessToken { get; set; }
         public string RefreshToken { get; set; }
         public DateTime? RefreshTokenExpiresAt { get; set; }
         public bool IsRefreshTokenRevoked { get; set; }
