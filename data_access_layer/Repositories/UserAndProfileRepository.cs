@@ -456,7 +456,7 @@ namespace DataAccess.Repositories
         }
         public async Task<bool> IsUserActiveAsync(int userId)
         {
-            return await context.Users.AnyAsync(e => e.user_id == userId && e.status == "Active");
+            return await context.Users.AnyAsync(e => e.user_id == userId && e.status == "active");
         }
         public async Task<bool> DoesUserExistByIdAsync(int userId)
         {
