@@ -77,10 +77,8 @@ namespace Business.Services
 			var NewToken = await refreshTokenService.AddNewRefreshTokenFirstTime(new RefreshTokenRequest
 			(
 				RefreshToken: null,
-				deviceInfo: deviceInfo,
-				IpAddress: ipAddress,
 				UserId: userE.UserId
-			));
+			), deviceInfo, ipAddress);
 
 
             await new LoginLogService(context).LogAsync(userE.UserId, "success", ipAddress, deviceInfo);
@@ -145,10 +143,8 @@ namespace Business.Services
             var NewRefreshToken = await refreshTokenService.AddNewRefreshTokenFirstTime(new RefreshTokenRequest
             (
                 RefreshToken: null,
-                deviceInfo: deviceInfo,
-                IpAddress: ipAddress,
                 UserId: userE.UserId
-            ));
+            ), deviceInfo, ipAddress);
 
             await new LoginLogService(context).LogAsync(userE.UserId, "success", ipAddress, deviceInfo);
 

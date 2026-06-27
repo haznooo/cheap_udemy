@@ -185,10 +185,8 @@ namespace CheapUdemy.Controllers
             var result = await tokenService.RefreshAccessToken(new RefreshTokenRequest
             (
                 RefreshToken: request.RefreshToken,
-                deviceInfo: userAgent,
-                IpAddress: ipAddress,
                 UserId: request.UserId
-            ));
+            ), userAgent, ipAddress);
 
             if (!result.IsSuccess)
             {
@@ -219,8 +217,6 @@ namespace CheapUdemy.Controllers
             await tokenService.RevokeRefreshToken(new RefreshTokenRequest
             (
                 RefreshToken: request.RefreshToken,
-                deviceInfo: "unknown",
-                IpAddress: "unknown",
                 UserId: request.UserId
             ));
 

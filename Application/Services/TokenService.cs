@@ -19,7 +19,7 @@ namespace Business.Services
 
 
 
-        public async Task<MyResult<RefreshTokenDto>> AddNewRefreshTokenFirstTime(RefreshTokenRequest request)
+        public async Task<MyResult<RefreshTokenDto>> AddNewRefreshTokenFirstTime(RefreshTokenRequest request, string deviceInfo, string ipAddress)
         {
 
             RefreshTokenRepository refreshTokenRepository = new RefreshTokenRepository(context);
@@ -34,8 +34,8 @@ namespace Business.Services
                 token_hash = RefreshTokenHashed,
                 expires_at = DateTime.UtcNow.AddDays(7),
                 is_used = false,
-                device_info = request.deviceInfo,
-                ip_address = request.IpAddress,
+                device_info = deviceInfo,
+                ip_address = ipAddress,
 
             }
             );
@@ -62,7 +62,7 @@ namespace Business.Services
         // Validates the presented refresh token, rotates it (old one is marked used + revoked and
         // points to its replacement), and returns a LoginResponse the controller fills with a new
         // access token (JWT). Same simple "one row per login" model used by AddNewRefreshTokenFirstTime.
-        public async Task<MyResult<LoginResponse>> RefreshAccessToken(RefreshTokenRequest request)
+        public async Task<MyResult<LoginResponse>> RefreshAccessToken(RefreshTokenRequest request, string deviceInfo, string ipAddress)
         {
             if (request.UserId <= 0)
                 return MyResult<LoginResponse>.Failure(ErrorType.BadRequest, "invalid user id");
@@ -84,10 +84,8 @@ namespace Business.Services
             var newTokenResult = await AddNewRefreshTokenFirstTime(new RefreshTokenRequest
             (
                 RefreshToken: null,
-                deviceInfo: request.deviceInfo,
-                IpAddress: request.IpAddress,
                 UserId: request.UserId
-            ));
+            ), deviceInfo, ipAddress);
 
             if (!newTokenResult.IsSuccess)
                 return MyResult<LoginResponse>.Failure(ErrorType.Failure, "failed to issue refresh token");
