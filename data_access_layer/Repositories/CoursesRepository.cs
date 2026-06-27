@@ -255,8 +255,11 @@ namespace DataAccess.Repositories
         {
             try
             {
+                // Only expose lessons of published, non-deleted courses (matches GetCourseById).
                 return await context.Lessons
-                    .Where(l => l.section.course_id == courseId)
+                    .Where(l => l.section.course_id == courseId
+                        && l.section.course.status == "published"
+                        && l.section.course.deleted_at == null)
                     .OrderBy(l => l.section.sort_order)
                     .ThenBy(l => l.sort_order)
                     .AsNoTracking()
