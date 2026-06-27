@@ -353,6 +353,11 @@ namespace DataAccess.Repositories
                 u.UserProfile.country.name
             }).FirstOrDefaultAsync();
 
+            // No active user with this id (deleted/banned/missing). Return null instead of
+            // dereferencing R below, which would throw a NullReferenceException.
+            if (R == null)
+                return null;
+
             UserProfileDto response = new UserProfileDto
             {
 

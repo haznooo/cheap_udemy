@@ -74,11 +74,7 @@ namespace Business.Services
 
             //generate refresh token and save it to database
             TokenService refreshTokenService = new TokenService(context);
-			var NewToken = await refreshTokenService.AddNewRefreshTokenFirstTime(new RefreshTokenRequest
-			(
-				RefreshToken: null,
-				UserId: userE.UserId
-			), deviceInfo, ipAddress);
+			var NewToken = await refreshTokenService.AddNewRefreshTokenFirstTime(userE.UserId, deviceInfo, ipAddress);
 
 
             await new LoginLogService(context).LogAsync(userE.UserId, "success", ipAddress, deviceInfo);
@@ -140,11 +136,7 @@ namespace Business.Services
 
 
             TokenService refreshTokenService = new TokenService(context);
-            var NewRefreshToken = await refreshTokenService.AddNewRefreshTokenFirstTime(new RefreshTokenRequest
-            (
-                RefreshToken: null,
-                UserId: userE.UserId
-            ), deviceInfo, ipAddress);
+            var NewRefreshToken = await refreshTokenService.AddNewRefreshTokenFirstTime(userE.UserId, deviceInfo, ipAddress);
 
             await new LoginLogService(context).LogAsync(userE.UserId, "success", ipAddress, deviceInfo);
 

@@ -168,7 +168,8 @@ namespace CheapUdemy.Controllers
         }
 
         // Exchanges a valid refresh token for a new access token (and a rotated refresh token).
-        // Body carries UserId + RefreshToken; device/IP are taken from the request, not the client.
+        // Body carries RefreshToken + (possibly expired) AccessToken; the user id is recovered from
+        // the access token's signed claims, never trusted from the client. Device/IP come from the request.
         [HttpPost("refresh")]
         public async Task<ActionResult<LoginResponse>> Refresh([FromBody] RefreshTokenRequest request)
         {
@@ -180,13 +181,21 @@ namespace CheapUdemy.Controllers
             if (string.IsNullOrWhiteSpace(ipAddress))
                 ipAddress = "unknown";
 
+            if (string.IsNullOrWhiteSpace(request.AccessToken) || string.IsNullOrWhiteSpace(request.RefreshToken))
+                return BadRequest("access token and refresh token are required");
+
+            // Recover the user id from the (possibly expired) access token. Signature is verified;
+            // only the lifetime check is skipped. A tampered/garbage token yields null → 401.
+            var userId = GetUserIdFromExpiredToken(request.AccessToken);
+            if (userId == null)
+            {
+                logger.LogWarning("Failed refresh-token attempt (invalid access token) from IP {Ip}", ipAddress);
+                return Unauthorized("invalid access token");
+            }
+
             TokenService tokenService = new TokenService(context);
 
-            var result = await tokenService.RefreshAccessToken(new RefreshTokenRequest
-            (
-                RefreshToken: request.RefreshToken,
-                UserId: request.UserId
-            ), userAgent, ipAddress);
+            var result = await tokenService.RefreshAccessToken(request.RefreshToken, userId.Value, userAgent, ipAddress);
 
             if (!result.IsSuccess)
             {
@@ -208,19 +217,62 @@ namespace CheapUdemy.Controllers
         }
 
         // Revokes the presented refresh token. Always returns 200 so it never reveals
-        // whether the token (or user) actually existed.
+        // whether the token (or user) actually existed. User id is recovered from the access token.
         [HttpPost("logout")]
         public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
         {
-            TokenService tokenService = new TokenService(context);
+            var userId = string.IsNullOrWhiteSpace(request.AccessToken)
+                ? null
+                : GetUserIdFromExpiredToken(request.AccessToken);
 
-            await tokenService.RevokeRefreshToken(new RefreshTokenRequest
-            (
-                RefreshToken: request.RefreshToken,
-                UserId: request.UserId
-            ));
+            if (userId != null)
+            {
+                TokenService tokenService = new TokenService(context);
+                await tokenService.RevokeRefreshToken(request.RefreshToken, userId.Value);
+            }
 
             return Ok("Logged out successfully");
+        }
+
+        // Validates an access token's signature/issuer/audience but IGNORES expiry, then pulls the
+        // user id (NameIdentifier) out of it. Returns null if the token is invalid in any other way.
+        // This is the trustworthy source of the user id for /refresh and /logout — the client never
+        // sends a raw user id anymore.
+        private int? GetUserIdFromExpiredToken(string accessToken)
+        {
+            var SecretKey = configuration["JWT_SECRET_KEY"];
+
+            if (string.IsNullOrWhiteSpace(SecretKey))
+                throw new Exception("JWT secret key is not configured in environment variables");
+
+            var validationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidIssuer = "CheapUdemyApi",
+                ValidateAudience = true,
+                ValidAudience = "CheapUdemyApiUsers",
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(SecretKey)),
+                ValidateLifetime = false // the whole point: the access token is allowed to be expired
+            };
+
+            try
+            {
+                var principal = new JwtSecurityTokenHandler()
+                    .ValidateToken(accessToken, validationParameters, out var validatedToken);
+
+                // Guard against tokens signed with the wrong algorithm.
+                if (validatedToken is not JwtSecurityToken jwt ||
+                    !jwt.Header.Alg.Equals(SecurityAlgorithms.HmacSha256, StringComparison.InvariantCultureIgnoreCase))
+                    return null;
+
+                var userIdClaim = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                return int.TryParse(userIdClaim, out var userId) ? userId : null;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         // Mints a JWT access token from the user's identity claims (same settings as login/signup).
