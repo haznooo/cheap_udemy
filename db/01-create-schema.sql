@@ -45,13 +45,13 @@ CREATE TABLE user_refresh_tokens (
     user_id           INT NOT NULL,
     token_hash        VARCHAR(255) NOT NULL,
     device_info       VARCHAR(255) NULL,
-    expires_at        TIMESTAMP NOT NULL,
-    created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    revoked_at        TIMESTAMP NULL,
+    expires_at        TIMESTAMP with time zone NOT NULL,
+    created_at        TIMESTAMP with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    revoked_at        TIMESTAMP with time zone NULL,
     is_used BOOLEAN NOT NULL DEFAULT FALSE,
     replaced_by_id INT NULL,
     chain_breached BOOLEAN NOT NULL DEFAULT FALSE,
-    last_used_at TIMESTAMP NULL,
+    last_used_at TIMESTAMP with time zone NULL,
     ip_address VARCHAR(45) NULL,
 
     CONSTRAINT fk_user FOREIGN KEY(user_id) REFERENCES users(user_id) ON DELETE CASCADE

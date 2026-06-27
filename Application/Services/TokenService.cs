@@ -35,6 +35,7 @@ namespace Business.Services
             {
                 user_id = userId,
                 token_hash = RefreshTokenHashed,
+                created_at = DateTime.UtcNow,
                 expires_at = expiresAt ?? DateTime.UtcNow.AddDays(7),
                 is_used = false,
                 device_info = deviceInfo,
