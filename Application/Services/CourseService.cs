@@ -192,6 +192,32 @@ namespace Business.Services
             return MyResult<List<LessonDto>>.Success(lessons);
         }
 
+        public async Task<MyResult<PageResult<CourseDto>>> GetInstructorCourses(int instructorId, int callerId, string callerRole, int pageNumber, int pageSize)
+        {
+            if (instructorId <= 0)
+                return MyResult<PageResult<CourseDto>>.Failure(ErrorType.BadRequest, "Invalid instructor ID.");
+
+            if (pageNumber <= 0 || pageSize <= 0)
+                return MyResult<PageResult<CourseDto>>.Failure(ErrorType.BadRequest, "Invalid page number or page size.");
+
+            bool isAdmin = callerRole == "admin";
+            if (!isAdmin && callerId != instructorId)
+                return MyResult<PageResult<CourseDto>>.Failure(ErrorType.Unauthorized, "Access denied.");
+
+            CoursesRepository repo = new CoursesRepository(context);
+            var r = await repo.GetCoursesByInstructorIdAsync(instructorId, pageNumber, pageSize);
+            if (r == null)
+                return MyResult<PageResult<CourseDto>>.Failure(ErrorType.Failure, "Failed to retrieve courses.");
+
+            return MyResult<PageResult<CourseDto>>.Success(new PageResult<CourseDto>
+            {
+                Items = r.Items,
+                TotalCount = r.TotalCount,
+                PageNumber = r.PageNumber,
+                PageSize = r.PageSize
+            });
+        }
+
         public async Task<MyResult<CourseDto>> UpdateCourse(int courseId, UpdateCourseRequest request, int callerId, bool isAdmin)
         {
             if (courseId <= 0)

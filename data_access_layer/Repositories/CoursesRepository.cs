@@ -360,6 +360,56 @@ namespace DataAccess.Repositories
             }
         }
 
+        public async Task<PageResult<CourseDto>> GetCoursesByInstructorIdAsync(int instructorId, int pageNumber, int pageSize)
+        {
+            try
+            {
+                var query = context.Courses
+                    .Where(c => c.instructor_id == instructorId && c.deleted_at == null)
+                    .AsNoTracking();
+
+                var totalCount = await query.CountAsync();
+
+                var items = await query
+                    .OrderByDescending(c => c.created_date)
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .Select(c => new CourseDto
+                    {
+                        CourseId = c.course_id,
+                        Title = c.title,
+                        CategoryId = c.category_id,
+                        CategoryName = c.category.name,
+                        InstructorId = c.instructor_id,
+                        InstructorName = c.instructor.username,
+                        code = c.code,
+                        description = c.description,
+                        thumbnail_url = c.thumbnail_url,
+                        price = c.price,
+                        status = c.status,
+                        level = c.level,
+                        estimated_duration_minutes = c.estimated_duration_minutes,
+                        avg_rating = c.avg_rating,
+                        reviews_count = c.reviews_count,
+                        published_date = c.published_date,
+                    })
+                    .ToListAsync();
+
+                return new PageResult<CourseDto>
+                {
+                    Items = items,
+                    TotalCount = totalCount,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                return null;
+            }
+        }
+
         // Returns any non-deleted course entity regardless of status (for owner/admin operations).
         public async Task<CourseEntitiy?> GetRawCourseAsync(int courseId)
         {

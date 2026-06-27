@@ -179,6 +179,33 @@ namespace Api.Controllers
         }
 
         [Authorize]
+        [HttpGet("instructor/{instructorId}")]
+        public async Task<ActionResult<clsPageResult.PageResult<CourseDto>>> GetInstructorCourses(
+            int instructorId,
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10)
+        {
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int callerId))
+                return Unauthorized("Invalid or missing user identity.");
+
+            string callerRole = User.FindFirstValue(ClaimTypes.Role) ?? "";
+            var courseService = new CourseService(context);
+            var result = await courseService.GetInstructorCourses(instructorId, callerId, callerRole, pageNumber, pageSize);
+
+            if (!result.IsSuccess)
+                return result.FailureType switch
+                {
+                    ErrorType.NotFound => NotFound(result.Errors),
+                    ErrorType.BadRequest => BadRequest(result.Errors),
+                    ErrorType.Conflict => Conflict(result.Errors),
+                    ErrorType.Unauthorized => Unauthorized(result.Errors),
+                    _ => StatusCode(500, "An unexpected error occurred")
+                };
+
+            return Ok(result.Value);
+        }
+
+        [Authorize]
         [HttpPatch("{courseId}")]
         public async Task<ActionResult<CourseDto>> UpdateCourse(int courseId, [FromBody] UpdateCourseRequest request)
         {
