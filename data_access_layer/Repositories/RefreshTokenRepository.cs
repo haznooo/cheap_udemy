@@ -115,6 +115,27 @@ namespace DataAccess.Repositories
             return await context.UserRefreshToken.Where(u => u.user_id == userId).Select(u => u.token_hash).FirstOrDefaultAsync();
 
         }
+        // Bulk-revokes every still-active refresh token for a user (sets used + revoked_at) without
+        // deleting the rows, so reuse-detection history survives. Used on password change so a
+        // previously stolen token can't outlive the credential it was obtained under. Returns the
+        // number of rows revoked, or -1 on error.
+        public async Task<int> RevokeAllRefreshTokensAsync(int userId)
+        {
+            try
+            {
+                return await context.UserRefreshToken
+                    .Where(t => t.user_id == userId && t.revoked_at == null)
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(t => t.is_used, true)
+                        .SetProperty(t => t.revoked_at, DateTime.UtcNow));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                return -1;
+            }
+        }
+
         public async Task<bool> DeleteAllRefreshTokensAsync(int userId)
         {
             try

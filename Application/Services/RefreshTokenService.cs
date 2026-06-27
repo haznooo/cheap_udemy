@@ -188,6 +188,24 @@ namespace Business.Services
         }
 
 
+        // Revokes ALL of a user's active refresh tokens (every device/chain). Called when the
+        // credential changes (password update) so any session opened with the old password —
+        // including one held by a thief — is forced to re-login.
+        public async Task<MyResult<bool>> RevokeAllForUser(int userId)
+        {
+            if (userId <= 0)
+                return MyResult<bool>.Failure(ErrorType.BadRequest, "invalid user id");
+
+            RefreshTokenRepository refreshTokenRepository = new RefreshTokenRepository(context);
+            var revoked = await refreshTokenRepository.RevokeAllRefreshTokensAsync(userId);
+
+            if (revoked < 0)
+                return MyResult<bool>.Failure(ErrorType.Failure, "failed to revoke refresh tokens");
+
+            return MyResult<bool>.Success(true);
+        }
+
+
         public string GenerateRefreshToken()
         {
 

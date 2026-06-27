@@ -221,8 +221,15 @@ namespace Business.Services
 
             var results = await UserRepository.UpdateUserPasswordAsync(userId, NewhashedPassword);
 
+            if (results)
+            {
+                // A password change must kill existing sessions, otherwise a stolen refresh token
+                // survives the very change meant to lock the attacker out.
+                await new RefreshTokenService(context).RevokeAllForUser(userId);
+            }
+
             return MyResult<bool>.Success(results);
-         
+
         }
 
         public async Task<MyResult<UserProfileResponse>> GetUserProfile(int userId)
