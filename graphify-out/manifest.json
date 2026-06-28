@@ -1,0 +1,517 @@
+{
+  ".claude/settings.local.json": {
+    "mtime": 1782498173.6893775,
+    "ast_hash": "98a095fffe04b78e124ac81bc5d04bac",
+    "semantic_hash": "98a095fffe04b78e124ac81bc5d04bac"
+  },
+  "Application/Business.csproj": {
+    "mtime": 1782393301.8986413,
+    "ast_hash": "bc966cdfdbc43b8b1f97b450f3f1ae6a",
+    "semantic_hash": "bc966cdfdbc43b8b1f97b450f3f1ae6a"
+  },
+  "Application/Common/Failur types.cs": {
+    "mtime": 1779232335.4739394,
+    "ast_hash": "46d3211a40e33e2c3e7d23d32362ada5",
+    "semantic_hash": "46d3211a40e33e2c3e7d23d32362ada5"
+  },
+  "Application/Common/PagesResult.cs": {
+    "mtime": 1779354668.448937,
+    "ast_hash": "09d48bf4df1b4ba8932606a62d434d91",
+    "semantic_hash": "09d48bf4df1b4ba8932606a62d434d91"
+  },
+  "Application/Common/Results.cs": {
+    "mtime": 1779232339.5982044,
+    "ast_hash": "2272ca758666c4d72f92cfe768d34491",
+    "semantic_hash": "2272ca758666c4d72f92cfe768d34491"
+  },
+  "Application/Dto/Request/AddCourseRequest.cs": {
+    "mtime": 1782499553.7471223,
+    "ast_hash": "f70813ac5dc90b53623800f932cc33dc",
+    "semantic_hash": "f70813ac5dc90b53623800f932cc33dc"
+  },
+  "Application/Dto/Request/AddReviewRequest.cs": {
+    "mtime": 1782480615.163264,
+    "ast_hash": "24541dd95d539d5303b87b6ae66d3125",
+    "semantic_hash": "24541dd95d539d5303b87b6ae66d3125"
+  },
+  "Application/Dto/Request/AddSectionRequest.cs": {
+    "mtime": 1779779664.150037,
+    "ast_hash": "143614fa8955105b4f1ee05ef200337f",
+    "semantic_hash": "143614fa8955105b4f1ee05ef200337f"
+  },
+  "Application/Dto/Request/ContentBlockRequest.cs": {
+    "mtime": 1782433307.7958503,
+    "ast_hash": "d9a261c39f6b1ea3e299237abe4679f7",
+    "semantic_hash": "d9a261c39f6b1ea3e299237abe4679f7"
+  },
+  "Application/Dto/Request/DeleteUserRequest.cs": {
+    "mtime": 1779231148.7845,
+    "ast_hash": "e7c4e828793404324c35086faea84d8c",
+    "semantic_hash": "e7c4e828793404324c35086faea84d8c"
+  },
+  "Application/Dto/Request/DropEnrollmentRequest.cs": {
+    "mtime": 1782583853.2342522,
+    "ast_hash": "e0522293ff7bf225c70ffb99b18466bb",
+    "semantic_hash": "e0522293ff7bf225c70ffb99b18466bb"
+  },
+  "Application/Dto/Request/EnrollRequest.cs": {
+    "mtime": 1782583851.3713694,
+    "ast_hash": "057f85dcc57789c752a420dd30cb3209",
+    "semantic_hash": "057f85dcc57789c752a420dd30cb3209"
+  },
+  "Application/Dto/Request/GetCoursesRequest.cs": {
+    "mtime": 1782499553.7471223,
+    "ast_hash": "0f4a2d9ab2886ac896fc2202e7a95ebd",
+    "semantic_hash": "0f4a2d9ab2886ac896fc2202e7a95ebd"
+  },
+  "Application/Dto/Request/LessonRequest.cs": {
+    "mtime": 1782433308.4784708,
+    "ast_hash": "c4c88d715f52282c3daf47f19ffbd951",
+    "semantic_hash": "c4c88d715f52282c3daf47f19ffbd951"
+  },
+  "Application/Dto/Request/LoginRequest.cs": {
+    "mtime": 1779568215.8892345,
+    "ast_hash": "d2e09d3a2c04f9589d06c34934d4900e",
+    "semantic_hash": "d2e09d3a2c04f9589d06c34934d4900e"
+  },
+  "Application/Dto/Request/LogoutRequest.cs": {
+    "mtime": 1779231147.1262562,
+    "ast_hash": "c8c7314dda6edb34f8476cd3cc5dffa5",
+    "semantic_hash": "c8c7314dda6edb34f8476cd3cc5dffa5"
+  },
+  "Application/Dto/Request/MarkLessonProgressRequest.cs": {
+    "mtime": 1782583855.2458432,
+    "ast_hash": "520744362ca36bf84d963884d17e4195",
+    "semantic_hash": "520744362ca36bf84d963884d17e4195"
+  },
+  "Application/Dto/Request/RefreshTokenRequest.cs": {
+    "mtime": 1782568278.7719054,
+    "ast_hash": "8437cd202c6694699f19c00e57dc432b",
+    "semantic_hash": "8437cd202c6694699f19c00e57dc432b"
+  },
+  "Application/Dto/Request/SignUpRequest.cs": {
+    "mtime": 1779564922.8108659,
+    "ast_hash": "75a053cf997da17a6480a4d7d7175c86",
+    "semantic_hash": "75a053cf997da17a6480a4d7d7175c86"
+  },
+  "Application/Dto/Request/UpdateCourseRequest.cs": {
+    "mtime": 1782589960.7652867,
+    "ast_hash": "17c8d8fb4ec63c43c2c449f014ca0ef4",
+    "semantic_hash": "17c8d8fb4ec63c43c2c449f014ca0ef4"
+  },
+  "Application/Dto/Request/UpdateLessonRequest.cs": {
+    "mtime": 1782590050.9722707,
+    "ast_hash": "42d1fb8ca3e36970cae6ae361639c81c",
+    "semantic_hash": "42d1fb8ca3e36970cae6ae361639c81c"
+  },
+  "Application/Dto/Request/UpdatePasswordRequest.cs": {
+    "mtime": 1779579935.5152335,
+    "ast_hash": "ab827826f241d5c858972398573aa803",
+    "semantic_hash": "ab827826f241d5c858972398573aa803"
+  },
+  "Application/Dto/Request/UpdateReviewRequest.cs": {
+    "mtime": 1782480616.4722292,
+    "ast_hash": "6a2efaa794ecdd438a89a671f91b0b47",
+    "semantic_hash": "6a2efaa794ecdd438a89a671f91b0b47"
+  },
+  "Application/Dto/Request/UserProfileRequest.cs": {
+    "mtime": 1779231150.449642,
+    "ast_hash": "478d8f3448df1017251a9f5c50d1c547",
+    "semantic_hash": "478d8f3448df1017251a9f5c50d1c547"
+  },
+  "Application/Dto/Rsponse/LoginResponse.cs": {
+    "mtime": 1782580204.8788555,
+    "ast_hash": "b8b3e0bffd2b9833436655a93e0cd7e1",
+    "semantic_hash": "b8b3e0bffd2b9833436655a93e0cd7e1"
+  },
+  "Application/Dto/Rsponse/RefreshTokenResponse.cs": {
+    "mtime": 1779293236.5167358,
+    "ast_hash": "63e207751d3d16dd4ccf953c4222c69b",
+    "semantic_hash": "63e207751d3d16dd4ccf953c4222c69b"
+  },
+  "Application/Dto/Rsponse/UserProfileResponse.cs": {
+    "mtime": 1779587117.758818,
+    "ast_hash": "fe8c403de9b3f19694182138a1000d68",
+    "semantic_hash": "fe8c403de9b3f19694182138a1000d68"
+  },
+  "Application/Services/AdminActionService.cs": {
+    "mtime": 1782482938.6126308,
+    "ast_hash": "dbd59fdfeb68c06458247edb01fe03ef",
+    "semantic_hash": "dbd59fdfeb68c06458247edb01fe03ef"
+  },
+  "Application/Services/CourseService.cs": {
+    "mtime": 1782590200.9813783,
+    "ast_hash": "9aaa51ed85cb66fbfe5be1a6b0bb3a10",
+    "semantic_hash": "9aaa51ed85cb66fbfe5be1a6b0bb3a10"
+  },
+  "Application/Services/EnrollmentService.cs": {
+    "mtime": 1782590295.2803233,
+    "ast_hash": "a73ee356790b7bd71e921fb54f2cf348",
+    "semantic_hash": "a73ee356790b7bd71e921fb54f2cf348"
+  },
+  "Application/Services/LessonService.cs": {
+    "mtime": 1782590090.1055417,
+    "ast_hash": "3814c270493fc41ea2d30957b344ed6a",
+    "semantic_hash": "3814c270493fc41ea2d30957b344ed6a"
+  },
+  "Application/Services/LoginLogService.cs": {
+    "mtime": 1782494908.1208675,
+    "ast_hash": "62ab4e7fc0f0ded23f359d75514a7f5a",
+    "semantic_hash": "62ab4e7fc0f0ded23f359d75514a7f5a"
+  },
+  "Application/Services/MediaService.cs": {
+    "mtime": 1779500432.0045576,
+    "ast_hash": "eaf03646b7d4f3f8acd0802ed923f3d9",
+    "semantic_hash": "eaf03646b7d4f3f8acd0802ed923f3d9"
+  },
+  "Application/Services/RefreshTokenService.cs": {
+    "mtime": 1782584140.2780619,
+    "ast_hash": "457898d4f42dd65a16706b14fe1907bf",
+    "semantic_hash": "457898d4f42dd65a16706b14fe1907bf"
+  },
+  "Application/Services/ReviewService.cs": {
+    "mtime": 1782590563.2707005,
+    "ast_hash": "39f479a40ceaedc96b28287b3bb736ff",
+    "semantic_hash": "39f479a40ceaedc96b28287b3bb736ff"
+  },
+  "Application/Services/UserService.cs": {
+    "mtime": 1782588723.2770288,
+    "ast_hash": "5ef478669a57f4aa2cc10d0ec3d52b4f",
+    "semantic_hash": "5ef478669a57f4aa2cc10d0ec3d52b4f"
+  },
+  "cheap_udemy.slnx": {
+    "mtime": 1780026108.3689623,
+    "ast_hash": "91e75a2971aff14c5420c7158936daac",
+    "semantic_hash": "91e75a2971aff14c5420c7158936daac"
+  },
+  "data_access_layer/Common/PagesResult.cs": {
+    "mtime": 1779354670.3342516,
+    "ast_hash": "5988b80feefba6d744018e8453bde0df",
+    "semantic_hash": "5988b80feefba6d744018e8453bde0df"
+  },
+  "data_access_layer/DataAccess.csproj": {
+    "mtime": 1782393301.680508,
+    "ast_hash": "5402a71a20c4a098fe3b332f8030457d",
+    "semantic_hash": "5402a71a20c4a098fe3b332f8030457d"
+  },
+  "data_access_layer/Data/AppDbContext.cs": {
+    "mtime": 1782669053.6273904,
+    "ast_hash": "5aa1fd169a2561228e870a85ea3dceb1",
+    "semantic_hash": "5aa1fd169a2561228e870a85ea3dceb1"
+  },
+  "data_access_layer/DependencyInjection.cs": {
+    "mtime": 1782628419.2202375,
+    "ast_hash": "7d860db965b980974ff4ac0cdbca7909",
+    "semantic_hash": "7d860db965b980974ff4ac0cdbca7909"
+  },
+  "data_access_layer/Dto/CategoryDto.cs": {
+    "mtime": 1782590342.1618395,
+    "ast_hash": "8642bebadc0f108adc52f3786f293110",
+    "semantic_hash": "8642bebadc0f108adc52f3786f293110"
+  },
+  "data_access_layer/Dto/ContentBlockDto.cs": {
+    "mtime": 1779465030.5091083,
+    "ast_hash": "7c425917692616d0509cc36d2872b943",
+    "semantic_hash": "7c425917692616d0509cc36d2872b943"
+  },
+  "data_access_layer/Dto/CountryDto.cs": {
+    "mtime": 1782590517.657142,
+    "ast_hash": "08c7e000e162c7c08232a07e95be710e",
+    "semantic_hash": "08c7e000e162c7c08232a07e95be710e"
+  },
+  "data_access_layer/Dto/CourseDto.cs": {
+    "mtime": 1782499553.7471223,
+    "ast_hash": "fd32d0eda878dec6db508a2775b83fbe",
+    "semantic_hash": "fd32d0eda878dec6db508a2775b83fbe"
+  },
+  "data_access_layer/Dto/EnrollmentDto.cs": {
+    "mtime": 1782474259.7445138,
+    "ast_hash": "e55626b99c75e0031731576df4fca26e",
+    "semantic_hash": "e55626b99c75e0031731576df4fca26e"
+  },
+  "data_access_layer/Dto/LessonDto.cs": {
+    "mtime": 1782478249.0800028,
+    "ast_hash": "46a428e39a4002319f4429edb9f2dcdc",
+    "semantic_hash": "46a428e39a4002319f4429edb9f2dcdc"
+  },
+  "data_access_layer/Dto/LessonProgressDto.cs": {
+    "mtime": 1782590255.8376193,
+    "ast_hash": "bd57f8ec5c04ff0f536206fa807f7721",
+    "semantic_hash": "bd57f8ec5c04ff0f536206fa807f7721"
+  },
+  "data_access_layer/Dto/RefreshTokenDto.cs": {
+    "mtime": 1779294818.5782597,
+    "ast_hash": "7c3aa370b3e0586347f1f634ae755ba4",
+    "semantic_hash": "7c3aa370b3e0586347f1f634ae755ba4"
+  },
+  "data_access_layer/Dto/ReviewDto.cs": {
+    "mtime": 1782494951.743764,
+    "ast_hash": "a776a873763e6f72ca04591f090c6b3f",
+    "semantic_hash": "a776a873763e6f72ca04591f090c6b3f"
+  },
+  "data_access_layer/Dto/UserAndProfileDto.cs": {
+    "mtime": 1779230612.626076,
+    "ast_hash": "c1bf93d27444178e9274076e830fdc04",
+    "semantic_hash": "c1bf93d27444178e9274076e830fdc04"
+  },
+  "data_access_layer/Dto/UserProfileDto.cs": {
+    "mtime": 1779230622.3639915,
+    "ast_hash": "88151a1e6b7bbd64cc413b54f34d3682",
+    "semantic_hash": "88151a1e6b7bbd64cc413b54f34d3682"
+  },
+  "data_access_layer/Dto/loginDto.cs": {
+    "mtime": 1779232899.9647293,
+    "ast_hash": "12e90297a50f22b0aac10f43dff24d13",
+    "semantic_hash": "12e90297a50f22b0aac10f43dff24d13"
+  },
+  "data_access_layer/Entities/AdminActionEntitiy.cs": {
+    "mtime": 1782482872.2769287,
+    "ast_hash": "b1c49ae1e9512599cc9d5f5a1afaec3b",
+    "semantic_hash": "b1c49ae1e9512599cc9d5f5a1afaec3b"
+  },
+  "data_access_layer/Entities/CategoryEntitiy.cs": {
+    "mtime": 1779229907.5242724,
+    "ast_hash": "a07183546100359ecbd604f47b9ee65d",
+    "semantic_hash": "a07183546100359ecbd604f47b9ee65d"
+  },
+  "data_access_layer/Entities/CountryEntitiy.cs": {
+    "mtime": 1779229906.1224656,
+    "ast_hash": "04296b4a76e45afb81b5368b081137b7",
+    "semantic_hash": "04296b4a76e45afb81b5368b081137b7"
+  },
+  "data_access_layer/Entities/CourseEntitiy.cs": {
+    "mtime": 1782494723.4398067,
+    "ast_hash": "5be1378ad5067c19a0debcde417ef649",
+    "semantic_hash": "5be1378ad5067c19a0debcde417ef649"
+  },
+  "data_access_layer/Entities/EnrollmentEntitiy.cs": {
+    "mtime": 1782446820.776826,
+    "ast_hash": "9f659a28b81ff78e3364d2bc089b4630",
+    "semantic_hash": "9f659a28b81ff78e3364d2bc089b4630"
+  },
+  "data_access_layer/Entities/LessonEntity.cs": {
+    "mtime": 1779472783.3853993,
+    "ast_hash": "f65534f4e6b8b17d81c31316a88a8206",
+    "semantic_hash": "f65534f4e6b8b17d81c31316a88a8206"
+  },
+  "data_access_layer/Entities/LoginLogEntitiy.cs": {
+    "mtime": 1782668372.9385073,
+    "ast_hash": "6cbb63761596a3788c1dd9e74742431f",
+    "semantic_hash": "6cbb63761596a3788c1dd9e74742431f"
+  },
+  "data_access_layer/Entities/PaymentEntitiy.cs": {
+    "mtime": 1782494752.4299831,
+    "ast_hash": "ddd207cfd4f49f43747e42c78ada361e",
+    "semantic_hash": "ddd207cfd4f49f43747e42c78ada361e"
+  },
+  "data_access_layer/Entities/RefreshTokenEntity.cs": {
+    "mtime": 1779294395.9785097,
+    "ast_hash": "ff4cac6266e2e9484a141382be1fcf08",
+    "semantic_hash": "ff4cac6266e2e9484a141382be1fcf08"
+  },
+  "data_access_layer/Entities/ReviewEntitiy.cs": {
+    "mtime": 1782494737.4630067,
+    "ast_hash": "f19caa45eb62043ac1795422d95cf98a",
+    "semantic_hash": "f19caa45eb62043ac1795422d95cf98a"
+  },
+  "data_access_layer/Entities/SectionEntitiy.cs": {
+    "mtime": 1779229884.694464,
+    "ast_hash": "b02a625efe17525541a8c4b95dda501a",
+    "semantic_hash": "b02a625efe17525541a8c4b95dda501a"
+  },
+  "data_access_layer/Entities/UserEntity.cs": {
+    "mtime": 1779294394.427722,
+    "ast_hash": "a1f60d03bbf5bdaedd52dd9e307e0d41",
+    "semantic_hash": "a1f60d03bbf5bdaedd52dd9e307e0d41"
+  },
+  "data_access_layer/Entities/UserLessonProgressEntitiy.cs": {
+    "mtime": 1779467027.5189447,
+    "ast_hash": "0f1d4f9e5dc0a1d6e04e44af216077bc",
+    "semantic_hash": "0f1d4f9e5dc0a1d6e04e44af216077bc"
+  },
+  "data_access_layer/Entities/UserProfileEntity.cs": {
+    "mtime": 1779229877.3718438,
+    "ast_hash": "eab810b6296667c3d0ad59a43572b9bc",
+    "semantic_hash": "eab810b6296667c3d0ad59a43572b9bc"
+  },
+  "data_access_layer/Entities/json/ContentBlock.cs": {
+    "mtime": 1779418944.2857287,
+    "ast_hash": "3001c61334554ac84bdf6aa24e0a1e17",
+    "semantic_hash": "3001c61334554ac84bdf6aa24e0a1e17"
+  },
+  "data_access_layer/Entities/json/ContentBlockFormat.cs": {
+    "mtime": 1779465079.8338683,
+    "ast_hash": "577fbaf819c5bf5607664f32e1f12905",
+    "semantic_hash": "577fbaf819c5bf5607664f32e1f12905"
+  },
+  "data_access_layer/Entities/json/LessonMetadata.cs": {
+    "mtime": 1779229938.3869748,
+    "ast_hash": "786b9afb4c0c3bdab27b807b2f8fce19",
+    "semantic_hash": "786b9afb4c0c3bdab27b807b2f8fce19"
+  },
+  "data_access_layer/Entities/json/course_metadata.cs": {
+    "mtime": 1779373310.292454,
+    "ast_hash": "ac53bdffc1a1972f01453fd2a6e5f26f",
+    "semantic_hash": "ac53bdffc1a1972f01453fd2a6e5f26f"
+  },
+  "data_access_layer/Repositories/AdminActionRepository.cs": {
+    "mtime": 1782482916.7125237,
+    "ast_hash": "7dcec8ed0a08287748eb5b298039ffa5",
+    "semantic_hash": "7dcec8ed0a08287748eb5b298039ffa5"
+  },
+  "data_access_layer/Repositories/CoursesRepository.cs": {
+    "mtime": 1782640269.0637133,
+    "ast_hash": "b95431e09db59be663039048164cbc91",
+    "semantic_hash": "b95431e09db59be663039048164cbc91"
+  },
+  "data_access_layer/Repositories/EnrollmentRepository.cs": {
+    "mtime": 1782640200.0732546,
+    "ast_hash": "6e25e2551e3830c3b004b23a4f6e6617",
+    "semantic_hash": "6e25e2551e3830c3b004b23a4f6e6617"
+  },
+  "data_access_layer/Repositories/LessonsRepository.cs": {
+    "mtime": 1782638878.219892,
+    "ast_hash": "bb9bcf9428ab6f240ccffc261b5f80d0",
+    "semantic_hash": "bb9bcf9428ab6f240ccffc261b5f80d0"
+  },
+  "data_access_layer/Repositories/LoginLogRepository.cs": {
+    "mtime": 1782638742.9999087,
+    "ast_hash": "3c188d1c2071eead68b9307bf26f6ae0",
+    "semantic_hash": "3c188d1c2071eead68b9307bf26f6ae0"
+  },
+  "data_access_layer/Repositories/RefreshTokenRepository.cs": {
+    "mtime": 1782638448.5374799,
+    "ast_hash": "9e9972f4260c61d4c4bc682e65ff3a43",
+    "semantic_hash": "9e9972f4260c61d4c4bc682e65ff3a43"
+  },
+  "data_access_layer/Repositories/ReviewRepository.cs": {
+    "mtime": 1782637999.292602,
+    "ast_hash": "fe7be2cef96adc344cd4d3ba1b9340e5",
+    "semantic_hash": "fe7be2cef96adc344cd4d3ba1b9340e5"
+  },
+  "data_access_layer/Repositories/UserAndProfileRepository.cs": {
+    "mtime": 1782637273.3859642,
+    "ast_hash": "4148f88be0071801605ab4734e9c868c",
+    "semantic_hash": "4148f88be0071801605ab4734e9c868c"
+  },
+  "db/01-create-schema.sql": {
+    "mtime": 1782572224.5135796,
+    "ast_hash": "8c3cb2f103bd2107d6ef79b38882e7a8",
+    "semantic_hash": "8c3cb2f103bd2107d6ef79b38882e7a8"
+  },
+  "db/02-seed.sql": {
+    "mtime": 1782574257.7535107,
+    "ast_hash": "cfd22e1731238eba6673607a8c1afb54",
+    "semantic_hash": "cfd22e1731238eba6673607a8c1afb54"
+  },
+  "learning_platform/Api.csproj": {
+    "mtime": 1782393301.557374,
+    "ast_hash": "accf316ee1cf73ee796926fb4ef7907f",
+    "semantic_hash": "accf316ee1cf73ee796926fb4ef7907f"
+  },
+  "learning_platform/Authorization/UserOwnerOrAdminHandler.cs": {
+    "mtime": 1779154976.6402645,
+    "ast_hash": "b0d2462c8f780bbcb62621dbe16a8dfa",
+    "semantic_hash": "b0d2462c8f780bbcb62621dbe16a8dfa"
+  },
+  "learning_platform/Authorization/UserOwnerOrAdminRequirement.cs": {
+    "mtime": 1779154976.641265,
+    "ast_hash": "36fcae976cbebeb6e36931dab5628269",
+    "semantic_hash": "36fcae976cbebeb6e36931dab5628269"
+  },
+  "learning_platform/Controllers/AuthenticationController.cs": {
+    "mtime": 1782583798.895375,
+    "ast_hash": "a81ca5fb87a3503405684040545422b2",
+    "semantic_hash": "a81ca5fb87a3503405684040545422b2"
+  },
+  "learning_platform/Controllers/CategoriesController.cs": {
+    "mtime": 1782590355.5678122,
+    "ast_hash": "931d59198ddf2428115e7512b42c78f2",
+    "semantic_hash": "931d59198ddf2428115e7512b42c78f2"
+  },
+  "learning_platform/Controllers/CountriesController.cs": {
+    "mtime": 1782590527.028005,
+    "ast_hash": "a8f39c22937b7bc3cc61384d0b3ad745",
+    "semantic_hash": "a8f39c22937b7bc3cc61384d0b3ad745"
+  },
+  "learning_platform/Controllers/CourseController.cs": {
+    "mtime": 1782590224.775409,
+    "ast_hash": "c72004c4153284ab3ea3b61238758ad5",
+    "semantic_hash": "c72004c4153284ab3ea3b61238758ad5"
+  },
+  "learning_platform/Controllers/EnrollmentController.cs": {
+    "mtime": 1782590304.9270792,
+    "ast_hash": "37533b8314d310d6ed9e7b4b7bc5a082",
+    "semantic_hash": "37533b8314d310d6ed9e7b4b7bc5a082"
+  },
+  "learning_platform/Controllers/LessonsController.cs": {
+    "mtime": 1782590108.2448993,
+    "ast_hash": "3cb242867f188d932eea483694b1f6f6",
+    "semantic_hash": "3cb242867f188d932eea483694b1f6f6"
+  },
+  "learning_platform/Controllers/MediaController.cs": {
+    "mtime": 1782588640.211639,
+    "ast_hash": "c42859be74f0f8fec8e621b0af002665",
+    "semantic_hash": "c42859be74f0f8fec8e621b0af002665"
+  },
+  "learning_platform/Controllers/ReviewController.cs": {
+    "mtime": 1782590574.9399383,
+    "ast_hash": "91a63d3b7be6188e204bc32c7f4d5e0a",
+    "semantic_hash": "91a63d3b7be6188e204bc32c7f4d5e0a"
+  },
+  "learning_platform/Controllers/UserController.cs": {
+    "mtime": 1782499553.7471223,
+    "ast_hash": "1c270bf6758b211429c55f3515485c13",
+    "semantic_hash": "1c270bf6758b211429c55f3515485c13"
+  },
+  "learning_platform/DependencyInjection.cs": {
+    "mtime": 1782469006.0372946,
+    "ast_hash": "d85163eb872298f587f7ee7ced752860",
+    "semantic_hash": "d85163eb872298f587f7ee7ced752860"
+  },
+  "learning_platform/Program.cs": {
+    "mtime": 1782594703.205269,
+    "ast_hash": "6e9538735c92526d39f7ee9621841284",
+    "semantic_hash": "6e9538735c92526d39f7ee9621841284"
+  },
+  "learning_platform/Properties/launchSettings.json": {
+    "mtime": 1779154976.646265,
+    "ast_hash": "6ad33ed2382e946c85641e8844aabdfa",
+    "semantic_hash": "6ad33ed2382e946c85641e8844aabdfa"
+  },
+  "opencode.json": {
+    "mtime": 1782426334.2608232,
+    "ast_hash": "e8aa418593bfe77bcb8a9a05fe88c194",
+    "semantic_hash": "e8aa418593bfe77bcb8a9a05fe88c194"
+  },
+  ".claude/agents/code-reviewer.md": {
+    "mtime": 1782577291.2500947,
+    "ast_hash": "0624f0806274c2796ca800250af6b920",
+    "semantic_hash": "0624f0806274c2796ca800250af6b920"
+  },
+  ".claude/agents/planner.md": {
+    "mtime": 1782577274.956654,
+    "ast_hash": "a8083ab021c52da9edb3c3aaeccb64e3",
+    "semantic_hash": "a8083ab021c52da9edb3c3aaeccb64e3"
+  },
+  ".claude/agents/security-audit-reviewer.md": {
+    "mtime": 1782577308.5848117,
+    "ast_hash": "632d4ec7b8124e986aa54a464b2e8077",
+    "semantic_hash": "632d4ec7b8124e986aa54a464b2e8077"
+  },
+  "CLAUDE.md": {
+    "mtime": 1782584357.7583768,
+    "ast_hash": "331ac115a6cc5f776a8d695512ffc293",
+    "semantic_hash": "331ac115a6cc5f776a8d695512ffc293"
+  },
+  "README.md": {
+    "mtime": 1782495471.821742,
+    "ast_hash": "2770d5f177a5133e6f70c8331b1548f0",
+    "semantic_hash": "2770d5f177a5133e6f70c8331b1548f0"
+  },
+  "db/README.md": {
+    "mtime": 1782495445.1452155,
+    "ast_hash": "51daad04d97d7f54f81c4f49fa01fa70",
+    "semantic_hash": "51daad04d97d7f54f81c4f49fa01fa70"
+  }
+}

@@ -177,5 +177,15 @@ There is no test project. All verification is manual via the HTTP API (see `lear
 
 **Commit workflow:** this is a solo learning repo — most commits are made (and pushed) **directly to `master`**, no feature branch / PR. Don't branch unless explicitly asked.
 
+## Knowledge graph (Graphify)
+
+A knowledge graph of this codebase lives in `graphify-out/`. Use it instead of reading files when navigating the project — it's much cheaper on tokens.
+
+- **Query it:** `/graphify query "how does X work?"`
+- **Update after changes:** `/graphify . --update`
+- **Full rebuild:** `/graphify .`
+
+Key facts the graph surfaced: `MyResult<T>` is the god node with 38 edges (used as return type everywhere). `CourseController`, `CoursesRepository`, and `UserAndProfileRepository` are the next biggest hubs.
+
 ## Important Note
 please update this file by removing or adding anything after any major change happen or when a certain info is not longer useful.
