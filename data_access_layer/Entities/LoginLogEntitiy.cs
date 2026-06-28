@@ -10,7 +10,7 @@ namespace DataAccess.Entities
                                     //
         public int? user_id { get; set; } // Foreign Key (nullable: unknown-email attempts are still logged)
         public UserEntity? user { get; set; }
-        public string? attempted_identifier { get; set; } // what the caller typed (never the password)
+        public string? attempted_identifier { get; set; } // what the caller typed (email and not the password)
         public IPAddress? ip_address { get; set; }
         public string? user_agent { get; set; }
         public string status { get; set; }

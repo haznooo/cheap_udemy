@@ -61,6 +61,7 @@ namespace DataAccess.Repositories
             }
         }
 
+        // Returns the maximum sort_order for lessons in a given section so we can append a new lesson at the end of the list.
         public async Task<int> GetMaxSortOrderForSectionAsync(int sectionId)
         {
             var max = await context.Lessons

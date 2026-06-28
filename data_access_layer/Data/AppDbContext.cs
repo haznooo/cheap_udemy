@@ -66,16 +66,9 @@ namespace DataAccess.Data
             modelBuilder.Entity<EnrollmentEntitiy>().ToTable("enrollments");
             modelBuilder.Entity<PaymentEntitiy>().ToTable("payments");
             modelBuilder.Entity<UserLessonProgressEntitiy>().ToTable("user_lesson_progress");
-
-
-
-
             base.OnModelCreating(modelBuilder);
 
             // Configure entities
-
-
-
             modelBuilder.Entity<UserEntity>(entity =>
             {
                 // 1. Tell EF that user_id is the Primary Key
@@ -242,10 +235,6 @@ namespace DataAccess.Data
                 entity.Property(e => e.deleted_at)
                       .HasColumnType("timestamp with time zone");
 
-                //entity.Property(e => e.course_metadata)
-                //      .HasColumnType("jsonb")
-                //      .HasDefaultValueSql("'{\"lessons_count\": 0, \"enrollments_count\": 0}'::jsonb");
-
                 // Relationships
                 // Check Constraints
                 entity.ToTable(t => {
@@ -288,12 +277,12 @@ namespace DataAccess.Data
                 entity.Property(e => e.last_used_at).HasColumnType("timestamp with time zone").HasDefaultValueSql("CURRENT_TIMESTAMP");
                 entity.Property(e => e.ip_address).HasMaxLength(45);
 
-                // FIX 2: Correctly map the One-to-Many Relationship
+           
                 entity.HasOne(d => d.user)                  // Token HAS ONE User
                      .WithMany(p => p.RefreshTokens)        // User HAS MANY RefreshTokens
                      .HasForeignKey(d => d.user_id)         // The Foreign Key pointing to User is user_id
                      .HasConstraintName("fk_user")
-                     .OnDelete(DeleteBehavior.Cascade);     // Optional: Deletes tokens if user is deleted
+                     .OnDelete(DeleteBehavior.Cascade);    
             });
 
 

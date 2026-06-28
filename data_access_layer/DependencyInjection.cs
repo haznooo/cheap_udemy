@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 
-namespace DataAccess
+namespace DataAccess.DependencyInjection
 {
     public static class DependencyInjection
     {

@@ -9,21 +9,15 @@ using static DataAccess.Common.clsPageResult;
 
 namespace DataAccess.Repositories
 {
-
     public class UserAndProfileRepository(AppDbContext context)
     {
-
-
+    
         //user
         public async Task<UserAndProfileDto> AddUserAsync(UserEntity User)
         {
-
-
             try
             {
-
                 UserProfileEntity userProfileEntity = null;
-
                 if (User.UserProfile != null)
                 {
                     userProfileEntity = new UserProfileEntity
@@ -37,8 +31,6 @@ namespace DataAccess.Repositories
                     };
 
                 }
-
-
                 var newUser = new UserEntity
                 {
                     user_id = 0, // Let the database generate the ID
@@ -51,12 +43,9 @@ namespace DataAccess.Repositories
                     UserProfile = userProfileEntity // This will be safely null if no profile was provided
                 };
 
-
-                // Add to database
+      
                 await context.Users.AddAsync(newUser);
-                // One single trip to the database!
                 await context.SaveChangesAsync();
-
 
                 var countryInnerInfo = new { CountryName = (string?)null, CountryIsoCode = (string?)null };
 
@@ -73,10 +62,7 @@ namespace DataAccess.Repositories
                    .FirstOrDefaultAsync();
 
                 }
-         
-             
-
-
+      
                 return new UserAndProfileDto 
                 {
                     UserId = newUser.user_id,
@@ -98,7 +84,7 @@ namespace DataAccess.Repositories
             }
             catch (Exception ex)
             {
-                //i will latter move it to a log file or something
+                //latter will be moved it to a log 
                 Console.WriteLine(ex);
                 return null;
             }
@@ -106,7 +92,10 @@ namespace DataAccess.Repositories
         }
         public async Task<bool> DeleteUserAsync_Anonymize(UserEntity User)
         {
-            //i think this is disgusting
+      //the reason i did this is because i prevented the normal delete method to use soft delete (so i can keep the id safe for referencing other stuff in the project 
+      // inside the delete trigger i have an update prcoess so i can take the old id of the user and use it for a generic gmail : delete_67@app.com
+      // i really don't remember it in detials but since there is no actual delete the trigger was only retuning null and it did not work well with EF
+      // i tried to make it return some sort of value like a bool but it seems like this is not allowed in postgre 
             try
             {
                 // 1. Get a direct connection to the underlying database command system
@@ -147,8 +136,8 @@ namespace DataAccess.Repositories
         }
         public async Task<bool> DeleteUserAsync_Anonymize(int userId)
         {
-            //i think this is disgusting
 
+            // read "DeleteUserAsync_Anonymize(UserEntity User)" to understand this 
             UserEntity user = await context.Users.FirstOrDefaultAsync(u => u.user_id == userId);
             if(user == null) return false;
             try
@@ -181,28 +170,6 @@ namespace DataAccess.Repositories
                 await context.Database.CloseConnectionAsync();
             }
         }
-        public async Task<UserEntity> UpdatetUserByIdAsync(int userId, UserEntity oldUser)
-        {
-            //i will finish it latter
-            var existingUser = await context.Users.FirstOrDefaultAsync(u => u.user_id == userId);
-
-            if (existingUser is null) return null;
-
-            // Only update specific non-sensitive fields here
-
-            //   UserEntity user = new UserEntity()
-
-            // Note: Password updates should ideally happen in a dedicated method 
-            // that handles re-hashing.
-            if (!string.IsNullOrEmpty(oldUser.hashed_password))
-            {
-                //       existingUser.hashed_password = oldUser.hashed_password;
-            }
-
-            await context.SaveChangesAsync();
-            return existingUser;
-        }
-
         public async Task<bool> UpdateUserPasswordAsync(int userId, string newHashedPassword)
         {
             var user = await context.Users.FirstOrDefaultAsync(u => u.user_id == userId);
@@ -315,10 +282,6 @@ namespace DataAccess.Repositories
             };
 
 
-
-
-
-
             return new UserAndProfileDto
             {
 
@@ -393,8 +356,6 @@ namespace DataAccess.Repositories
 
 
         // profile
-
-        // Read-only profile fetch. Returns null if the profile (user) does not exist.
         public async Task<UserProfileDto?> GetUserProfileByIdAsync(int userId)
         {
             return await context.UsersProfile
@@ -412,7 +373,6 @@ namespace DataAccess.Repositories
                 .FirstOrDefaultAsync();
         }
 
-        // Sets only the avatar (image_url / avatar_url column), leaving other profile fields intact.
         public async Task<bool> UpdateUserAvatarAsync(int userId, string fileName)
         {
             var profile = await context.UsersProfile.FirstOrDefaultAsync(p => p.user_id == userId);

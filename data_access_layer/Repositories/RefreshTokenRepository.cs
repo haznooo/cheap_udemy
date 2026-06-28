@@ -12,10 +12,8 @@ namespace DataAccess.Repositories
 
         public async Task<RefreshTokenEntity> AddRefreshTokenAsync(RefreshTokenEntity RefreshToken)
         {
-
             try
             {
-
                 context.UserRefreshToken.Add(RefreshToken);
                 await context.SaveChangesAsync();
                 return RefreshToken;
@@ -26,7 +24,6 @@ namespace DataAccess.Repositories
                 return null;
 
             }
-
         }
 
         public async Task<RefreshTokenEntity> UpdateRefreshTokenAsync(RefreshTokenEntity OldRefreshToken)
@@ -75,6 +72,8 @@ namespace DataAccess.Repositories
         }
 
         // Fetches a single token by its primary key. Used to walk a chain forward via replaced_by_id.
+        // please note that this my cause n+1 queries if you are walking a chain of tokens, so use with care.
+        // note: i might move this inside the database context class itself, as it is a very simple query and does not need to be in the repository.
         public async Task<RefreshTokenEntity?> GetRefreshTokenByIdAsync(int tokenId)
         {
             try
@@ -88,9 +87,8 @@ namespace DataAccess.Repositories
             }
         }
 
-        // Returns the single still-usable token (not revoked, not used, not expired) matching the
-        // given SHA-256 hash for the user. The hash is deterministic, so this is a direct indexed
-        // equality lookup — no need to fetch every candidate and verify one by one.
+  
+        // SHA-256 hash
         public async Task<RefreshTokenEntity?> GetValidRefreshTokenByHashAsync(int userId, string tokenHash)
         {
             try

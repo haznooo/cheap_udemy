@@ -9,6 +9,7 @@ namespace DataAccess.Repositories
         {
             try
             {
+                //in postgre it is stroed as inet type, so we need to parse it to IPAddress type
                 System.Net.IPAddress? parsedIp = null;
                 if (ipAddress != null)
                     System.Net.IPAddress.TryParse(ipAddress, out parsedIp);
