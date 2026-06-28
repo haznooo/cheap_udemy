@@ -365,3 +365,6 @@ FodyWeavers.xsd
 # custom json files
 appsettings.json
 AppSettings.json
+
+# Graphify output directory
+graphify-out/
