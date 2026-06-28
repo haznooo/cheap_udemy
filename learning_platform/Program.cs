@@ -132,12 +132,12 @@ namespace CheapUdemy
             if (app.Environment.IsDevelopment())
             {
            
-                app.MapOpenApi();
+                app.MapOpenApi().AllowAnonymous();
                 app.MapScalarApiReference(options =>
                 {
-                    options.WithTitle("My API Documentation") .WithTheme(ScalarTheme.Mars);
+                    options.WithTitle("My API Documentation").WithTheme(ScalarTheme.Mars);
                     options.AddPreferredSecuritySchemes(JwtBearerDefaults.AuthenticationScheme);
-                });
+                }).AllowAnonymous();
 
             }
 
