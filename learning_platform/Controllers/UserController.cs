@@ -12,52 +12,43 @@ namespace Api.Controllers
 {
     [ApiController]
     [Route("api/user")]
+    [Authorize]
     public class UserController(AppDbContext context, ILogger<UserController> logger, IMediaService mediaService) : ControllerBase
     {
         // 5 MB limit for avatars; images only.
         private const long MaxAvatarSize = 5 * 1024 * 1024;
         private readonly string[] _allowedImageExtensions = { ".jpg", ".jpeg", ".png" };
 
-        [HttpGet("{userId}")]
-        public async Task<ActionResult<UserProfileResponse>> GetUserProfile(int userId, [FromServices] IAuthorizationService authorizationService)
+        // The caller's own id, taken from the access token (never from the URL).
+        private int? CallerId =>
+            int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int id) ? id : null;
+
+        // Maps a service failure to the matching HTTP status.
+        private ActionResult MapFailure<T>(MyResult<T> result) => result.FailureType switch
         {
-            var authResult = await authorizationService.AuthorizeAsync(User, userId, "UserOwnerOrAdmin");
-            if (!authResult.Succeeded)
-            {
-                logger.LogWarning("Forbidden access: user {CallerId} attempted GetUserProfile on user {TargetId}",
-                    User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "unknown", userId);
-                return Forbid();
-            }
+            ErrorType.NotFound => NotFound(result.Errors),
+            ErrorType.BadRequest => BadRequest(result.Errors),
+            ErrorType.Conflict => Conflict(result.Errors),
+            ErrorType.Unauthorized => Unauthorized(result.Errors),
+            _ => StatusCode(500, "An unexpected error occurred")
+        };
 
-            UserService userService = new UserService(context);
-            var result = await userService.GetUserProfile(userId);
+        // ---- Self endpoints (identity from the access token) ----
 
-            if (!result.IsSuccess)
-            {
-                return result.FailureType switch
-                {
-                    ErrorType.NotFound => NotFound(result.Errors),
-                    ErrorType.BadRequest => BadRequest(result.Errors),
-                    ErrorType.Conflict => Conflict(result.Errors),
-                    ErrorType.Unauthorized => Unauthorized(result.Errors),
-                    _ => StatusCode(500, "An unexpected error occurred")
-                };
-            }
+        [HttpGet("me")]
+        public async Task<ActionResult<UserProfileResponse>> GetMyProfile()
+        {
+            if (CallerId is not int callerId) return Unauthorized();
 
-            return Ok(result.Value);
+            var result = await new UserService(context).GetUserProfile(callerId);
+            return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
         }
 
-        // Upload + attach an avatar to a user's profile. Owner or admin only.
-        [HttpPost("{userId}/avatar")]
-        public async Task<ActionResult> SetAvatar(int userId, IFormFile file, [FromServices] IAuthorizationService authorizationService)
+        // Upload + attach an avatar to the caller's own profile.
+        [HttpPost("me/avatar")]
+        public async Task<ActionResult> SetMyAvatar(IFormFile file)
         {
-            var authResult = await authorizationService.AuthorizeAsync(User, userId, "UserOwnerOrAdmin");
-            if (!authResult.Succeeded)
-            {
-                logger.LogWarning("Forbidden access: user {CallerId} attempted SetAvatar on user {TargetId}",
-                    User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "unknown", userId);
-                return Forbid();
-            }
+            if (CallerId is not int callerId) return Unauthorized();
 
             if (file == null || file.Length == 0)
             {
@@ -75,60 +66,57 @@ namespace Api.Controllers
 
             var fileName = await mediaService.UploadFileAsync(file);
 
-            UserService userService = new UserService(context);
-            var result = await userService.SetAvatar(userId, fileName);
-
-            if (!result.IsSuccess)
-            {
-                return result.FailureType switch
-                {
-                    ErrorType.NotFound => NotFound(result.Errors),
-                    ErrorType.BadRequest => BadRequest(result.Errors),
-                    ErrorType.Conflict => Conflict(result.Errors),
-                    ErrorType.Unauthorized => Unauthorized(result.Errors),
-                    _ => StatusCode(500, "An unexpected error occurred")
-                };
-            }
-
-            return Ok(new { avatar = fileName });
+            var result = await new UserService(context).SetAvatar(callerId, fileName);
+            return result.IsSuccess ? Ok(new { avatar = fileName }) : MapFailure(result);
         }
 
-
-        [HttpPost("Delete/{userId}")] // Use route parameters for IDs
-        public async Task<ActionResult<bool>> DeleteUser(int userId, [FromBody] DeleteUserRequest request, [FromServices] IAuthorizationService authorizationService)
+        [HttpPost("me/password")]
+        public async Task<ActionResult<bool>> UpdateMyPassword([FromBody] UpdatePasswordRequest request)
         {
-          
-            var authResult = await authorizationService.AuthorizeAsync(User, userId, "UserOwnerOrAdmin");
-            if (!authResult.Succeeded)
-            {
-                logger.LogWarning("Forbidden access: user {CallerId} attempted DeleteUser on user {TargetId}",
-                    User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "unknown", userId);
-                return Forbid();
-            }
+            if (CallerId is not int callerId) return Unauthorized();
 
+            var result = await new UserService(context).UpdatePassword(callerId, request);
+            return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
+        }
 
-            UserService userService = new UserService(context);
+        [HttpPut("me/profile")]
+        public async Task<ActionResult<UserProfileResponse>> UpdateMyProfile([FromBody] UserProfileRequest ProfileRequest)
+        {
+            if (CallerId is not int callerId) return Unauthorized();
 
-            var result = await userService.DeleteUser(userId, request);
+            var result = await new UserService(context).UpdateUserProfile(callerId, ProfileRequest);
+            return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
+        }
 
-            if (!result.IsSuccess)
-            {
-                // Handle all failure types in one switch expression
-                return result.FailureType switch
-                {
-                    ErrorType.NotFound => NotFound(result.Errors),
-                    ErrorType.BadRequest => BadRequest(result.Errors),
-                    ErrorType.Conflict => Conflict(result.Errors),
-                    ErrorType.Unauthorized => Unauthorized(result.Errors),
-                    _ => StatusCode(500, "An unexpected error occurred")
-                };
-            }
+        // Self-deletion (anonymization). Not an admin action, so it is never audited.
+        [HttpPost("me/delete")]
+        public async Task<ActionResult<bool>> DeleteMyAccount([FromBody] DeleteUserRequest request)
+        {
+            if (CallerId is not int callerId) return Unauthorized();
 
-            // Audit: an admin deleting another user's account is an admin action.
-            // (Self-deletion is not an admin action, so it is not recorded here.)
-            if (User.IsInRole("admin")
-                && int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int adminId)
-                && adminId != userId)
+            var result = await new UserService(context).DeleteUser(callerId, request);
+            return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
+        }
+
+        // ---- Admin-only cross-user endpoints (id from the URL) ----
+
+        [HttpGet("{userId:int}")]
+        [Authorize(Roles = "admin")]
+        public async Task<ActionResult<UserProfileResponse>> GetUserProfile(int userId)
+        {
+            var result = await new UserService(context).GetUserProfile(userId);
+            return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
+        }
+
+        // An admin deleting another user's account — always audited.
+        [HttpPost("{userId:int}/delete")]
+        [Authorize(Roles = "admin")]
+        public async Task<ActionResult<bool>> DeleteUser(int userId, [FromBody] DeleteUserRequest request)
+        {
+            var result = await new UserService(context).DeleteUser(userId, request);
+            if (!result.IsSuccess) return MapFailure(result);
+
+            if (int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int adminId))
             {
                 await new AdminActionService(context).LogAsync(
                     adminId,
@@ -141,70 +129,6 @@ namespace Api.Controllers
             }
 
             return Ok(result.Value);
-        }
-
-        [HttpPost("UpdatePassword/{userId}")] // Use route parameters for IDs
-        public async Task<ActionResult<bool>> UpdatePassword(int userId, [FromBody] UpdatePasswordRequest request, [FromServices] IAuthorizationService authorizationService)
-        {
-
-            var authResult = await authorizationService.AuthorizeAsync(User, userId, "UserOwnerOrAdmin");
-            if (!authResult.Succeeded)
-            {
-                logger.LogWarning("Forbidden access: user {CallerId} attempted UpdatePassword on user {TargetId}",
-                    User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "unknown", userId);
-                return Forbid();
-            }
-
-
-            UserService userService = new UserService(context);
-
-            var result = await userService.UpdatePassword(userId, request);
-
-            if (!result.IsSuccess)
-            {
-                // Handle all failure types in one switch expression
-                return result.FailureType switch
-                {
-                    ErrorType.NotFound => NotFound(result.Errors),
-                    ErrorType.BadRequest => BadRequest(result.Errors),
-                    ErrorType.Conflict => Conflict(result.Errors),
-                    ErrorType.Unauthorized => Unauthorized(result.Errors),
-                    _ => StatusCode(500, "An unexpected error occurred")
-                };
-            }
-
-            return Ok(result.Value);
-        }
-
-        //works fine
-        [HttpPut("UpdateProfile/{userId}")]
-        public async Task<ActionResult<UserProfileResponse>> UpdateUserProfile(int userId, [FromBody] UserProfileRequest ProfileRequest, [FromServices] IAuthorizationService authorizationService)
-        {
-
-            var authResult = await authorizationService.AuthorizeAsync(User, userId, "UserOwnerOrAdmin");
-            if (!authResult.Succeeded)
-            {
-                logger.LogWarning("Forbidden access: user {CallerId} attempted UpdateUserProfile on user {TargetId}",
-                    User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "unknown", userId);
-                return Forbid();
-            }
-
-            UserService userService = new UserService(context);
-            var result = await userService.UpdateUserProfile(userId, ProfileRequest);
-
-            if (!result.IsSuccess)
-            {
-                // Handle all failure types in one switch expression
-                return result.FailureType switch
-                {
-                    ErrorType.NotFound => NotFound(result.Errors),
-                    ErrorType.BadRequest => BadRequest(result.Errors),
-                    ErrorType.Conflict => Conflict(result.Errors),
-                    ErrorType.Unauthorized => Unauthorized(result.Errors),
-                    _ => StatusCode(500, "An unexpected error occurred")
-                };
-            }
-            return result.Value;
         }
     }
 

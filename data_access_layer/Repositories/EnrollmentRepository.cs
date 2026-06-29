@@ -39,6 +39,22 @@ namespace DataAccess.Repositories
                 .FirstOrDefaultAsync();
         }
 
+        // True if the caller may view a course's curriculum/lesson content:
+        // an admin, the owning instructor (even for a draft), or an active/completed
+        // enrollment in a published, non-deleted course. A missing course is false.
+        public async Task<bool> CanViewCourseContentAsync(int courseId, int callerId, bool isAdmin)
+        {
+            var info = await GetCourseEnrollmentInfoAsync(courseId);
+            if (info == null) return false;
+
+            if (isAdmin || info.InstructorId == callerId) return true;
+
+            if (info.IsDeleted || info.Status != "published") return false;
+
+            string? status = await GetEnrollmentStatusAsync(callerId, courseId);
+            return status is "active" or "completed";
+        }
+
         public async Task<int?> GetCourseIdByLessonAsync(int lessonId)
         {
             return await context.Lessons

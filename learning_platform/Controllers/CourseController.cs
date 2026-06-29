@@ -19,6 +19,10 @@ namespace Api.Controllers
         private const long MaxThumbnailSize = 5 * 1024 * 1024;
         private readonly string[] _allowedImageExtensions = { ".jpg", ".jpeg", ".png" };
 
+        // Lesson media (images + short video) for a course's content blocks.
+        private const long MaxMediaSize = 5 * 1024 * 1024;
+        private readonly string[] _allowedMediaExtensions = { ".jpg", ".jpeg", ".png", ".mp4", ".mov" };
+
         [AllowAnonymous]
         [HttpPost("get")]
         public async Task<ActionResult<clsPageResult.PageResult<CourseDto>>> GetCourses(GetCoursesRequest request)
@@ -156,12 +160,62 @@ namespace Api.Controllers
             return Ok(new { thumbnail = fileName });
         }
 
-        [AllowAnonymous]
+        // Upload a media file (image/video) to be referenced from a lesson's content blocks.
+        // Only the owning instructor (or an admin) may upload media for a course — verified
+        // BEFORE touching storage so non-owners can't write to the shared bucket.
+        [Authorize]
+        [HttpPost("{courseId}/media")]
+        public async Task<ActionResult> UploadCourseMedia(int courseId, IFormFile file)
+        {
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int callerId))
+            {
+                return Unauthorized("Invalid or missing user identity.");
+            }
+
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest("No file was uploaded.");
+            }
+            if (file.Length > MaxMediaSize)
+            {
+                return BadRequest($"File exceeds the maximum limit of {MaxMediaSize / (1024 * 1024)}MB.");
+            }
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (string.IsNullOrEmpty(extension) || !_allowedMediaExtensions.Contains(extension))
+            {
+                return BadRequest("Invalid file type. Only JPG, PNG, MP4, and MOV are allowed.");
+            }
+
+            var courseService = new CourseService(context);
+            bool isAdmin = User.IsInRole("admin");
+
+            var permission = await courseService.CheckCourseEditPermission(courseId, callerId, isAdmin);
+            if (!permission.IsSuccess)
+            {
+                return permission.FailureType switch
+                {
+                    ErrorType.NotFound => NotFound(permission.Errors),
+                    ErrorType.BadRequest => BadRequest(permission.Errors),
+                    ErrorType.Conflict => Conflict(permission.Errors),
+                    ErrorType.Unauthorized => Unauthorized(permission.Errors),
+                    _ => StatusCode(500, "An unexpected error occurred")
+                };
+            }
+
+            var fileName = await mediaService.UploadFileAsync(file);
+            return Ok(new { url = fileName });
+        }
+
+        [Authorize]
         [HttpGet("{courseId}/lessons")]
         public async Task<ActionResult<List<LessonDto>>> GetCourseLessons(int courseId)
         {
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int callerId))
+                return Unauthorized("Invalid or missing user identity.");
+
+            bool isAdmin = User.IsInRole("admin");
             var courseService = new CourseService(context);
-            var Result = await courseService.GetCourseLessons(courseId);
+            var Result = await courseService.GetCourseLessons(courseId, callerId, isAdmin);
 
             if (!Result.IsSuccess)
             {
@@ -178,8 +232,36 @@ namespace Api.Controllers
             return Ok(Result.Value);
         }
 
+        // The caller's own courses as an instructor (identity from the access token).
         [Authorize]
-        [HttpGet("instructor/{instructorId}")]
+        [HttpGet("instructor/me")]
+        public async Task<ActionResult<clsPageResult.PageResult<CourseDto>>> GetMyInstructorCourses(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10)
+        {
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int callerId))
+                return Unauthorized("Invalid or missing user identity.");
+
+            string callerRole = User.FindFirstValue(ClaimTypes.Role) ?? "";
+            var courseService = new CourseService(context);
+            var result = await courseService.GetInstructorCourses(callerId, callerId, callerRole, pageNumber, pageSize);
+
+            if (!result.IsSuccess)
+                return result.FailureType switch
+                {
+                    ErrorType.NotFound => NotFound(result.Errors),
+                    ErrorType.BadRequest => BadRequest(result.Errors),
+                    ErrorType.Conflict => Conflict(result.Errors),
+                    ErrorType.Unauthorized => Unauthorized(result.Errors),
+                    _ => StatusCode(500, "An unexpected error occurred")
+                };
+
+            return Ok(result.Value);
+        }
+
+        // Read another instructor's courses — admin only.
+        [Authorize(Roles = "admin")]
+        [HttpGet("instructor/{instructorId:int}")]
         public async Task<ActionResult<clsPageResult.PageResult<CourseDto>>> GetInstructorCourses(
             int instructorId,
             [FromQuery] int pageNumber = 1,

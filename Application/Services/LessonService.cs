@@ -69,8 +69,23 @@ namespace Business.Services
             return MyResult<LessonDto>.Success(dto);
         }
 
-        public async Task<MyResult<LessonDto>> GetLessonAsync(int lessonId)
+        // Lesson content (incl. signed video URLs) is enrollment-gated: only the owning
+        // instructor, an admin, or a student with an active/completed enrollment may view it.
+        // Anyone else gets 404 so lesson existence/content can't be browsed without enrolling.
+        public async Task<MyResult<LessonDto>> GetLessonAsync(int lessonId, int callerId, bool isAdmin)
         {
+            var enrollmentRepo = new EnrollmentRepository(context);
+            int? courseId = await enrollmentRepo.GetCourseIdByLessonAsync(lessonId);
+            if (courseId == null)
+            {
+                return MyResult<LessonDto>.Failure(ErrorType.NotFound, $"Lesson with ID {lessonId} not found.");
+            }
+
+            if (!await enrollmentRepo.CanViewCourseContentAsync(courseId.Value, callerId, isAdmin))
+            {
+                return MyResult<LessonDto>.Failure(ErrorType.NotFound, $"Lesson with ID {lessonId} not found.");
+            }
+
             LessonsRepository repository = new LessonsRepository(context);
             var entity = await repository.GetLessonByIdAsync(lessonId);
             if (entity == null)

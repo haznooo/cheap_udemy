@@ -20,20 +20,24 @@ namespace Business.Services
                 return MyResult<ReviewDto>.Failure(ErrorType.BadRequest, "Rating must be between 1 and 5.");
 
             var repo = new ReviewRepository(context);
+            var enrollmentRepo = new EnrollmentRepository(context);
 
-            int? instructorId = await repo.GetCourseInstructorIdAsync(courseId);
-            if (instructorId == null)
+            // Course must exist and be published/non-deleted to be reviewable.
+            var course = await enrollmentRepo.GetCourseEnrollmentInfoAsync(courseId);
+            if (course == null || course.IsDeleted || course.Status != "published")
                 return MyResult<ReviewDto>.Failure(ErrorType.NotFound, "Course not found.");
 
-            if (callerId == instructorId)
+            if (callerId == course.InstructorId)
                 return MyResult<ReviewDto>.Failure(ErrorType.BadRequest, "Instructors cannot review their own course.");
 
             bool isAdmin = callerRole == "admin";
 
             if (!isAdmin)
             {
-                bool enrolled = await repo.IsEnrolledAsync(callerId, courseId);
-                if (!enrolled)
+                // Must actually be (or have been) a student of the course — an active or
+                // completed enrollment. A dropped/suspended enrollment can't review.
+                string? status = await enrollmentRepo.GetEnrollmentStatusAsync(callerId, courseId);
+                if (status is not ("active" or "completed"))
                     return MyResult<ReviewDto>.Failure(ErrorType.Unauthorized, "You must be enrolled in this course to leave a review.");
             }
 
@@ -57,7 +61,7 @@ namespace Business.Services
             return MyResult<ReviewDto>.Success(result);
         }
 
-        // Public: anyone can read reviews of a course.
+        // Any logged-in user can read a course's reviews (controller requires authentication).
         public async Task<MyResult<List<ReviewDto>>> GetCourseReviews(int courseId)
         {
             if (courseId <= 0)
@@ -98,7 +102,8 @@ namespace Business.Services
             return MyResult<ReviewDto>.Success(result);
         }
 
-        // Review owner, the course instructor, or an admin can delete a review.
+        // Only the review's author or an admin can delete a review. Instructors deliberately
+        // CANNOT delete reviews on their own course (no censoring of unfavourable reviews).
         public async Task<MyResult<bool>> DeleteReview(int callerId, string callerRole, int courseId, int reviewId)
         {
             if (reviewId <= 0)
@@ -111,16 +116,10 @@ namespace Business.Services
                 return MyResult<bool>.Failure(ErrorType.NotFound, "Review not found.");
 
             bool isAdmin = callerRole == "admin";
+            bool isOwner = review.user_id == callerId;
 
-            if (!isAdmin)
-            {
-                int? instructorId = await repo.GetCourseInstructorIdAsync(courseId);
-                bool isInstructor = callerId == instructorId;
-                bool isOwner = review.user_id == callerId;
-
-                if (!isInstructor && !isOwner)
-                    return MyResult<bool>.Failure(ErrorType.Unauthorized, "Access denied.");
-            }
+            if (!isAdmin && !isOwner)
+                return MyResult<bool>.Failure(ErrorType.Unauthorized, "Access denied.");
 
             bool deleted = await repo.DeleteReviewAsync(reviewId);
             if (!deleted)

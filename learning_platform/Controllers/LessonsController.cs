@@ -69,11 +69,14 @@ namespace Api.Controllers
             return Ok(result.Value);
         }
 
-        [AllowAnonymous]
         [HttpGet("{id}")]
         public async Task<ActionResult<LessonDto>> GetLesson(int id)
         {
-            var result = await lessonService.GetLessonAsync(id);
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int callerId))
+                return Unauthorized("Invalid or missing user identity.");
+
+            bool isAdmin = User.IsInRole("admin");
+            var result = await lessonService.GetLessonAsync(id, callerId, isAdmin);
 
             if (!result.IsSuccess)
             {

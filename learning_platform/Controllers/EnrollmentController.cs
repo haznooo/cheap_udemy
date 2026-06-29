@@ -44,7 +44,34 @@ namespace Api.Controllers
             return Ok(result.Value);
         }
 
-        [HttpGet("user/{userId}")]
+        // The caller's own enrollments (identity from the access token).
+        [HttpGet("me")]
+        public async Task<ActionResult<PageResult<EnrollmentDto>>> GetMyEnrollments(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10)
+        {
+            if (CallerId is not int callerId) return Unauthorized();
+
+            var service = new EnrollmentService(context);
+            var result = await service.GetUserEnrollments(callerId, CallerRole, callerId, pageNumber, pageSize);
+
+            if (!result.IsSuccess)
+            {
+                return result.FailureType switch
+                {
+                    ErrorType.BadRequest => BadRequest(result.Errors),
+                    ErrorType.NotFound => NotFound(result.Errors),
+                    ErrorType.Unauthorized => Forbid(),
+                    _ => StatusCode(500, "An unexpected error occurred")
+                };
+            }
+
+            return Ok(result.Value);
+        }
+
+        // Read another user's enrollments — admin only.
+        [HttpGet("user/{userId:int}")]
+        [Authorize(Roles = "admin")]
         public async Task<ActionResult<PageResult<EnrollmentDto>>> GetUserEnrollments(
             int userId,
             [FromQuery] int pageNumber = 1,

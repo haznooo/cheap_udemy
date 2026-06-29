@@ -41,7 +41,6 @@ namespace Api.Controllers
             return Ok(result.Value);
         }
 
-        [AllowAnonymous]
         [HttpGet]
         public async Task<ActionResult<List<ReviewDto>>> GetReviews(int courseId)
         {

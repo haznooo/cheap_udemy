@@ -174,11 +174,20 @@ namespace Business.Services
             return MyResult<bool>.Success(true);
         }
 
-        public async Task<MyResult<List<LessonDto>>> GetCourseLessons(int courseId)
+        // Lesson curriculum is enrollment-gated: only the owning instructor, an admin,
+        // or a student with an active/completed enrollment may see it. Everyone else gets 404
+        // (hide the curriculum so it can't be browsed without enrolling).
+        public async Task<MyResult<List<LessonDto>>> GetCourseLessons(int courseId, int callerId, bool isAdmin)
         {
             if (courseId <= 0)
             {
                 return MyResult<List<LessonDto>>.Failure(ErrorType.BadRequest, "Invalid course ID.");
+            }
+
+            var enrollmentRepo = new EnrollmentRepository(context);
+            if (!await enrollmentRepo.CanViewCourseContentAsync(courseId, callerId, isAdmin))
+            {
+                return MyResult<List<LessonDto>>.Failure(ErrorType.NotFound, "Course not found.");
             }
 
             CoursesRepository repo = new CoursesRepository(context);
