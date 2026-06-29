@@ -1,5 +1,6 @@
 ﻿
 using DataAccess;
+using DataAccess.DependencyInjection;
 
 namespace Api
 {
