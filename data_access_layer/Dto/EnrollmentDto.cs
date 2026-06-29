@@ -11,4 +11,13 @@ namespace DataAccess.Dto
         public string Status { get; set; }
         public decimal ProgressPercentage { get; set; }
     }
+
+    // Minimal course fields needed to decide whether a student may enroll.
+    public class CourseEnrollmentInfoDto
+    {
+        public int InstructorId { get; set; }
+        public string Status { get; set; }
+        public bool IsDeleted { get; set; }
+        public decimal Price { get; set; }
+    }
 }

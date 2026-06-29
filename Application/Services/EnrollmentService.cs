@@ -21,6 +21,19 @@ namespace Business.Services
 
             var repo = new EnrollmentRepository(context);
 
+            var course = await repo.GetCourseEnrollmentInfoAsync(request.CourseId);
+
+            // Treat draft/retired/deleted courses as non-existent (don't reveal unpublished courses).
+            if (course == null || course.IsDeleted || course.Status != "published")
+                return MyResult<EnrollmentDto>.Failure(ErrorType.NotFound, "Course not found.");
+
+            if (course.InstructorId == callerId)
+                return MyResult<EnrollmentDto>.Failure(ErrorType.BadRequest, "Instructors cannot enroll in their own course.");
+
+            // No payment flow exists, so only free courses can be enrolled.
+            if (course.Price > 0)
+                return MyResult<EnrollmentDto>.Failure(ErrorType.BadRequest, "This course requires payment, which is not supported yet.");
+
             string? existingStatus = await repo.GetEnrollmentStatusAsync(callerId, request.CourseId);
 
             if (existingStatus != null && existingStatus != "dropped")

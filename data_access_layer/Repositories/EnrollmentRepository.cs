@@ -24,6 +24,21 @@ namespace DataAccess.Repositories
                 .FirstOrDefaultAsync();
         }
 
+        // Course fields needed to decide enrollment eligibility (null if the course doesn't exist).
+        public async Task<CourseEnrollmentInfoDto?> GetCourseEnrollmentInfoAsync(int courseId)
+        {
+            return await context.Courses
+                .Where(c => c.course_id == courseId)
+                .Select(c => new CourseEnrollmentInfoDto
+                {
+                    InstructorId = c.instructor_id,
+                    Status = c.status,
+                    IsDeleted = c.deleted_at != null,
+                    Price = c.price
+                })
+                .FirstOrDefaultAsync();
+        }
+
         public async Task<int?> GetCourseIdByLessonAsync(int lessonId)
         {
             return await context.Lessons
