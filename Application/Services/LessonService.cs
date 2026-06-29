@@ -197,7 +197,6 @@ namespace Business.Services
         {
             return ValidateBlockData(request.ContentBlocks);
         }
-
         private List<string> ValidateBlockData(List<ContentBlockRequest> blocks)
         {
             var errors = new List<string>();

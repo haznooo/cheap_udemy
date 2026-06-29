@@ -111,7 +111,6 @@ namespace Business.Services
             });
         }
 
-        // callerId (from the JWT) is the only user whose progress can be marked.
         public async Task<MyResult<EnrollmentDto>> MarkLessonProgress(int callerId, MarkLessonProgressRequest request)
         {
             if (callerId <= 0)
@@ -167,8 +166,6 @@ namespace Business.Services
 
             return MyResult<List<LessonProgressDto>>.Success(progress);
         }
-
-        // callerId (from the JWT) can only drop their own enrollment.
         public async Task<MyResult<bool>> DropEnrollment(int callerId, DropEnrollmentRequest request)
         {
             if (callerId <= 0)
