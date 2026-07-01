@@ -1,5 +1,3 @@
-﻿using System.Security.Claims;
-using Business.Common;
 using Business.Dto.Request;
 using DataAccess.Dto;
 using Microsoft.AspNetCore.Authorization;
@@ -13,36 +11,24 @@ namespace Api.Controllers
     [ApiController]
     [Route("api/Lessons")]
     [Authorize]
-    public class LessonsController(LessonService lessonService) : ControllerBase
+    public class LessonsController(LessonService lessonService) : ApiControllerBase
     {
         [HttpPost("add")]
         public async Task<ActionResult<LessonDto>> CreateLesson([FromBody] LessonRequest request)
         {
             // Caller identity comes from the JWT; lesson ownership is resolved
             // through the section's course in the service layer.
-            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int callerId))
-            {
-                return Unauthorized("Invalid or missing user identity.");
-            }
+            if (CallerId is not int callerId) return MissingIdentity();
+
             if (string.IsNullOrWhiteSpace(request.Title))
             {
-                return BadRequest("Lesson title is required.");
+                return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Lesson title is required.");
             }
 
             bool isAdmin = User.IsInRole("admin");
             var result = await lessonService.CreateLessonAsync(request, callerId, isAdmin);
 
-            if (!result.IsSuccess)
-            {
-                return result.FailureType switch
-                {
-                    ErrorType.NotFound => NotFound(result.Errors),
-                    ErrorType.BadRequest => BadRequest(result.Errors),
-                    ErrorType.Conflict => Conflict(result.Errors),
-                    ErrorType.Unauthorized => Unauthorized(result.Errors),
-                    _ => StatusCode(500, "An unexpected error occurred")
-                };
-            }
+            if (!result.IsSuccess) return MapFailure(result);
 
             return CreatedAtAction(nameof(GetLesson), new { id = result.Value.LessonId }, result.Value);
         }
@@ -50,21 +36,12 @@ namespace Api.Controllers
         [HttpPut("{id}")]
         public async Task<ActionResult<LessonDto>> UpdateLesson(int id, [FromBody] UpdateLessonRequest request)
         {
-            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int callerId))
-                return Unauthorized("Invalid or missing user identity.");
+            if (CallerId is not int callerId) return MissingIdentity();
 
             bool isAdmin = User.IsInRole("admin");
             var result = await lessonService.UpdateLessonAsync(id, request, callerId, isAdmin);
 
-            if (!result.IsSuccess)
-                return result.FailureType switch
-                {
-                    ErrorType.NotFound => NotFound(result.Errors),
-                    ErrorType.BadRequest => BadRequest(result.Errors),
-                    ErrorType.Conflict => Conflict(result.Errors),
-                    ErrorType.Unauthorized => Unauthorized(result.Errors),
-                    _ => StatusCode(500, "An unexpected error occurred")
-                };
+            if (!result.IsSuccess) return MapFailure(result);
 
             return Ok(result.Value);
         }
@@ -72,23 +49,12 @@ namespace Api.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<LessonDto>> GetLesson(int id)
         {
-            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int callerId))
-                return Unauthorized("Invalid or missing user identity.");
+            if (CallerId is not int callerId) return MissingIdentity();
 
             bool isAdmin = User.IsInRole("admin");
             var result = await lessonService.GetLessonAsync(id, callerId, isAdmin);
 
-            if (!result.IsSuccess)
-            {
-                return result.FailureType switch
-                {
-                    ErrorType.NotFound => NotFound(result.Errors),
-                    ErrorType.BadRequest => BadRequest(result.Errors),
-                    ErrorType.Conflict => Conflict(result.Errors),
-                    ErrorType.Unauthorized => Unauthorized(result.Errors),
-                    _ => StatusCode(500, "An unexpected error occurred")
-                };
-            }
+            if (!result.IsSuccess) return MapFailure(result);
 
             return Ok(result.Value);
         }

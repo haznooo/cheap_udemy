@@ -28,6 +28,17 @@ namespace CheapUdemy
             {
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
+                // Friendly ProblemDetails body on rejection; deliberately doesn't expose the exact limits.
+                options.OnRejected = async (context, cancellationToken) =>
+                {
+                    await context.HttpContext.Response.WriteAsJsonAsync(new Microsoft.AspNetCore.Mvc.ProblemDetails
+                    {
+                        Status = StatusCodes.Status429TooManyRequests,
+                        Title = "Too Many Requests",
+                        Detail = "Too many requests. Please try again later."
+                    }, options: null, contentType: "application/problem+json", cancellationToken);
+                };
+
                 // Global limiter: applies to every request (20/min per IP).
                 options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
                 {
@@ -45,6 +56,11 @@ namespace CheapUdemy
             });
 
             builder.Services.AddControllers();
+
+            // RFC 7807 ProblemDetails as the single error contract: powers the parameterless
+            // UseExceptionHandler/UseStatusCodePages below so even middleware-generated errors
+            // (401/403 from JWT auth, unhandled 500s) carry the same JSON body the controllers emit.
+            builder.Services.AddProblemDetails();
 
             builder.Services.AddOpenApi();
 
@@ -122,6 +138,11 @@ namespace CheapUdemy
 
             // Configure the HTTP request pipeline.
 
+            // Unhandled exceptions → 500 ProblemDetails (no stack trace leaked);
+            // empty-body 4xx/5xx (e.g. 401/403 from the JWT middleware) → ProblemDetails.
+            app.UseExceptionHandler();
+            app.UseStatusCodePages();
+
             app.UseForwardedHeaders(new ForwardedHeadersOptions
             {
                 ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
@@ -145,17 +166,6 @@ namespace CheapUdemy
             app.UseCors("CheapUdemyApiCorsPolicy");
 
             app.UseRateLimiter();      // before auth: block abusive requests early
-
-            // Friendly message on 429 without exposing the exact limits
-            app.Use(async (context, next) =>
-            {
-                await next();
-
-                if (context.Response.StatusCode == StatusCodes.Status429TooManyRequests)
-                {
-                    await context.Response.WriteAsync("Too many login attempts. Please try again later.");
-                }
-            });
 
             app.UseAuthentication();
             app.UseAuthorization();

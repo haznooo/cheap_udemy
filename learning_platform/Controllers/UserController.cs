@@ -1,5 +1,4 @@
 ﻿using System.Security.Claims;
-using Business.Common;
 using Business.Dto.Request;
 using Business.Dto.Rsponse;
 using Business.Services;
@@ -13,32 +12,20 @@ namespace Api.Controllers
     [ApiController]
     [Route("api/user")]
     [Authorize]
-    public class UserController(AppDbContext context, ILogger<UserController> logger, IMediaService mediaService) : ControllerBase
+    public class UserController(AppDbContext context, ILogger<UserController> logger, IMediaService mediaService) : ApiControllerBase
     {
         // 5 MB limit for avatars; images only.
         private const long MaxAvatarSize = 5 * 1024 * 1024;
         private readonly string[] _allowedImageExtensions = { ".jpg", ".jpeg", ".png" };
 
-        // The caller's own id, taken from the access token (never from the URL).
-        private int? CallerId =>
-            int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int id) ? id : null;
-
-        // Maps a service failure to the matching HTTP status.
-        private ActionResult MapFailure<T>(MyResult<T> result) => result.FailureType switch
-        {
-            ErrorType.NotFound => NotFound(result.Errors),
-            ErrorType.BadRequest => BadRequest(result.Errors),
-            ErrorType.Conflict => Conflict(result.Errors),
-            ErrorType.Unauthorized => Unauthorized(result.Errors),
-            _ => StatusCode(500, "An unexpected error occurred")
-        };
+        // CallerId + MapFailure (MyResult → ProblemDetails) come from ApiControllerBase.
 
         // ---- Self endpoints (identity from the access token) ----
 
         [HttpGet("me")]
         public async Task<ActionResult<UserProfileResponse>> GetMyProfile()
         {
-            if (CallerId is not int callerId) return Unauthorized();
+            if (CallerId is not int callerId) return MissingIdentity();
 
             var result = await new UserService(context).GetUserProfile(callerId);
             return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
@@ -48,20 +35,20 @@ namespace Api.Controllers
         [HttpPost("me/avatar")]
         public async Task<ActionResult> SetMyAvatar(IFormFile file)
         {
-            if (CallerId is not int callerId) return Unauthorized();
+            if (CallerId is not int callerId) return MissingIdentity();
 
             if (file == null || file.Length == 0)
             {
-                return BadRequest("No file was uploaded.");
+                return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "No file was uploaded.");
             }
             if (file.Length > MaxAvatarSize)
             {
-                return BadRequest($"File exceeds the maximum limit of {MaxAvatarSize / (1024 * 1024)}MB.");
+                return Problem(statusCode: StatusCodes.Status400BadRequest, detail: $"File exceeds the maximum limit of {MaxAvatarSize / (1024 * 1024)}MB.");
             }
             var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
             if (string.IsNullOrEmpty(extension) || !_allowedImageExtensions.Contains(extension))
             {
-                return BadRequest("Invalid file type. Only JPG and PNG are allowed.");
+                return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Invalid file type. Only JPG and PNG are allowed.");
             }
 
             var fileName = await mediaService.UploadFileAsync(file);
@@ -73,7 +60,7 @@ namespace Api.Controllers
         [HttpPost("me/password")]
         public async Task<ActionResult<bool>> UpdateMyPassword([FromBody] UpdatePasswordRequest request)
         {
-            if (CallerId is not int callerId) return Unauthorized();
+            if (CallerId is not int callerId) return MissingIdentity();
 
             var result = await new UserService(context).UpdatePassword(callerId, request);
             return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
@@ -82,7 +69,7 @@ namespace Api.Controllers
         [HttpPut("me/profile")]
         public async Task<ActionResult<UserProfileResponse>> UpdateMyProfile([FromBody] UserProfileRequest ProfileRequest)
         {
-            if (CallerId is not int callerId) return Unauthorized();
+            if (CallerId is not int callerId) return MissingIdentity();
 
             var result = await new UserService(context).UpdateUserProfile(callerId, ProfileRequest);
             return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
@@ -92,7 +79,7 @@ namespace Api.Controllers
         [HttpPost("me/delete")]
         public async Task<ActionResult<bool>> DeleteMyAccount([FromBody] DeleteUserRequest request)
         {
-            if (CallerId is not int callerId) return Unauthorized();
+            if (CallerId is not int callerId) return MissingIdentity();
 
             var result = await new UserService(context).DeleteUser(callerId, request);
             return result.IsSuccess ? Ok(result.Value) : MapFailure(result);

@@ -1,4 +1,5 @@
 
+using Api.Controllers;
 using Business.Common;
 using Business.Dto.Request;
 using Business.Dto.Rsponse;
@@ -19,7 +20,7 @@ namespace CheapUdemy.Controllers
     [ApiController]
     [Route("api/User")]
     [AllowAnonymous] // signUp/login/refresh/logout must stay public under the authenticated-by-default fallback policy
-    public class AuthenticationController(AppDbContext context, IConfiguration configuration, ILogger<AuthenticationController> logger) : ControllerBase
+    public class AuthenticationController(AppDbContext context, IConfiguration configuration, ILogger<AuthenticationController> logger) : ApiControllerBase
     {
 
    
@@ -48,18 +49,9 @@ namespace CheapUdemy.Controllers
       
             // 2. Check the Success flag of the Result pattern
 
+            // Credential failures here really are 401s, unlike the ownership 403s elsewhere.
             if (!result.IsSuccess)
-                {
-                    // Handle all failure types in one switch expression
-                    return result.FailureType switch
-                    {
-                        ErrorType.NotFound => NotFound(result.Errors),
-                        ErrorType.BadRequest => BadRequest(result.Errors),
-                        ErrorType.Conflict => Conflict(result.Errors),
-                        ErrorType.Unauthorized => Unauthorized(result.Errors),
-                        _ => StatusCode(500, "An unexpected error occurred")
-                    };
-                }
+                return MapFailure(result, StatusCodes.Status401Unauthorized);
 
             result.Value.AccessToken = GenerateAccessToken(result.Value);
 
@@ -92,15 +84,7 @@ namespace CheapUdemy.Controllers
                 // Security event only — never log the submitted password or credentials.
                 logger.LogWarning("Failed login attempt from IP {Ip}", ipAddress);
 
-                // Handle all failure types in one switch expression
-                return result.FailureType switch
-                {
-                    ErrorType.NotFound => NotFound(result.Errors),
-                    ErrorType.BadRequest => BadRequest(result.Errors),
-                    ErrorType.Conflict => Conflict(result.Errors),
-                    ErrorType.Unauthorized => Unauthorized(result.Errors),
-                    _ => StatusCode(500, "An unexpected error occurred")
-                };
+                return MapFailure(result, StatusCodes.Status401Unauthorized);
             }
 
 
@@ -125,7 +109,7 @@ namespace CheapUdemy.Controllers
                 ipAddress = "unknown";
 
             if (string.IsNullOrWhiteSpace(request.AccessToken) || string.IsNullOrWhiteSpace(request.RefreshToken))
-                return BadRequest("access token and refresh token are required");
+                return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "access token and refresh token are required");
 
             // Recover the user id from the (possibly expired) access token. Signature is verified;
             // only the lifetime check is skipped. A tampered/garbage token yields null → 401.
@@ -133,7 +117,7 @@ namespace CheapUdemy.Controllers
             if (userId == null)
             {
                 logger.LogWarning("Failed refresh-token attempt (invalid access token) from IP {Ip}", ipAddress);
-                return Unauthorized("invalid access token");
+                return Problem(statusCode: StatusCodes.Status401Unauthorized, detail: "invalid access token");
             }
 
             RefreshTokenService refreshTokenService = new RefreshTokenService(context);
@@ -144,14 +128,7 @@ namespace CheapUdemy.Controllers
             {
                 logger.LogWarning("Failed refresh-token attempt from IP {Ip}", ipAddress);
 
-                return result.FailureType switch
-                {
-                    ErrorType.NotFound => NotFound(result.Errors),
-                    ErrorType.BadRequest => BadRequest(result.Errors),
-                    ErrorType.Conflict => Conflict(result.Errors),
-                    ErrorType.Unauthorized => Unauthorized(result.Errors),
-                    _ => StatusCode(500, "An unexpected error occurred")
-                };
+                return MapFailure(result, StatusCodes.Status401Unauthorized);
             }
 
             result.Value.AccessToken = GenerateAccessToken(result.Value);
