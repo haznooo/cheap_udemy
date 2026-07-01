@@ -180,6 +180,26 @@ There is no test project. All verification is manual via the HTTP API (see `lear
 - **403 logging**: call an `api/user/...` endpoint with a JWT for a _different_ user (non-admin) → `403` + `LogWarning`.
 - **Admin-action auditing**: log in as an `admin`, delete _another_ user via `api/user/Delete/{userId}` → a `delete` row appears in `admin_actions` (immutable; FK/trigger requires the caller's `admin_id` to actually have role `admin` in the DB, or the audit insert is silently swallowed by the repo's try/catch). Self-deletion does **not** create an audit row.
 
+## Custom agents (`.claude/agents/`)
+
+Before starting non-trivial work, check whether one of this project's custom
+subagents fits — names are self-explanatory, no need to open/scan their
+definitions first, just judge from the name+trigger below whether one is
+useful for the task at hand:
+
+- `code-reviewer` — after writing/changing code, before calling it done.
+- `security-audit-reviewer` — after touching auth, tokens, login, user data,
+  or anything security-sensitive.
+- `planner` — only when the user explicitly asks to plan first; not automatic.
+- `motivational-agent` — when the user wants encouragement or perspective on
+  progress; grounds it in real commits/CLAUDE.md state, not generic hype.
+
+When spawning any of them, hand over enough concrete project context (what
+changed, relevant `file:line`s, current state, and pointers to the relevant
+CLAUDE.md sections) so they can reason from the actual project structure
+instead of assuming or guessing — each spawn starts cold with no memory of
+this conversation.
+
 ## CI / infra
 
 `.github/workflows/` is empty. No CI or deployment pipeline configured.
