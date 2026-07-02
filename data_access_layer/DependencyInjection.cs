@@ -21,13 +21,14 @@ namespace DataAccess.DependencyInjection
                 throw new Exception("connection string is not configured in environment variables");
             }
 
-            // Enable dynamic JSON (System.Text.Json) serialization for Npgsql 8+
-            // This allows writing arbitrary .NET types (e.g., List<ContentBlock>) to jsonb columns.
-            NpgsqlConnection.GlobalTypeMapper.EnableDynamicJson();
+            // Enable dynamic JSON (System.Text.Json) serialization for jsonb columns
+            var dataSourceBuilder = new NpgsqlDataSourceBuilder(ConnectionString);
+            dataSourceBuilder.EnableDynamicJson();
+            var dataSource = dataSourceBuilder.Build();
 
             service.AddDbContext<AppDbContext>(options =>
             {
-                options.UseNpgsql(ConnectionString);
+                options.UseNpgsql(dataSource);
 
             });
 
