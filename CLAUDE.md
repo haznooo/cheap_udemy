@@ -78,7 +78,8 @@ Api (learning_platform/Api.csproj)
 | `GET me`                | authenticated | Read your own profile (`UserProfileResponse`).                                                                     |
 | `POST me/avatar`        | authenticated | Multipart `file` (JPG/PNG ≤5 MB) → `IMediaService`, persisted to `users_profile.avatar_url`.                       |
 | `POST me/password`      | authenticated | Change your own password (revokes refresh tokens).                                                                 |
-| `PUT me/profile`        | authenticated | Update your own profile fields.                                                                                    |
+| `POST me/profile`       | authenticated | Create your own profile (409 if one already exists).                                                               |
+| `PUT me/profile`        | authenticated | Update your own profile fields (404 if none exists yet).                                                           |
 | `POST me/delete`        | authenticated | Self-delete (anonymize). **Never** audited (not an admin action).                                                  |
 | `GET {userId}`          | admin         | Read another user's profile.                                                                                       |
 | `POST {userId}/delete`  | admin         | Admin delete another user (anonymize). **Always** audited (`admin_actions` + `LogInformation`).                    |

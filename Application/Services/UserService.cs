@@ -108,14 +108,17 @@ namespace Business.Services
             return MyResult<bool>.Success(true);
         }
 
-        public async Task<MyResult<UserProfileResponse>> AddUpdateUserProfile(int userid, UserProfileRequest request)
+        public async Task<MyResult<UserProfileResponse>> AddUserProfile(int userid, UserProfileRequest request)
         {
-        
             UserAndProfileRepository repo = new UserAndProfileRepository(context);
 
             bool userExists = await repo.DoesUserExistByIdAsync(userid);
 
             if (!userExists) return MyResult<UserProfileResponse>.Failure(ErrorType.NotFound, "user not found");
+
+            bool profileExists = await repo.DoesUserProfileExistAsync(userid);
+
+            if (profileExists) return MyResult<UserProfileResponse>.Failure(ErrorType.Conflict, "user profile already exists");
 
             var profileE = new UserProfileEntity()
             {
@@ -124,20 +127,33 @@ namespace Business.Services
                 country_id = request?.CountryId,
                 image_url = request?.ImageUrl,
                 display_name = request?.DisplayName,
-
             };
+
+            var r = await repo.AddUserProfileAsync(userid, profileE);
+
+            return MyResult<UserProfileResponse>.Success(new UserProfileResponse(r?.display_name, r?.bio, r?.image_url, r?.country_id, r?.country?.name, r?.country?.iso_code));
+        }
+
+        public async Task<MyResult<UserProfileResponse>> UpdateUserProfile(int userid, UserProfileRequest request)
+        {
+            UserAndProfileRepository repo = new UserAndProfileRepository(context);
 
             bool profileExists = await repo.DoesUserProfileExistAsync(userid);
 
-            var r = profileExists
-                ? await repo.UpdateUserProfileByUserIdAsync(userid, profileE)
-                : await repo.AddUserProfileAsync(userid, profileE);
+            if (!profileExists) return MyResult<UserProfileResponse>.Failure(ErrorType.NotFound, "user profile not found");
 
-            return  MyResult<UserProfileResponse>.Success( new UserProfileResponse(r?.display_name, r?.bio, r?.image_url, r?.country_id, r?.country?.name, r?.country?.iso_code));
-                
-               
+            var profileE = new UserProfileEntity()
+            {
+                user_id = userid,
+                bio = request?.Bio,
+                country_id = request?.CountryId,
+                image_url = request?.ImageUrl,
+                display_name = request?.DisplayName,
+            };
 
+            var r = await repo.UpdateUserProfileByUserIdAsync(userid, profileE);
 
+            return MyResult<UserProfileResponse>.Success(new UserProfileResponse(r?.display_name, r?.bio, r?.image_url, r?.country_id, r?.country?.name, r?.country?.iso_code));
         }
 	
 	}

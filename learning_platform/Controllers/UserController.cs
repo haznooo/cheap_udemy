@@ -66,12 +66,21 @@ namespace Api.Controllers
             return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
         }
 
-        [HttpPut("me/add-update-profile")]
+        [HttpPost("me/profile")]
+        public async Task<ActionResult<UserProfileResponse>> AddMyProfile([FromBody] UserProfileRequest ProfileRequest)
+        {
+            if (CallerId is not int callerId) return MissingIdentity();
+
+            var result = await new UserService(context).AddUserProfile(callerId, ProfileRequest);
+            return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
+        }
+
+        [HttpPut("me/profile")]
         public async Task<ActionResult<UserProfileResponse>> UpdateMyProfile([FromBody] UserProfileRequest ProfileRequest)
         {
             if (CallerId is not int callerId) return MissingIdentity();
 
-            var result = await new UserService(context).AddUpdateUserProfile(callerId, ProfileRequest);
+            var result = await new UserService(context).UpdateUserProfile(callerId, ProfileRequest);
             return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
         }
 
