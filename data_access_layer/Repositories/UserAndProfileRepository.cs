@@ -353,8 +353,6 @@ namespace DataAccess.Repositories
 
         }
 
-
-
         // profile
         public async Task<UserProfileDto?> GetUserProfileByIdAsync(int userId)
         {
@@ -383,35 +381,42 @@ namespace DataAccess.Repositories
             return true;
         }
 
-        public async Task<UserProfileEntity> AddUpdateUserProfileByUserIdAsync(int UserId, UserProfileEntity NewUserProfileData)
+        public async Task<UserProfileEntity> AddUserProfileAsync(int UserId, UserProfileEntity NewUserProfileData)
         {
+            var userProfileE = new UserProfileEntity
+            {
+                user_id = UserId,
+                bio = NewUserProfileData.bio,
+                image_url = NewUserProfileData.image_url,
+                country_id = NewUserProfileData.country_id,
+                display_name = NewUserProfileData.display_name
+            };
 
-            // 1. Fetch the existing entity from the database
+            context.UsersProfile.Add(userProfileE);
+            await context.SaveChangesAsync();
+
+            // Load the country navigation so the caller can read it off the returned entity
+            if (userProfileE.country_id != null)
+                await context.Entry(userProfileE).Reference(up => up.country).LoadAsync();
+
+            return userProfileE;
+        }
+
+        public async Task<UserProfileEntity> UpdateUserProfileByUserIdAsync(int UserId, UserProfileEntity NewUserProfileData)
+        {
             var userProfileE = await context.UsersProfile
                 .Include(up => up.country) // Eager load the country if you need to return it
                 .FirstOrDefaultAsync(up => up.user_id == UserId);
 
-            //if i deleted this check i will be able to update the profile of a user that does not have a profile yet (so i will create it for them)
-            if (userProfileE == null)
-            {
-                userProfileE = new UserProfileEntity
-                {
-                    user_id = UserId
-                };
-                context.UsersProfile.Add(userProfileE);
-            }
+            if (userProfileE == null) return null;
 
-            // 2. Update properties
             userProfileE.bio = NewUserProfileData.bio;
             userProfileE.image_url = NewUserProfileData.image_url;
             userProfileE.country_id = NewUserProfileData.country_id;
             userProfileE.display_name = NewUserProfileData.display_name;
 
-            // 3. Save changes
-            // EF automatically detects the changes made to the properties above
-            int results = await context.SaveChangesAsync();
+            await context.SaveChangesAsync();
 
-            // 4. Return the updated tracked entity
             return userProfileE;
         }
 
@@ -429,6 +434,10 @@ namespace DataAccess.Repositories
         public async Task<bool> DoesUserExistByIdAsync(int userId)
         {
             return await context.Users.AnyAsync(e => e.user_id == userId && e.status != "deleted");
+        }
+        public async Task<bool> DoesUserProfileExistAsync(int userId)
+        {
+            return await context.UsersProfile.AnyAsync(p => p.user_id == userId);
         }
 
         //custom elemnts
