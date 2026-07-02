@@ -275,15 +275,21 @@ namespace DataAccess.Repositories
             }
         }
 
-        public async Task<List<LessonProgressDto>?> GetUserCourseProgressAsync(int userId, int courseId)
+        public async Task<PageResult<LessonProgressDto>> GetUserCourseProgressAsync(int userId, int courseId, int pageNumber, int pageSize)
         {
             try
             {
-                return await context.Lessons
+                var query = context.Lessons
                     .Where(l => l.section.course_id == courseId && l.section.course.deleted_at == null)
+                    .AsNoTracking();
+
+                var totalCount = await query.CountAsync();
+
+                var items = await query
                     .OrderBy(l => l.section.sort_order)
                     .ThenBy(l => l.sort_order)
-                    .AsNoTracking()
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
                     .Select(l => new LessonProgressDto
                     {
                         LessonId = l.lesson_id,
@@ -296,6 +302,14 @@ namespace DataAccess.Repositories
                             .FirstOrDefault()
                     })
                     .ToListAsync();
+
+                return new PageResult<LessonProgressDto>
+                {
+                    Items = items,
+                    TotalCount = totalCount,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize
+                };
             }
             catch (Exception ex)
             {

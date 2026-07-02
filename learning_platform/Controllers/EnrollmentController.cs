@@ -91,12 +91,15 @@ namespace Api.Controllers
         }
 
         [HttpGet("progress/{courseId}")]
-        public async Task<ActionResult<List<LessonProgressDto>>> GetCourseProgress(int courseId)
+        public async Task<ActionResult<PageResult<LessonProgressDto>>> GetCourseProgress(
+            int courseId,
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10)
         {
             if (CallerId is not int callerId) return MissingIdentity();
 
             var service = new EnrollmentService(context);
-            var result = await service.GetCourseProgress(callerId, courseId);
+            var result = await service.GetCourseProgress(callerId, courseId, pageNumber, pageSize);
 
             if (!result.IsSuccess) return MapFailure(result);
 

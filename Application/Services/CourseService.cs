@@ -177,28 +177,39 @@ namespace Business.Services
         // Lesson curriculum is enrollment-gated: only the owning instructor, an admin,
         // or a student with an active/completed enrollment may see it. Everyone else gets 404
         // (hide the curriculum so it can't be browsed without enrolling).
-        public async Task<MyResult<List<LessonDto>>> GetCourseLessons(int courseId, int callerId, bool isAdmin)
+        public async Task<MyResult<PageResult<LessonDto>>> GetCourseLessons(int courseId, int callerId, bool isAdmin, int pageNumber, int pageSize)
         {
             if (courseId <= 0)
             {
-                return MyResult<List<LessonDto>>.Failure(ErrorType.BadRequest, "Invalid course ID.");
+                return MyResult<PageResult<LessonDto>>.Failure(ErrorType.BadRequest, "Invalid course ID.");
+            }
+
+            if (pageNumber <= 0 || pageSize <= 0)
+            {
+                return MyResult<PageResult<LessonDto>>.Failure(ErrorType.BadRequest, "Invalid page number or page size.");
             }
 
             var enrollmentRepo = new EnrollmentRepository(context);
             if (!await enrollmentRepo.CanViewCourseContentAsync(courseId, callerId, isAdmin))
             {
-                return MyResult<List<LessonDto>>.Failure(ErrorType.NotFound, "Course not found.");
+                return MyResult<PageResult<LessonDto>>.Failure(ErrorType.NotFound, "Course not found.");
             }
 
             CoursesRepository repo = new CoursesRepository(context);
-            var lessons = await repo.GetCourseLessons(courseId);
+            var lessons = await repo.GetCourseLessons(courseId, pageNumber, pageSize);
 
             if (lessons == null)
             {
-                return MyResult<List<LessonDto>>.Failure(ErrorType.NotFound, "Failed to retrieve lessons.");
+                return MyResult<PageResult<LessonDto>>.Failure(ErrorType.NotFound, "Failed to retrieve lessons.");
             }
 
-            return MyResult<List<LessonDto>>.Success(lessons);
+            return MyResult<PageResult<LessonDto>>.Success(new PageResult<LessonDto>
+            {
+                Items = lessons.Items,
+                TotalCount = lessons.TotalCount,
+                PageNumber = lessons.PageNumber,
+                PageSize = lessons.PageSize
+            });
         }
 
         public async Task<MyResult<PageResult<CourseDto>>> GetInstructorCourses(int instructorId, int callerId, string callerRole, int pageNumber, int pageSize)

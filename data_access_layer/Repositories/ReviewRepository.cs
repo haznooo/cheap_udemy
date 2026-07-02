@@ -2,6 +2,7 @@ using DataAccess.Data;
 using DataAccess.Dto;
 using DataAccess.Entities;
 using Microsoft.EntityFrameworkCore;
+using static DataAccess.Common.clsPageResult;
 
 namespace DataAccess.Repositories
 {
@@ -41,14 +42,20 @@ namespace DataAccess.Repositories
         }
 
 
-        public async Task<List<ReviewDto>?> GetReviewsByCourseIdAsync(int courseId)
+        public async Task<PageResult<ReviewDto>> GetReviewsByCourseIdAsync(int courseId, int pageNumber, int pageSize)
         {
             try
             {
-                return await context.Reviews
+                var query = context.Reviews
                     .Where(r => r.course_id == courseId)
+                    .AsNoTracking();
+
+                var totalCount = await query.CountAsync();
+
+                var items = await query
                     .OrderByDescending(r => r.created_at)
-                    .AsNoTracking()
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
                     .Select(r => new ReviewDto
                     {
                         ReviewId = r.review_id,
@@ -61,6 +68,14 @@ namespace DataAccess.Repositories
                         UpdatedAt = r.updated_at
                     })
                     .ToListAsync();
+
+                return new PageResult<ReviewDto>
+                {
+                    Items = items,
+                    TotalCount = totalCount,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize
+                };
             }
             catch (Exception ex)
             {

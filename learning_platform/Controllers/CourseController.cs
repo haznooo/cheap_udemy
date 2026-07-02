@@ -134,13 +134,16 @@ namespace Api.Controllers
 
         [Authorize]
         [HttpGet("{courseId}/lessons")]
-        public async Task<ActionResult<List<LessonDto>>> GetCourseLessons(int courseId)
+        public async Task<ActionResult<clsPageResult.PageResult<LessonDto>>> GetCourseLessons(
+            int courseId,
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10)
         {
             if (CallerId is not int callerId) return MissingIdentity();
 
             bool isAdmin = User.IsInRole("admin");
             var courseService = new CourseService(context);
-            var Result = await courseService.GetCourseLessons(courseId, callerId, isAdmin);
+            var Result = await courseService.GetCourseLessons(courseId, callerId, isAdmin, pageNumber, pageSize);
 
             if (!Result.IsSuccess) return MapFailure(Result);
 

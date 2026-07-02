@@ -4,6 +4,7 @@ using DataAccess.Data;
 using DataAccess.Dto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using static Business.Common.clsPageResult;
 
 namespace Api.Controllers
 {
@@ -27,10 +28,13 @@ namespace Api.Controllers
         }
 
         [HttpGet("get")]
-        public async Task<ActionResult<List<ReviewDto>>> GetReviews(int courseId)
+        public async Task<ActionResult<PageResult<ReviewDto>>> GetReviews(
+            int courseId,
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10)
         {
             var service = new ReviewService(context);
-            var result = await service.GetCourseReviews(courseId);
+            var result = await service.GetCourseReviews(courseId, pageNumber, pageSize);
 
             if (!result.IsSuccess) return MapFailure(result);
 

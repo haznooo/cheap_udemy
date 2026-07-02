@@ -4,6 +4,7 @@ using DataAccess.Data;
 using DataAccess.Dto;
 using DataAccess.Entities;
 using DataAccess.Repositories;
+using static Business.Common.clsPageResult;
 
 namespace Business.Services
 {
@@ -62,22 +63,31 @@ namespace Business.Services
         }
 
         // Any logged-in user can read a course's reviews (controller requires authentication).
-        public async Task<MyResult<List<ReviewDto>>> GetCourseReviews(int courseId)
+        public async Task<MyResult<PageResult<ReviewDto>>> GetCourseReviews(int courseId, int pageNumber, int pageSize)
         {
             if (courseId <= 0)
-                return MyResult<List<ReviewDto>>.Failure(ErrorType.BadRequest, "Invalid course ID.");
+                return MyResult<PageResult<ReviewDto>>.Failure(ErrorType.BadRequest, "Invalid course ID.");
+
+            if (pageNumber <= 0 || pageSize <= 0)
+                return MyResult<PageResult<ReviewDto>>.Failure(ErrorType.BadRequest, "Invalid page number or page size.");
 
             var repo = new ReviewRepository(context);
 
             int? instructorId = await repo.GetCourseInstructorIdAsync(courseId);
             if (instructorId == null)
-                return MyResult<List<ReviewDto>>.Failure(ErrorType.NotFound, "Course not found.");
+                return MyResult<PageResult<ReviewDto>>.Failure(ErrorType.NotFound, "Course not found.");
 
-            var reviews = await repo.GetReviewsByCourseIdAsync(courseId);
+            var reviews = await repo.GetReviewsByCourseIdAsync(courseId, pageNumber, pageSize);
             if (reviews == null)
-                return MyResult<List<ReviewDto>>.Failure(ErrorType.Failure, "Failed to retrieve reviews.");
+                return MyResult<PageResult<ReviewDto>>.Failure(ErrorType.Failure, "Failed to retrieve reviews.");
 
-            return MyResult<List<ReviewDto>>.Success(reviews);
+            return MyResult<PageResult<ReviewDto>>.Success(new PageResult<ReviewDto>
+            {
+                Items = reviews.Items,
+                TotalCount = reviews.TotalCount,
+                PageNumber = reviews.PageNumber,
+                PageSize = reviews.PageSize
+            });
         }
 
         // Only the review owner can update their own review.

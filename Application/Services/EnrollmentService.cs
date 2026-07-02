@@ -159,25 +159,34 @@ namespace Business.Services
             return MyResult<EnrollmentDto>.Success(result);
         }
 
-        public async Task<MyResult<List<LessonProgressDto>>> GetCourseProgress(int callerId, int courseId)
+        public async Task<MyResult<PageResult<LessonProgressDto>>> GetCourseProgress(int callerId, int courseId, int pageNumber, int pageSize)
         {
             if (courseId <= 0)
-                return MyResult<List<LessonProgressDto>>.Failure(ErrorType.BadRequest, "Invalid course ID.");
+                return MyResult<PageResult<LessonProgressDto>>.Failure(ErrorType.BadRequest, "Invalid course ID.");
+
+            if (pageNumber <= 0 || pageSize <= 0)
+                return MyResult<PageResult<LessonProgressDto>>.Failure(ErrorType.BadRequest, "Invalid page number or page size.");
 
             var repo = new EnrollmentRepository(context);
 
             string? enrollmentStatus = await repo.GetEnrollmentStatusAsync(callerId, courseId);
             if (enrollmentStatus == null)
-                return MyResult<List<LessonProgressDto>>.Failure(ErrorType.NotFound, "You are not enrolled in this course.");
+                return MyResult<PageResult<LessonProgressDto>>.Failure(ErrorType.NotFound, "You are not enrolled in this course.");
 
             if (enrollmentStatus is "dropped" or "suspended")
-                return MyResult<List<LessonProgressDto>>.Failure(ErrorType.Unauthorized, "Enrollment is not active.");
+                return MyResult<PageResult<LessonProgressDto>>.Failure(ErrorType.Unauthorized, "Enrollment is not active.");
 
-            var progress = await repo.GetUserCourseProgressAsync(callerId, courseId);
+            var progress = await repo.GetUserCourseProgressAsync(callerId, courseId, pageNumber, pageSize);
             if (progress == null)
-                return MyResult<List<LessonProgressDto>>.Failure(ErrorType.Failure, "Failed to retrieve progress.");
+                return MyResult<PageResult<LessonProgressDto>>.Failure(ErrorType.Failure, "Failed to retrieve progress.");
 
-            return MyResult<List<LessonProgressDto>>.Success(progress);
+            return MyResult<PageResult<LessonProgressDto>>.Success(new PageResult<LessonProgressDto>
+            {
+                Items = progress.Items,
+                TotalCount = progress.TotalCount,
+                PageNumber = progress.PageNumber,
+                PageSize = progress.PageSize
+            });
         }
         public async Task<MyResult<bool>> DropEnrollment(int callerId, DropEnrollmentRequest request)
         {
