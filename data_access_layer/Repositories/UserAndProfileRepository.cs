@@ -383,7 +383,7 @@ namespace DataAccess.Repositories
             return true;
         }
 
-        public async Task<UserProfileEntity> UpdateUserProfileByUserIdAsync(int UserId, UserProfileEntity NewUserProfileData)
+        public async Task<UserProfileEntity> AddUpdateUserProfileByUserIdAsync(int UserId, UserProfileEntity NewUserProfileData)
         {
 
             // 1. Fetch the existing entity from the database
@@ -391,7 +391,15 @@ namespace DataAccess.Repositories
                 .Include(up => up.country) // Eager load the country if you need to return it
                 .FirstOrDefaultAsync(up => up.user_id == UserId);
 
-            if (userProfileE == null) return null;
+            //if i deleted this check i will be able to update the profile of a user that does not have a profile yet (so i will create it for them)
+            if (userProfileE == null)
+            {
+                userProfileE = new UserProfileEntity
+                {
+                    user_id = UserId
+                };
+                context.UsersProfile.Add(userProfileE);
+            }
 
             // 2. Update properties
             userProfileE.bio = NewUserProfileData.bio;

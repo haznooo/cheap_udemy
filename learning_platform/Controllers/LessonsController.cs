@@ -33,7 +33,7 @@ namespace Api.Controllers
             return CreatedAtAction(nameof(GetLesson), new { id = result.Value.LessonId }, result.Value);
         }
 
-        [HttpPut("{id}")]
+        [HttpPut("update/{id}")]
         public async Task<ActionResult<LessonDto>> UpdateLesson(int id, [FromBody] UpdateLessonRequest request)
         {
             if (CallerId is not int callerId) return MissingIdentity();
@@ -46,7 +46,7 @@ namespace Api.Controllers
             return Ok(result.Value);
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("get/{id}")]
         public async Task<ActionResult<LessonDto>> GetLesson(int id)
         {
             if (CallerId is not int callerId) return MissingIdentity();

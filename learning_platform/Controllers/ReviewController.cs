@@ -12,7 +12,8 @@ namespace Api.Controllers
     [Route("api/Courses/{courseId}/reviews")]
     public class ReviewController(AppDbContext context) : ApiControllerBase
     {
-        [HttpPost]
+
+        [HttpPost("add")]
         public async Task<ActionResult<ReviewDto>> AddReview(int courseId, [FromBody] AddReviewRequest request)
         {
             if (CallerId is not int callerId) return MissingIdentity();
@@ -25,7 +26,7 @@ namespace Api.Controllers
             return Ok(result.Value);
         }
 
-        [HttpGet]
+        [HttpGet("get")]
         public async Task<ActionResult<List<ReviewDto>>> GetReviews(int courseId)
         {
             var service = new ReviewService(context);
@@ -36,7 +37,7 @@ namespace Api.Controllers
             return Ok(result.Value);
         }
 
-        [HttpPut]
+        [HttpPut("update/{id}")]
         public async Task<ActionResult<ReviewDto>> UpdateReview(int courseId, [FromBody] UpdateReviewRequest request)
         {
             if (CallerId is not int callerId) return MissingIdentity();
@@ -49,7 +50,7 @@ namespace Api.Controllers
             return Ok(result.Value);
         }
 
-        [HttpDelete("{reviewId}")]
+        [HttpDelete("delete/{reviewId}")]
         public async Task<ActionResult<bool>> DeleteReview(int courseId, int reviewId)
         {
             if (CallerId is not int callerId) return MissingIdentity();

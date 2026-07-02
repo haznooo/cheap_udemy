@@ -260,7 +260,7 @@ namespace Business.Services
             return MyResult<bool>.Success(true);
         }
 
-        public async Task<MyResult<UserProfileResponse>> UpdateUserProfile(int userid, UserProfileRequest request)
+        public async Task<MyResult<UserProfileResponse>> AddUpdateUserProfile(int userid, UserProfileRequest request)
         {
         
             UserAndProfileRepository repo = new UserAndProfileRepository(context);
@@ -279,7 +279,7 @@ namespace Business.Services
 
             };
 
-           var r = await  repo.UpdateUserProfileByUserIdAsync(userid, profileE);
+           var r = await  repo.AddUpdateUserProfileByUserIdAsync(userid, profileE);
 
             return  MyResult<UserProfileResponse>.Success( new UserProfileResponse(r?.display_name, r?.bio, r?.image_url, r?.country_id, r?.country?.name, r?.country?.iso_code));
                 

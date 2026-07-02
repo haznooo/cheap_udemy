@@ -28,7 +28,7 @@ namespace Api.Controllers
         }
 
         // The caller's own enrollments (identity from the access token).
-        [HttpGet("me")]
+        [HttpGet("me/enrollments")]
         public async Task<ActionResult<PageResult<EnrollmentDto>>> GetMyEnrollments(
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10)

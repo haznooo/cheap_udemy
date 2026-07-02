@@ -22,7 +22,7 @@ namespace Api.Controllers
 
         // ---- Self endpoints (identity from the access token) ----
 
-        [HttpGet("me")]
+        [HttpGet("me/profile")]
         public async Task<ActionResult<UserProfileResponse>> GetMyProfile()
         {
             if (CallerId is not int callerId) return MissingIdentity();
@@ -66,12 +66,12 @@ namespace Api.Controllers
             return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
         }
 
-        [HttpPut("me/profile")]
+        [HttpPut("me/add-update-profile")]
         public async Task<ActionResult<UserProfileResponse>> UpdateMyProfile([FromBody] UserProfileRequest ProfileRequest)
         {
             if (CallerId is not int callerId) return MissingIdentity();
 
-            var result = await new UserService(context).UpdateUserProfile(callerId, ProfileRequest);
+            var result = await new UserService(context).AddUpdateUserProfile(callerId, ProfileRequest);
             return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
         }
 
