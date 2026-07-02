@@ -41,10 +41,10 @@ namespace CheapUdemy.Controllers
                 ipAddress = "unknown";
             }
 
-            UserService userService = new UserService(context);
+            AuthenticationService authenticationService = new AuthenticationService(context);
 
             //refresh token is generated in the service layer and stored securely (hashed + expiry + not revoked)
-            var result = await userService.UserSignUp(request, userAgent, ipAddress);
+            var result = await authenticationService.UserSignUp(request, userAgent, ipAddress);
 
       
             // 2. Check the Success flag of the Result pattern
@@ -75,9 +75,9 @@ namespace CheapUdemy.Controllers
             }
 
 
-            UserService userService = new UserService(context);
+            AuthenticationService authenticationService = new AuthenticationService(context);
 
-            var result = await userService.LoginUser(request,userAgent,ipAddress);
+            var result = await authenticationService.LoginUser(request,userAgent,ipAddress);
 
             if (!result.IsSuccess)
             {
