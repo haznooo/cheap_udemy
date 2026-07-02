@@ -71,19 +71,20 @@ namespace DataAccess.Repositories
             }
         }
 
-        // Fetches a single token by its primary key. Used to walk a chain forward via replaced_by_id.
-        // please note that this my cause n+1 queries if you are walking a chain of tokens, so use with care.
-        // note: i might move this inside the database context class itself, as it is a very simple query and does not need to be in the repository.
-        public async Task<RefreshTokenEntity?> GetRefreshTokenByIdAsync(int tokenId)
+        // Revokes an entire refresh-token chain (breach response) in one DB round trip via the
+        // revoke_breached_chain stored procedure — walks replaced_by_id and updates every linked
+        // token server-side, instead of the app fetching+updating one hop at a time.
+        public async Task<bool> RevokeBreachedChainAsync(int startTokenId)
         {
             try
             {
-                return await context.UserRefreshToken.FirstOrDefaultAsync(rt => rt.token_id == tokenId);
+                await context.Database.ExecuteSqlInterpolatedAsync($"CALL revoke_breached_chain({startTokenId})");
+                return true;
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex);
-                return null;
+                return false;
             }
         }
 

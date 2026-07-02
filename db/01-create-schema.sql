@@ -481,3 +481,29 @@ CREATE TRIGGER trg_sync_lessons_count
     AFTER INSERT OR DELETE ON lessons
     FOR EACH ROW
     EXECUTE FUNCTION sync_lessons_count();
+
+-- Revokes an entire refresh-token chain (breach response): walks replaced_by_id forward from
+-- start_id via a recursive CTE and flips chain_breached/is_used/revoked_at for every linked
+-- token in one statement, instead of the app fetching+updating one hop at a time.
+CREATE OR REPLACE PROCEDURE revoke_breached_chain(start_id integer)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    WITH RECURSIVE chain AS (
+        SELECT token_id, replaced_by_id
+        FROM user_refresh_tokens
+        WHERE token_id = start_id
+
+        UNION ALL
+
+        SELECT t.token_id, t.replaced_by_id
+        FROM user_refresh_tokens t
+        JOIN chain c ON t.token_id = c.replaced_by_id
+    )
+    UPDATE user_refresh_tokens
+    SET chain_breached = true,
+        is_used = true,
+        revoked_at = COALESCE(revoked_at, now())
+    WHERE token_id IN (SELECT token_id FROM chain);
+END;
+$$;

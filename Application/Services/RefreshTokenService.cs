@@ -93,7 +93,10 @@ namespace Business.Services
             // NOT false-positive as a breach; it falls through to the plain 401 below.
             if (currentToken.replaced_by_id != null)
             {
-                await RevokeBreachedChainAsync(refreshTokenRepository, currentToken);
+                var revokedChain = await refreshTokenRepository.RevokeBreachedChainAsync(currentToken.token_id);
+                if (!revokedChain)
+                    return MyResult<LoginResponse>.Failure(ErrorType.Failure, "failed to revoke breached token chain");
+
                 return MyResult<LoginResponse>.Failure(ErrorType.Unauthorized, "refresh token reuse detected");
             }
 
@@ -142,27 +145,6 @@ namespace Business.Services
                 RefreshToken = newTokenResult.Value.RefreshToken,
                 RefreshTokenExpiresAt = newTokenResult.Value.ExpiresAt
             });
-        }
-
-        // Walks replaced_by_id FORWARD from a superseded token and kills every token on that chain,
-        // including the thief's currently-valid one. Scoped to the chain only — NEVER by user_id —
-        // so the user's other devices (separate chains) stay logged in. Sets chain_breached as an
-        // audit marker. Already-revoked links keep their original revoked_at.
-        private static async Task RevokeBreachedChainAsync(RefreshTokenRepository repo, RefreshTokenEntity start)
-        {
-            var node = start;
-            while (node != null)
-            {
-                node.chain_breached = true;
-                node.is_used = true;
-                node.revoked_at ??= DateTime.UtcNow;
-                await repo.UpdateRefreshTokenAsync(node);
-
-                if (node.replaced_by_id == null)
-                    break;
-
-                node = await repo.GetRefreshTokenByIdAsync(node.replaced_by_id.Value);
-            }
         }
 
         // Revokes the presented refresh token (logout). Never reveals whether the token existed.
