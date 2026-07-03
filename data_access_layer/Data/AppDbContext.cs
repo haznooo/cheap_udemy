@@ -39,16 +39,9 @@ namespace DataAccess.Data
         public virtual DbSet<PaymentEntitiy> Payments { get; set; }
         public virtual DbSet<UserLessonProgressEntitiy> UserLessonProgress { get; set; }
 
-        //idk what the hell is this 
-        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-        {
-            
-        }
 
-        // This method is where we configure tables manually using Fluent API.
-        // Why needed? Because not everything can be guessed by conventions.
-        // Here we configure:
-        //🔹custom mapping 🔹Keys 🔹Relationships 🔹Indexes🔹Column types🔹Default values🔹Max lengths ...etc
+
+        // ModelBuilder describes how your database is supposed to look
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             // mapping to the actual tables names in database (finished)
@@ -527,11 +520,11 @@ namespace DataAccess.Data
                       .HasConstraintName("fk_user_lesson_progress_lessons");
             });
 
-            // Optional extension point
+            // if there are other configurations in another file, call the partial method to apply them
             OnModelCreatingPartial(modelBuilder);
         }
 
-        // Can be implemented in another file
+        // it allows to implemented more options for DbContext in another file
         partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
     }
 }
