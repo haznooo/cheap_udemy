@@ -13,7 +13,7 @@ using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Text;
-using static Business.Common.clsPageResult;
+using static DataAccess.Common.clsPageResult;
 
 namespace Business.Services
 {
@@ -41,15 +41,7 @@ namespace Business.Services
                 return MyResult<PageResult<CourseDto>>.Failure(ErrorType.NotFound, "No courses found.");
             }
 
-            Business.Common.clsPageResult.PageResult<CourseDto> pageResult = new Business.Common.clsPageResult.PageResult<CourseDto>
-            {
-                Items = R.Items,
-                PageNumber = R.PageNumber,
-                PageSize = R.PageSize,
-                TotalCount = R.TotalCount,
-            };
-
-            return MyResult<PageResult<CourseDto>>.Success(pageResult);
+            return MyResult<PageResult<CourseDto>>.Success(R);
 
         }
 
@@ -203,13 +195,7 @@ namespace Business.Services
                 return MyResult<PageResult<LessonDto>>.Failure(ErrorType.NotFound, "Failed to retrieve lessons.");
             }
 
-            return MyResult<PageResult<LessonDto>>.Success(new PageResult<LessonDto>
-            {
-                Items = lessons.Items,
-                TotalCount = lessons.TotalCount,
-                PageNumber = lessons.PageNumber,
-                PageSize = lessons.PageSize
-            });
+            return MyResult<PageResult<LessonDto>>.Success(lessons);
         }
 
         public async Task<MyResult<PageResult<CourseDto>>> GetInstructorCourses(int instructorId, int callerId, string callerRole, int pageNumber, int pageSize)
@@ -229,13 +215,7 @@ namespace Business.Services
             if (r == null)
                 return MyResult<PageResult<CourseDto>>.Failure(ErrorType.Failure, "Failed to retrieve courses.");
 
-            return MyResult<PageResult<CourseDto>>.Success(new PageResult<CourseDto>
-            {
-                Items = r.Items,
-                TotalCount = r.TotalCount,
-                PageNumber = r.PageNumber,
-                PageSize = r.PageSize
-            });
+            return MyResult<PageResult<CourseDto>>.Success(r);
         }
 
         public async Task<MyResult<CourseDto>> UpdateCourse(int courseId, UpdateCourseRequest request, int callerId, bool isAdmin)

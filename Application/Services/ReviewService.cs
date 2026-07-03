@@ -4,7 +4,7 @@ using DataAccess.Data;
 using DataAccess.Dto;
 using DataAccess.Entities;
 using DataAccess.Repositories;
-using static Business.Common.clsPageResult;
+using static DataAccess.Common.clsPageResult;
 
 namespace Business.Services
 {
@@ -81,13 +81,7 @@ namespace Business.Services
             if (reviews == null)
                 return MyResult<PageResult<ReviewDto>>.Failure(ErrorType.Failure, "Failed to retrieve reviews.");
 
-            return MyResult<PageResult<ReviewDto>>.Success(new PageResult<ReviewDto>
-            {
-                Items = reviews.Items,
-                TotalCount = reviews.TotalCount,
-                PageNumber = reviews.PageNumber,
-                PageSize = reviews.PageSize
-            });
+            return MyResult<PageResult<ReviewDto>>.Success(reviews);
         }
 
         // Only the review owner can update their own review.

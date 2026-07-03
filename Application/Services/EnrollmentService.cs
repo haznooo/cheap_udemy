@@ -4,7 +4,7 @@ using DataAccess.Data;
 using DataAccess.Dto;
 using DataAccess.Entities;
 using DataAccess.Repositories;
-using static Business.Common.clsPageResult;
+using static DataAccess.Common.clsPageResult;
 
 namespace Business.Services
 {
@@ -83,13 +83,7 @@ namespace Business.Services
             if (r == null)
                 return MyResult<PageResult<EnrollmentDto>>.Failure(ErrorType.Failure, "Failed to retrieve enrollments.");
 
-            return MyResult<PageResult<EnrollmentDto>>.Success(new PageResult<EnrollmentDto>
-            {
-                Items = r.Items,
-                TotalCount = r.TotalCount,
-                PageNumber = r.PageNumber,
-                PageSize = r.PageSize
-            });
+            return MyResult<PageResult<EnrollmentDto>>.Success(r);
         }
 
         // The course roster is readable only by the owning instructor or an admin.
@@ -115,13 +109,7 @@ namespace Business.Services
             if (r == null)
                 return MyResult<PageResult<EnrollmentDto>>.Failure(ErrorType.Failure, "Failed to retrieve enrollments.");
 
-            return MyResult<PageResult<EnrollmentDto>>.Success(new PageResult<EnrollmentDto>
-            {
-                Items = r.Items,
-                TotalCount = r.TotalCount,
-                PageNumber = r.PageNumber,
-                PageSize = r.PageSize
-            });
+            return MyResult<PageResult<EnrollmentDto>>.Success(r);
         }
 
         public async Task<MyResult<EnrollmentDto>> MarkLessonProgress(int callerId, MarkLessonProgressRequest request)
@@ -180,13 +168,7 @@ namespace Business.Services
             if (progress == null)
                 return MyResult<PageResult<LessonProgressDto>>.Failure(ErrorType.Failure, "Failed to retrieve progress.");
 
-            return MyResult<PageResult<LessonProgressDto>>.Success(new PageResult<LessonProgressDto>
-            {
-                Items = progress.Items,
-                TotalCount = progress.TotalCount,
-                PageNumber = progress.PageNumber,
-                PageSize = progress.PageSize
-            });
+            return MyResult<PageResult<LessonProgressDto>>.Success(progress);
         }
         public async Task<MyResult<bool>> DropEnrollment(int callerId, DropEnrollmentRequest request)
         {

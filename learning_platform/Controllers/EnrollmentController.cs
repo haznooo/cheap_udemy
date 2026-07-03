@@ -5,7 +5,7 @@ using DataAccess.Data;
 using DataAccess.Dto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using static Business.Common.clsPageResult;
+using static DataAccess.Common.clsPageResult;
 
 namespace Api.Controllers
 {
