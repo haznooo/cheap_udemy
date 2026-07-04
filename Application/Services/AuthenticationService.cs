@@ -76,7 +76,6 @@ namespace Business.Services
             RefreshTokenService refreshTokenService = new RefreshTokenService(context);
 			var NewToken = await refreshTokenService.AddNewRefreshTokenFirstTime(userE.UserId, deviceInfo, ipAddress);
 
-
             await new LoginLogService(context).LogAsync(userE.UserId, "success", ipAddress, deviceInfo);
 
 			//make the response

@@ -84,7 +84,7 @@ namespace Business.Services
             return MyResult<PageResult<ReviewDto>>.Success(reviews);
         }
 
-        // Only the review owner can update their own review.
+        // Only the review author can update their own review.
         public async Task<MyResult<ReviewDto>> UpdateReview(int callerId, int courseId, UpdateReviewRequest request)
         {
             if (courseId <= 0)

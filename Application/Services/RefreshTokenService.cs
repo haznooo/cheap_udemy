@@ -18,10 +18,9 @@ namespace Business.Services
     {
 
 
-
-        // Mints and stores a new refresh token row. Used both for a brand-new chain (login/signup,
-        // expiresAt == null → fresh 7-day deadline) AND for rotation (expiresAt == the parent's
-        // expiry, so the new token INHERITS the original login deadline — see absolute expiration).
+        /// <summary>
+        ///  used to creat a new token. with a brand new chain    
+        /// </summary>
         public async Task<MyResult<RefreshTokenDto>> AddNewRefreshTokenFirstTime(int userId, string deviceInfo, string ipAddress, DateTime? expiresAt = null)
         {
 
@@ -75,6 +74,15 @@ namespace Business.Services
             if (string.IsNullOrWhiteSpace(refreshToken))
                 return MyResult<LoginResponse>.Failure(ErrorType.BadRequest, "refresh token is required");
 
+            // Validate the user exists and is active. If the user was deleted or deactivated, we don't want to issue a new token
+            // or even doing a lookup on the refresh token. This prevents a deleted user from being able to use a refresh token to get a new access token.
+
+            UserAndProfileRepository userRepository = new UserAndProfileRepository(context);
+            var user = await userRepository.GetUserByIdAsync(userId);
+
+            if (user == null)
+                return MyResult<LoginResponse>.Failure(ErrorType.Unauthorized, "user no longer exists");
+
             RefreshTokenRepository refreshTokenRepository = new RefreshTokenRepository(context);
 
             // Look the token up across ALL states (SHA-256 is deterministic → direct indexed lookup).
@@ -88,7 +96,7 @@ namespace Business.Services
 
             // REUSE DETECTION: this token was already rotated away (it points at a child via
             // replaced_by_id) yet is being presented again → two parties hold tokens on this chain
-            // (the real user AND a thief). Kill the entire chain so both must re-login. We key on
+            // (the real user AND a thief). Kill the entire chain so both must re-login. We rely on
             // replaced_by_id (not is_used) so a logged-out token — used, but with no child — does
             // NOT false-positive as a breach; it falls through to the plain 401 below.
             if (currentToken.replaced_by_id != null)
@@ -103,17 +111,6 @@ namespace Business.Services
             // Dead but not a breach: used (e.g. logged out), revoked, or simply expired → re-login.
             if (currentToken.is_used || currentToken.revoked_at != null || currentToken.expires_at <= DateTime.UtcNow)
                 return MyResult<LoginResponse>.Failure(ErrorType.Unauthorized, "invalid or expired refresh token");
-
-            // --- token is valid; rotate it ---
-
-            // Bug 1 fix: validate the user BEFORE touching any tokens. A deleted/banned user
-            // must fail cleanly with 401 — not after we've already burned the old token and
-            // minted an orphan replacement.
-            UserAndProfileRepository userRepository = new UserAndProfileRepository(context);
-            var user = await userRepository.GetUserByIdAsync(userId);
-
-            if (user == null)
-                return MyResult<LoginResponse>.Failure(ErrorType.Unauthorized, "user no longer exists");
 
             // Issue the replacement token first so we can link the old one to it. The child INHERITS
             // the parent's expiry (absolute expiration) — no sliding 7-day reset on every refresh.
@@ -199,10 +196,7 @@ namespace Business.Services
 
         }
 
-        // Refresh tokens are high-entropy random values (64 bytes from a CSPRNG), so unlike passwords
-        // they don't need a salted/slow hash. A fast, deterministic SHA-256 is the right fit: it's
-        // irreversible (safe at rest) AND deterministic, so the stored hash can be matched with a
-        // direct indexed equality lookup. (Passwords still use BCrypt — different threat model.)
+        //there is no need for bCrypt here . we do not need salting for a value that is already random
         public static string HashRefreshToken(string refreshToken)
         {
             var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(refreshToken));
