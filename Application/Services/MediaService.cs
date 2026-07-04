@@ -10,23 +10,21 @@ using Supabase;
 namespace Business.Services
 {
 
+    // latter when i start having proper DI i will move this to somewhere else
     public interface IMediaService
     {
         Task<string> UploadFileAsync(IFormFile file);
     }
 
-
-
     public class SupabaseMediaService : IMediaService
     {
         private readonly Client _supabaseClient;
-        private const string BucketName = "course-media"; // Must match what you named it in Step 1
+        private const string BucketName = "course-media"; // Must match what you named it in supabase
 
         public SupabaseMediaService(Client supabaseClient)
         {
             _supabaseClient = supabaseClient;
         }
-
         public async Task<string> UploadFileAsync(IFormFile file)
         {
             // 1. Read the file into a byte array
@@ -39,7 +37,7 @@ namespace Business.Services
             var uniqueFileName = $"{Guid.NewGuid()}{extension}";
 
       
-            // 1. Upload to the private bucket exactly like before
+            // 1. Upload to the private bucket 
             await _supabaseClient.Storage
                 .From(BucketName)
                 .Upload(fileBytes, uniqueFileName, new Supabase.Storage.FileOptions { Upsert = false });

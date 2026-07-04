@@ -39,7 +39,7 @@ namespace CheapUdemy
                     }, options: null, contentType: "application/problem+json", cancellationToken);
                 };
 
-                // Global limiter: applies to every request (20/min per IP).
+                // Global limiter: applies to every request (20/min per IP)
                 options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
                 {
                     var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
@@ -65,7 +65,7 @@ namespace CheapUdemy
             builder.Services.AddOpenApi();
 
 
-            //my DI
+            //this line will add all the dependencies from the Api project to the DI container
             builder.Services.AddApiDI(builder.Configuration);
             //adding cors policy for development
             builder.Services.AddCors(options =>
@@ -113,8 +113,7 @@ namespace CheapUdemy
             {
                 // Authenticated-by-default: every endpoint requires a logged-in user unless it
                 // explicitly opts out with [AllowAnonymous]. This prevents a forgotten [Authorize]
-                // from silently exposing a whole controller (the root cause of the Enrollment/
-                // Lessons/Media holes).
+                // from silently exposing a whole controller 
                 options.FallbackPolicy = new AuthorizationPolicyBuilder()
                     .RequireAuthenticatedUser()
                     .Build();
@@ -123,9 +122,10 @@ namespace CheapUdemy
                     policy.Requirements.Add(new UserOwnerOrAdminRequirement()));
             });
 
+            // if im not wrong but right now we are not using this handler
             builder.Services.AddSingleton<IAuthorizationHandler,UserOwnerOrAdminHandler>();
 
-            // 1. Bind the appsettings.json section to your SupabaseSettings class
+            // 1. supabase client configuration
             var supabaseUrl = builder.Configuration["Supabase:Url"];
             var supabaseKey = builder.Configuration["StupidKey"];
             var options = new SupabaseOptions { AutoConnectRealtime = false };
@@ -137,7 +137,6 @@ namespace CheapUdemy
             var app = builder.Build();
 
             // Configure the HTTP request pipeline.
-
             // Unhandled exceptions → 500 ProblemDetails (no stack trace leaked);
             // empty-body 4xx/5xx (e.g. 401/403 from the JWT middleware) → ProblemDetails.
             app.UseExceptionHandler();
@@ -150,6 +149,7 @@ namespace CheapUdemy
             
             });
 
+     
             if (app.Environment.IsDevelopment())
             {
            

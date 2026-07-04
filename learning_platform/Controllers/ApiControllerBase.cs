@@ -16,11 +16,7 @@ namespace Api.Controllers
         protected string CallerRole =>
             User.FindFirstValue(ClaimTypes.Role) ?? "";
 
-        // A service-level Unauthorized failure means "authenticated but not allowed"
-        // (ownership/enrollment checks), so it maps to 403 by default — 401 is reserved
-        // for missing/invalid credentials, which SPA interceptors treat as "re-login".
-        // The authentication endpoints pass 401 explicitly (failed login IS a credential
-        // problem there).
+        // take the failed MyResult and map it to a ProblemDetails response, with the correct HTTP status code.
         protected ActionResult MapFailure<T>(MyResult<T> result,
             int unauthorizedStatusCode = StatusCodes.Status403Forbidden) =>
             result.FailureType switch
@@ -29,6 +25,7 @@ namespace Api.Controllers
                 ErrorType.BadRequest => Problem(statusCode: StatusCodes.Status400BadRequest, detail: ErrorDetail(result)),
                 ErrorType.Conflict => Problem(statusCode: StatusCodes.Status409Conflict, detail: ErrorDetail(result)),
                 ErrorType.Unauthorized => Problem(statusCode: unauthorizedStatusCode, detail: ErrorDetail(result)),
+                ErrorType.Failure => Problem(statusCode: StatusCodes.Status500InternalServerError, detail: "An unexpected error occurred."),
                 _ => Problem(statusCode: StatusCodes.Status500InternalServerError, detail: "An unexpected error occurred.")
             };
 

@@ -25,6 +25,7 @@ namespace Api.Controllers
         [HttpGet("me/profile")]
         public async Task<ActionResult<UserProfileResponse>> GetMyProfile()
         {
+         
             if (CallerId is not int callerId) return MissingIdentity();
 
             var result = await new UserService(context).GetUserProfile(callerId);
@@ -66,7 +67,7 @@ namespace Api.Controllers
             return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
         }
 
-        [HttpPost("me/profile")]
+        [HttpPost("me/profile/add")]
         public async Task<ActionResult<UserProfileResponse>> AddMyProfile([FromBody] UserProfileRequest ProfileRequest)
         {
             if (CallerId is not int callerId) return MissingIdentity();
@@ -75,7 +76,7 @@ namespace Api.Controllers
             return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
         }
 
-        [HttpPut("me/profile")]
+        [HttpPut("me/profile/update")]
         public async Task<ActionResult<UserProfileResponse>> UpdateMyProfile([FromBody] UserProfileRequest ProfileRequest)
         {
             if (CallerId is not int callerId) return MissingIdentity();
