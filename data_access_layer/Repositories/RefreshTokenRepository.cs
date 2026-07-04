@@ -78,6 +78,9 @@ namespace DataAccess.Repositories
         {
             try
             {
+                // Call the stored procedure to revoke the entire chain of refresh tokens starting from the given token ID
+                //without fetching and updating one hop at a time in the application code and making N+1 round 
+                // or fetching the entire chain into memory. This is more efficient and safer
                 await context.Database.ExecuteSqlInterpolatedAsync($"CALL revoke_breached_chain({startTokenId})");
                 return true;
             }
