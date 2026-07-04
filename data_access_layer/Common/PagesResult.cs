@@ -21,7 +21,10 @@ namespace DataAccess.Common
             public int TotalCount { get; set; }
 
             // Helper logic stays in the model
-            public int TotalPages => TotalCount > 0 ? (int)Math.Ceiling(TotalCount / (double)PageSize) : 0;
+            // Guard PageSize > 0: callers validate it upstream, but a stray PageSize of 0
+            // (e.g. the parameterless ctor's default) would otherwise make the double division
+            // Infinity and the (int) cast saturate to int.MaxValue — silent garbage, not a crash.
+            public int TotalPages => TotalCount > 0 && PageSize > 0 ? (int)Math.Ceiling(TotalCount / (double)PageSize) : 0;
             public bool HasPrevious => PageNumber > 1 && PageNumber <= TotalPages;
             public bool HasNext => PageNumber < TotalPages && TotalPages > 0;
 
