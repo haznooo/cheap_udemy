@@ -11,6 +11,7 @@ using System.Threading.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 using Npgsql;
 using Scalar.AspNetCore;
 using Supabase;
@@ -62,7 +63,34 @@ namespace CheapUdemy
             // (401/403 from JWT auth, unhandled 500s) carry the same JSON body the controllers emit.
             builder.Services.AddProblemDetails();
 
-            builder.Services.AddOpenApi();
+            builder.Services.AddOpenApi(openApiOptions =>
+            {
+                // Declare the JWT bearer scheme in the generated document. Without this the
+                // OpenAPI JSON has no securitySchemes at all, so Scalar/Swagger UI never show
+                // the one-time "Authorize" input and AddPreferredSecuritySchemes below is a no-op.
+                openApiOptions.AddDocumentTransformer((document, context, cancellationToken) =>
+                {
+                    document.Components ??= new OpenApiComponents();
+                    document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
+                    document.Components.SecuritySchemes[JwtBearerDefaults.AuthenticationScheme] = new OpenApiSecurityScheme
+                    {
+                        Type = SecuritySchemeType.Http,
+                        Scheme = "bearer",
+                        BearerFormat = "JWT"
+                    };
+
+                    // Document-level requirement: marks every operation as bearer-secured so the
+                    // pasted token is attached to all "try it" requests (same UX as Swagger's
+                    // Authorize button). Anonymous endpoints simply ignore the extra header.
+                    document.Security ??= new List<OpenApiSecurityRequirement>();
+                    document.Security.Add(new OpenApiSecurityRequirement
+                    {
+                        [new OpenApiSecuritySchemeReference(JwtBearerDefaults.AuthenticationScheme, document)] = new List<string>()
+                    });
+
+                    return Task.CompletedTask;
+                });
+            });
 
 
             //this line will add all the dependencies from the Api project to the DI container
@@ -152,7 +180,7 @@ namespace CheapUdemy
      
             if (app.Environment.IsDevelopment())
             {
-           
+                // allow anonymous access to the OpenAPI docs in development, so we can test the endpoints without a JWT
                 app.MapOpenApi().AllowAnonymous();
                 app.MapScalarApiReference(options =>
                 {
