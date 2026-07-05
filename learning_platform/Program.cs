@@ -156,6 +156,17 @@ namespace CheapUdemy
             // 1. supabase client configuration
             var supabaseUrl = builder.Configuration["Supabase:Url"];
             var supabaseKey = builder.Configuration["StupidKey"];
+
+            if (string.IsNullOrWhiteSpace(supabaseUrl))
+            {
+                throw new Exception("Supabase URL is not configured in environment variables");
+            }
+
+            if (string.IsNullOrWhiteSpace(supabaseKey))
+            {
+                throw new Exception("Supabase service role key is not configured in environment variables");
+            }
+
             var options = new SupabaseOptions { AutoConnectRealtime = false };
             var supabaseClient = new Supabase.Client(supabaseUrl, supabaseKey, options);
             builder.Services.AddScoped<LessonService>();
