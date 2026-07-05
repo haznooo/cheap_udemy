@@ -65,7 +65,7 @@ namespace Business.Services
 
             var savedEntity = await repository.AddLessonAsync(entity);
 
-            var dto = await MapToDtoAsync(savedEntity);
+            var dto = await PrepareLessonResponseAsync(savedEntity);
             return MyResult<LessonDto>.Success(dto);
         }
 
@@ -93,11 +93,13 @@ namespace Business.Services
                 return MyResult<LessonDto>.Failure(ErrorType.NotFound, $"Lesson with ID {lessonId} not found.");
             }
 
-            var dto = await MapToDtoAsync(entity);
+            var dto = await PrepareLessonResponseAsync(entity);
             return MyResult<LessonDto>.Success(dto);
         }
 
-        private async Task<LessonDto> MapToDtoAsync(LessonEntity entity)
+        // Not a pure entity->DTO map: media blocks store only the bucket file name, which is
+        // useless to the client, so short-lived signed URLs must be minted here on every read.
+        private async Task<LessonDto> PrepareLessonResponseAsync(LessonEntity entity)
         {
             var jsonOptions = new JsonSerializerOptions
             {
@@ -204,7 +206,7 @@ namespace Business.Services
             if (updated == null)
                 return MyResult<LessonDto>.Failure(ErrorType.Failure, "Failed to update lesson.");
 
-            var dto = await MapToDtoAsync(updated);
+            var dto = await PrepareLessonResponseAsync(updated);
             return MyResult<LessonDto>.Success(dto);
         }
 
