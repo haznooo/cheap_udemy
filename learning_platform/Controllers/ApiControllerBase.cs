@@ -25,7 +25,6 @@ namespace Api.Controllers
                 ErrorType.BadRequest => Problem(statusCode: StatusCodes.Status400BadRequest, detail: ErrorDetail(result)),
                 ErrorType.Conflict => Problem(statusCode: StatusCodes.Status409Conflict, detail: ErrorDetail(result)),
                 ErrorType.Unauthorized => Problem(statusCode: unauthorizedStatusCode, detail: ErrorDetail(result)),
-                ErrorType.Failure => Problem(statusCode: StatusCodes.Status500InternalServerError, detail: "An unexpected error occurred."),
                 _ => Problem(statusCode: StatusCodes.Status500InternalServerError, detail: "An unexpected error occurred.")
             };
 

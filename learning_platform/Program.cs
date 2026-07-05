@@ -181,11 +181,14 @@ namespace CheapUdemy
             app.UseExceptionHandler();
             app.UseStatusCodePages();
 
+            // Forwarded headers middleware: if the app is behind a reverse proxy (e.g., Nginx),
+    //we need to forward the original request's scheme and IP address so that the JWT middleware can validate the token correctly.
             app.UseForwardedHeaders(new ForwardedHeadersOptions
             {
                 ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
                 // in the future Only trust the request if it comes from a specific proxy IP (e.g., your Nginx server)
-            
+                // so no one can spoof the X-Forwarded-For header. For now, we trust all proxies (not ideal for production).
+
             });
 
      
