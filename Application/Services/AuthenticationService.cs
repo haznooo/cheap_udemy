@@ -39,6 +39,9 @@ namespace Business.Services
 
             //prepare the user entity to be added to database
             string hashedPassword = BCrypt.Net.BCrypt.HashPassword(request.Password);
+            // Signup creates the account only. The profile is created afterwards via
+            // POST api/user/me/profile/add, and the avatar via POST api/user/me/avatar —
+            // so no client-supplied profile data (especially no image file name) is accepted here.
             var UserEntity = new UserEntity
             {
                 user_id = 0,
@@ -47,16 +50,7 @@ namespace Business.Services
                 hashed_password = hashedPassword,
                 role = "student",
                 status = "active",
-                create_date = DateTime.UtcNow,
-                UserProfile = new UserProfileEntity
-                {
-                    user_id = 0,
-                    display_name = request.Profile?.DisplayName,
-                    bio = request.Profile?.Bio,
-                    image_url = request.Profile?.ImageUrl,
-                    country_id = request.Profile?.CountryId
-
-                }
+                create_date = DateTime.UtcNow
 
             };
 
@@ -64,12 +58,6 @@ namespace Business.Services
 
             //check if user was created successfully
             if (userE == null) return MyResult<LoginResponse>.Failure(ErrorType.Failure, "An error occurred while creating the user.");
-
-            UserProfileResponse userProfileResponse = null;
-
-            userProfileResponse = new UserProfileResponse
-				(userE.Profile?.DisplayName, userE.Profile?.Bio, userE.Profile?.ImageUrl,
-			 userE.Profile?.CountryId, userE.Profile?.CountryName, userE.Profile?.CountryIsoCode);
 
 
             //generate refresh token and save it to database
@@ -85,7 +73,8 @@ namespace Business.Services
 				Username = userE.Username,
 				Role = userE.Role,
 				Status = userE.Status,
-				Profile = userProfileResponse,
+				Profile = null, // no profile exists yet at signup
+
 				RefreshToken = NewToken.Value?.RefreshToken,
 				Email = userE.Email,
 				IsRefreshTokenRevoked = false,

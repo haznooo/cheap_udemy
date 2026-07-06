@@ -92,7 +92,7 @@ namespace Api.Controllers
             if (!permission.IsSuccess) return MapFailure(permission);
 
             // Ownership confirmed; upload then persist the returned file name.
-            var fileName = await mediaService.UploadFileAsync(file);
+            var fileName = await mediaService.UploadFileAsync(file, MediaBuckets.CourseMedia);
             var Result = await courseService.SetThumbnail(courseId, callerId, isAdmin, fileName);
 
             if (!Result.IsSuccess) return MapFailure(Result);
@@ -129,7 +129,7 @@ namespace Api.Controllers
             var permission = await courseService.CheckCourseEditPermission(courseId, callerId, isAdmin);
             if (!permission.IsSuccess) return MapFailure(permission);
 
-            var fileName = await mediaService.UploadFileAsync(file);
+            var fileName = await mediaService.UploadFileAsync(file, MediaBuckets.CourseMedia);
             return Ok(new { url = fileName });
         }
 

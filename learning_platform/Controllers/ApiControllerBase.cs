@@ -34,5 +34,6 @@ namespace Api.Controllers
 
         private static string ErrorDetail<T>(MyResult<T> result) =>
             string.Join(" ", result.Errors.Select(e => e.Message));
+    
     }
 }

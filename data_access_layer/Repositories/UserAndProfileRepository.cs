@@ -374,9 +374,19 @@ namespace DataAccess.Repositories
         public async Task<bool> UpdateUserAvatarAsync(int userId, string fileName)
         {
             var profile = await context.UsersProfile.FirstOrDefaultAsync(p => p.user_id == userId);
-            if (profile == null) return false;
 
-            profile.image_url = fileName;
+            // Signup no longer creates a profile row, so a new user may set an avatar
+            // before ever creating a profile — create the row on the fly instead of
+            // failing (the uploaded file would otherwise be orphaned in the bucket).
+            if (profile == null)
+            {
+                context.UsersProfile.Add(new UserProfileEntity { user_id = userId, image_url = fileName });
+            }
+            else
+            {
+                profile.image_url = fileName;
+            }
+
             await context.SaveChangesAsync();
             return true;
         }
@@ -387,7 +397,6 @@ namespace DataAccess.Repositories
             {
                 user_id = UserId,
                 bio = NewUserProfileData.bio,
-                image_url = NewUserProfileData.image_url,
                 country_id = NewUserProfileData.country_id,
                 display_name = NewUserProfileData.display_name
             };
@@ -410,8 +419,10 @@ namespace DataAccess.Repositories
 
             if (userProfileE == null) return null;
 
+            // image_url is deliberately NOT updated here — the avatar is managed only by
+            // UpdateUserAvatarAsync (via the avatar upload endpoint). Copying it from the
+            // incoming data would wipe the existing avatar on every profile update.
             userProfileE.bio = NewUserProfileData.bio;
-            userProfileE.image_url = NewUserProfileData.image_url;
             userProfileE.country_id = NewUserProfileData.country_id;
             userProfileE.display_name = NewUserProfileData.display_name;
 

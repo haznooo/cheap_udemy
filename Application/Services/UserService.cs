@@ -125,7 +125,6 @@ namespace Business.Services
                 user_id = userid,
                 bio = request?.Bio,
                 country_id = request?.CountryId,
-                image_url = request?.ImageUrl,
                 display_name = request?.DisplayName,
             };
 
@@ -147,7 +146,6 @@ namespace Business.Services
                 user_id = userid,
                 bio = request?.Bio,
                 country_id = request?.CountryId,
-                image_url = request?.ImageUrl,
                 display_name = request?.DisplayName,
             };
 

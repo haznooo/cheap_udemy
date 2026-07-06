@@ -14,9 +14,12 @@ namespace Api.Controllers
     [Authorize]
     public class UserController(AppDbContext context, ILogger<UserController> logger, IMediaService mediaService) : ApiControllerBase
     {
-        // 5 MB limit for avatars; images only.
-        private const long MaxAvatarSize = 5 * 1024 * 1024;
+        // 3 MB limit for avatars (matches the avatar bucket's own cap); images only.
+        private const long MaxAvatarSize = 3 * 1024 * 1024;
         private readonly string[] _allowedImageExtensions = { ".jpg", ".jpeg", ".png" };
+        // The avatar bucket itself only accepts these MIME types; reject mismatches
+        // here so they fail with a clean 400 instead of a storage error (500).
+        private readonly string[] _allowedImageContentTypes = { "image/jpeg", "image/png" };
 
         // CallerId + MapFailure (MyResult → ProblemDetails) come from ApiControllerBase.
 
@@ -51,8 +54,12 @@ namespace Api.Controllers
             {
                 return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Invalid file type. Only JPG and PNG are allowed.");
             }
+            if (!_allowedImageContentTypes.Contains(file.ContentType?.ToLowerInvariant()))
+            {
+                return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Invalid file type. Only JPG and PNG are allowed.");
+            }
 
-            var fileName = await mediaService.UploadFileAsync(file);
+            var fileName = await mediaService.UploadFileAsync(file, MediaBuckets.Avatars);
 
             var result = await new UserService(context).SetAvatar(callerId, fileName);
             return result.IsSuccess ? Ok(new { avatar = fileName }) : MapFailure(result);

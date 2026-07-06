@@ -44,7 +44,7 @@ Api (learning_platform/Api.csproj)
 
 | Prefix                           | Controller                                                         |
 | -------------------------------- | ------------------------------------------------------------------ |
-| `api/User`                       | Authentication (`signUp`, `login`, `refresh`, `logout`)            |
+| `api/User`                       | Authentication (`signUp`, `login`, `refresh`, `logout`). Signup is **account-only** (`Username`/`Email`/`Password` — no nested profile; `LoginResponse.Profile` is `null` on signup). The profile is created afterwards via `POST api/user/me/profile/add`, the avatar via `POST api/user/me/avatar`. |
 | `api/user`                       | User profile (`me/*` self routes + admin-only `{userId}` routes)   |
 | `api/Courses`                    | Courses (+ owner-only `{courseId}/media` upload)                   |
 | `api/Courses/{courseId}/reviews` | Reviews                                                            |
@@ -76,7 +76,7 @@ Api (learning_platform/Api.csproj)
 | Method & path           | Auth          | Notes                                                                                                              |
 | ----------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `GET me`                | authenticated | Read your own profile (`UserProfileResponse`).                                                                     |
-| `POST me/avatar`        | authenticated | Multipart `file` (JPG/PNG ≤5 MB) → `IMediaService`, persisted to `users_profile.avatar_url`.                       |
+| `POST me/avatar`        | authenticated | Multipart `file` (JPG/PNG ≤**3 MB**, extension **and** `Content-Type` both validated) → `IMediaService` into the **public `avatar` bucket**, file name persisted to `users_profile.image_url` (**upsert** — creates the profile row if the user hasn't made one yet, since signup no longer does). The **only** way to set an avatar (no request DTO carries an image name). |
 | `POST me/password`      | authenticated | Change your own password (revokes refresh tokens).                                                                 |
 | `POST me/profile`       | authenticated | Create your own profile (409 if one already exists).                                                               |
 | `PUT me/profile`        | authenticated | Update your own profile fields (404 if none exists yet).                                                           |
@@ -101,7 +101,7 @@ Api (learning_platform/Api.csproj)
 - **Logging (`ILogger`)**: used in **controllers** for security events only — failed logins (`LogWarning`, IP only, never credentials) and failed refresh attempts in `AuthenticationController`, and successful admin deletes (`LogInformation`) in `UserController`. `ILogger<T>` is injected via the controllers' primary constructors. Repositories still use `Console.WriteLine` (not migrated).
 - **Login logging** (DB): `LoginLogService` → `LoginLogRepository` write a row to `login_logs` (`success`/`failed`) on signup and login attempts.
 - **Admin-action auditing** (DB): `AdminActionService` → `AdminActionRepository` write an immutable row to `admin_actions` (mirrors the login-log `new`d pattern). Currently called from `UserController.DeleteUser` when an admin deletes _another_ user (`action_type: "delete"`, `target_table: "users"`). `old_value`/`new_value` are JSONB and must stay small & non-sensitive (no passwords/tokens). `action_type` is constrained to `'create','update','delete','ban','unban'`.
-- **Media**: `SupabaseMediaService` uploads to the `course-media` Supabase bucket and returns the stored file name. There is **no generic upload endpoint** anymore (the old `MediaController`/`POST api/media/upload` was deleted). Three ownership-scoped upload paths remain, all injecting `IMediaService` (JPG/PNG ≤5 MB, MP4/MOV also allowed for course media): `PUT api/Courses/{courseId}/thumbnail` → `courses.thumbnail_url`, `POST api/user/me/avatar` → `users_profile.avatar_url` (self), and `POST api/Courses/{courseId}/media` → returns the file name for embedding in lesson `content_blocks` (owner/admin, permission checked **before** upload).
+- **Media**: `SupabaseMediaService.UploadFileAsync(file, bucketName)` uploads to a Supabase bucket and returns the stored file name (a GUID + extension, always server-generated — **no request DTO anywhere accepts a client-supplied file name**). Bucket names are constants in `MediaBuckets` (`Application/Services/MediaService.cs`). Two buckets: **`course-media` (private)** — paid content, read back via 1-hour signed URLs minted in `LessonService`; **`avatar` (public)** — user avatars, read back via the permanent public object URL `{Supabase:Url}/storage/v1/object/public/avatar/{fileName}` (no expiry; the bucket itself also enforces jpeg/png-only + 3 MB). The upload sets `ContentType = file.ContentType` explicitly — the supabase-csharp default is `text/plain`, which MIME-restricted buckets reject. There is **no generic upload endpoint** (the old `MediaController` was deleted). Three ownership-scoped upload paths, all injecting `IMediaService`: `PUT api/Courses/{courseId}/thumbnail` (JPG/PNG ≤5 MB) → `courses.thumbnail_url`, `POST api/user/me/avatar` (JPG/PNG ≤3 MB, self) → `users_profile.image_url`, and `POST api/Courses/{courseId}/media` (JPG/PNG/MP4/MOV ≤5 MB) → returns the file name for embedding in lesson `content_blocks` (owner/admin, permission checked **before** upload). **Profile add/update never touch `image_url`** (`UpdateUserProfileByUserIdAsync` deliberately skips it so a profile update can't wipe the avatar); the avatar changes only via the avatar endpoint. **API read-back note:** profile responses still return the raw stored file name in `ImageUrl`; the frontend builds the public URL itself (server-side URL building is a possible follow-up).
 - **DB triggers**: Course publish date, instructor role verification, enrollment progress sync, admin-action verification (`trg_verify_admin_action` rejects inserts whose `admin_id` isn't an admin) + immutability (`trg_lock_admin_actions` blocks UPDATE/DELETE), user anonymization on delete — all at the PostgreSQL level (see `db/01-create-schema.sql`).
 
 ## Honest state of the code (read before assuming a pattern exists)
@@ -113,7 +113,7 @@ Api (learning_platform/Api.csproj)
 - `Riok.Mapperly` — no `[Mapper]` class. Mapping is manual.
 - `Mapster` — unused.
 - `HtmlSanitizer` — installed but not yet wired in (input sanitizing is a planned addition).
-- `CloudinaryDotNet` — only a stray `using` in `MediaService.cs`; the real implementation is Supabase-only.
+- `CloudinaryDotNet` — package still referenced but no longer used anywhere (the stray `using` in `MediaService.cs` was removed); the real implementation is Supabase-only.
 
 **Known rough edges / planned work:**
 
