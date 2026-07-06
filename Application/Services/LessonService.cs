@@ -13,9 +13,9 @@ using Supabase;
 
 namespace Business.Services
 {
-    public class LessonService(AppDbContext context, Client supabaseClient)
+    public class LessonService(AppDbContext context, Client supabaseClient, IMediaService mediaService)
     {
-        private const string BucketName = "course-media";
+        private const string BucketName = MediaBuckets.CourseMedia;
 
         public async Task<MyResult<LessonDto>> CreateLessonAsync(LessonRequest request, int callerId, bool isAdmin)
         {
@@ -206,8 +206,118 @@ namespace Business.Services
             if (updated == null)
                 return MyResult<LessonDto>.Failure(ErrorType.Failure, "Failed to update lesson.");
 
+            // The old blocks are replaced; media files only they referenced are now
+            // orphaned in the bucket — remove them (after the save, best-effort).
+            if (newBlocks != null)
+            {
+                var removedFiles = ExtractMediaFileNames(lesson.content_blocks);
+                var keptNames = ExtractMediaFileNames(request.ContentBlocks);
+                // Match by substring, not equality: a client that echoes back the
+                // signed URL of an unchanged block (instead of the raw stored file
+                // name it should send) still embeds the file name in that URL — the
+                // file is kept, not deleted out from under the lesson.
+                removedFiles.RemoveWhere(old => keptNames.Any(kept => kept.Contains(old, StringComparison.Ordinal)));
+                await DeleteUnreferencedMediaAsync(repository, lessonId, removedFiles);
+            }
+
             var dto = await PrepareLessonResponseAsync(updated);
             return MyResult<LessonDto>.Success(dto);
+        }
+
+        // Hard-deletes a lesson (owner instructor or admin only) and cleans up the
+        // media files its content blocks referenced. user_lesson_progress rows go
+        // with it via ON DELETE CASCADE.
+        public async Task<MyResult<bool>> DeleteLessonAsync(int lessonId, int callerId, bool isAdmin)
+        {
+            if (lessonId <= 0)
+                return MyResult<bool>.Failure(ErrorType.BadRequest, "Invalid lesson ID.");
+
+            LessonsRepository repository = new LessonsRepository(context);
+            var lesson = await repository.GetAnyLessonByIdAsync(lessonId);
+            if (lesson == null)
+                return MyResult<bool>.Failure(ErrorType.NotFound, $"Lesson with ID {lessonId} not found.");
+
+            CoursesRepository coursesRepo = new CoursesRepository(context);
+            var courseId = await coursesRepo.GetCourseIdBySection(lesson.section_id);
+            if (courseId == null)
+                return MyResult<bool>.Failure(ErrorType.NotFound, "Section not found.");
+
+            var permission = await new CourseService(context).CheckCourseEditPermission(courseId.Value, callerId, isAdmin);
+            if (!permission.IsSuccess)
+                return MyResult<bool>.Failure(permission.FailureType, permission.Errors.Select(e => e.Message).ToArray());
+
+            // Collect the file names BEFORE the row (and with it the block data) is gone.
+            var mediaFiles = ExtractMediaFileNames(lesson.content_blocks);
+
+            var deleted = await repository.DeleteLessonAsync(lessonId);
+            if (!deleted)
+                return MyResult<bool>.Failure(ErrorType.Failure, "Failed to delete lesson.");
+
+            await DeleteUnreferencedMediaAsync(repository, lessonId, mediaFiles);
+
+            return MyResult<bool>.Success(true);
+        }
+
+        // Runs after the DB change is saved. Best-effort: a failed storage delete only
+        // leaks a file, so it never fails the request. A file still referenced by
+        // another lesson (instructor reused an upload) is kept.
+        private async Task DeleteUnreferencedMediaAsync(LessonsRepository repository, int lessonId, HashSet<string> fileNames)
+        {
+            foreach (var fileName in fileNames)
+            {
+                if (!await repository.IsMediaReferencedByOtherLessonsAsync(lessonId, fileName))
+                {
+                    await mediaService.DeleteCourseMediaAsync(fileName);
+                }
+            }
+        }
+
+        // File names of supabase-hosted media referenced by a lesson's stored blocks.
+        private static HashSet<string> ExtractMediaFileNames(List<ContentBlock>? blocks)
+        {
+            var names = new HashSet<string>();
+            if (blocks == null) return names;
+
+            var jsonOptions = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+                AllowOutOfOrderMetadataProperties = true
+            };
+
+            foreach (var b in blocks)
+            {
+                try
+                {
+                    if (b.Data.ValueKind == JsonValueKind.Undefined || b.Data.ValueKind == JsonValueKind.Null) continue;
+                    AddMediaFileName(names, b.Data.Deserialize<BlockData>(jsonOptions));
+                }
+                catch (JsonException)
+                {
+                    // Unreadable block — nothing to clean up for it.
+                }
+            }
+
+            return names;
+        }
+
+        private static HashSet<string> ExtractMediaFileNames(List<ContentBlockRequest>? blocks)
+        {
+            var names = new HashSet<string>();
+            if (blocks == null) return names;
+
+            foreach (var b in blocks) AddMediaFileName(names, b.Data);
+
+            return names;
+        }
+
+        private static void AddMediaFileName(HashSet<string> names, BlockData? data)
+        {
+            // Only supabase-hosted media maps to a bucket object; external providers
+            // (e.g. a youtube video id) are not ours to delete.
+            if (data is ImageBlockData img && !string.IsNullOrWhiteSpace(img.Url))
+                names.Add(img.Url);
+            else if (data is VideoBlockData vid && vid.Provider == "supabase" && !string.IsNullOrWhiteSpace(vid.VideoId))
+                names.Add(vid.VideoId);
         }
 
         private List<string> ValidateBlockData(LessonRequest request)

@@ -46,6 +46,21 @@ namespace Api.Controllers
             return Ok(result.Value);
         }
 
+        // Hard delete. Caller identity comes from the JWT; ownership is resolved
+        // lesson → section → course → instructor (or admin) in the service layer.
+        [HttpDelete("{id}")]
+        public async Task<ActionResult<bool>> DeleteLesson(int id)
+        {
+            if (CallerId is not int callerId) return MissingIdentity();
+
+            bool isAdmin = User.IsInRole("admin");
+            var result = await lessonService.DeleteLessonAsync(id, callerId, isAdmin);
+
+            if (!result.IsSuccess) return MapFailure(result);
+
+            return Ok(true);
+        }
+
         [HttpGet("get/{id}")]
         public async Task<ActionResult<LessonDto>> GetLesson(int id)
         {
