@@ -92,10 +92,17 @@ namespace Api.Controllers
             if (!permission.IsSuccess) return MapFailure(permission);
 
             // Ownership confirmed; upload then persist the returned file name.
-            var fileName = await mediaService.UploadFileAsync(file, MediaBuckets.CourseMedia);
+            var fileName = await mediaService.UploadCourseThumbnailAsync(file);
             var Result = await courseService.SetThumbnail(courseId, callerId, isAdmin, fileName);
 
             if (!Result.IsSuccess) return MapFailure(Result);
+
+            // The new name is persisted; the replaced file is now orphaned in the
+            // bucket, so remove it (best-effort — a leftover file is harmless).
+            if (!string.IsNullOrEmpty(Result.Value))
+            {
+                await mediaService.DeleteCourseThumbnailAsync(Result.Value);
+            }
 
             return Ok(new { thumbnail = fileName });
         }
@@ -129,7 +136,7 @@ namespace Api.Controllers
             var permission = await courseService.CheckCourseEditPermission(courseId, callerId, isAdmin);
             if (!permission.IsSuccess) return MapFailure(permission);
 
-            var fileName = await mediaService.UploadFileAsync(file, MediaBuckets.CourseMedia);
+            var fileName = await mediaService.UploadCourseMediaAsync(file);
             return Ok(new { url = fileName });
         }
 

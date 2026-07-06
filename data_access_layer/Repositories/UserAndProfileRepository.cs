@@ -371,9 +371,13 @@ namespace DataAccess.Repositories
                 .FirstOrDefaultAsync();
         }
 
-        public async Task<bool> UpdateUserAvatarAsync(int userId, string fileName)
+        // Returns the replaced avatar file name (null if the user had none) so the
+        // caller can remove the stale file from storage after the change is saved.
+        public async Task<string?> UpdateUserAvatarAsync(int userId, string fileName)
         {
             var profile = await context.UsersProfile.FirstOrDefaultAsync(p => p.user_id == userId);
+
+            string? oldFileName = null;
 
             // Signup no longer creates a profile row, so a new user may set an avatar
             // before ever creating a profile — create the row on the fly instead of
@@ -384,11 +388,12 @@ namespace DataAccess.Repositories
             }
             else
             {
+                oldFileName = profile.image_url;
                 profile.image_url = fileName;
             }
 
             await context.SaveChangesAsync();
-            return true;
+            return oldFileName;
         }
 
         public async Task<UserProfileEntity> AddUserProfileAsync(int UserId, UserProfileEntity NewUserProfileData)

@@ -59,10 +59,19 @@ namespace Api.Controllers
                 return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Invalid file type. Only JPG and PNG are allowed.");
             }
 
-            var fileName = await mediaService.UploadFileAsync(file, MediaBuckets.Avatars);
+            var fileName = await mediaService.UploadAvatarAsync(file);
 
             var result = await new UserService(context).SetAvatar(callerId, fileName);
-            return result.IsSuccess ? Ok(new { avatar = fileName }) : MapFailure(result);
+            if (!result.IsSuccess) return MapFailure(result);
+
+            // The new name is persisted; the replaced file is now orphaned in the
+            // bucket, so remove it (best-effort — a leftover file is harmless).
+            if (!string.IsNullOrEmpty(result.Value))
+            {
+                await mediaService.DeleteAvatarAsync(result.Value);
+            }
+
+            return Ok(new { avatar = fileName });
         }
 
         [HttpPost("me/password")]
@@ -99,7 +108,15 @@ namespace Api.Controllers
             if (CallerId is not int callerId) return MissingIdentity();
 
             var result = await new UserService(context).DeleteUser(callerId, request);
-            return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
+            if (!result.IsSuccess) return MapFailure(result);
+
+            // Account is gone; remove its now-orphaned avatar file (best-effort).
+            if (!string.IsNullOrEmpty(result.Value))
+            {
+                await mediaService.DeleteAvatarAsync(result.Value);
+            }
+
+            return Ok(true);
         }
 
         // ---- Admin-only cross-user endpoints (id from the URL) ----
@@ -120,6 +137,12 @@ namespace Api.Controllers
             var result = await new UserService(context).DeleteUser(userId, request);
             if (!result.IsSuccess) return MapFailure(result);
 
+            // Account is gone; remove its now-orphaned avatar file (best-effort).
+            if (!string.IsNullOrEmpty(result.Value))
+            {
+                await mediaService.DeleteAvatarAsync(result.Value);
+            }
+
             if (int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int adminId))
             {
                 await new AdminActionService(context).LogAsync(
@@ -132,7 +155,7 @@ namespace Api.Controllers
                 logger.LogInformation("Admin {AdminId} deleted user {TargetId}", adminId, userId);
             }
 
-            return Ok(result.Value);
+            return Ok(true);
         }
     }
 

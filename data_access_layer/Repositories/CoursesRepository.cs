@@ -182,22 +182,25 @@ namespace DataAccess.Repositories
                 .FirstOrDefaultAsync();
         }
 
-        public async Task<bool> UpdateThumbnail(int courseId, string fileName)
+        // Returns the replaced file name so the caller can remove it from storage
+        // once the new one is safely persisted.
+        public async Task<(bool Success, string? OldFileName)> UpdateThumbnail(int courseId, string fileName)
         {
             try
             {
                 var course = await context.Courses.FirstOrDefaultAsync(c => c.course_id == courseId);
-                if (course == null) return false;
+                if (course == null) return (false, null);
 
+                var oldFileName = course.thumbnail_url;
                 course.thumbnail_url = fileName;
                 course.updated_at = DateTime.UtcNow;
                 await context.SaveChangesAsync();
-                return true;
+                return (true, oldFileName);
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex.ToString());
-                return false;
+                return (false, null);
             }
         }
 

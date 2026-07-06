@@ -147,23 +147,25 @@ namespace Business.Services
 
         // Persists an already-uploaded thumbnail file name onto a course.
         // Only the owning instructor (or an admin) may change it.
-        public async Task<MyResult<bool>> SetThumbnail(int courseId, int callerId, bool isAdmin, string fileName)
+        // On success the value is the REPLACED file name (null if the course had no
+        // thumbnail yet) so the controller can remove the stale file from storage.
+        public async Task<MyResult<string?>> SetThumbnail(int courseId, int callerId, bool isAdmin, string fileName)
         {
             // Defensive re-check; controllers should also verify before uploading.
             var permission = await CheckCourseEditPermission(courseId, callerId, isAdmin);
             if (!permission.IsSuccess)
             {
-                return permission;
+                return MyResult<string?>.Failure(permission.FailureType, permission.Errors.Select(e => e.Message).ToArray());
             }
 
             CoursesRepository repo = new CoursesRepository(context);
-            var ok = await repo.UpdateThumbnail(courseId, fileName);
+            var (ok, oldFileName) = await repo.UpdateThumbnail(courseId, fileName);
             if (!ok)
             {
-                return MyResult<bool>.Failure(ErrorType.Failure, "Failed to update thumbnail.");
+                return MyResult<string?>.Failure(ErrorType.Failure, "Failed to update thumbnail.");
             }
 
-            return MyResult<bool>.Success(true);
+            return MyResult<string?>.Success(oldFileName);
         }
 
         // Lesson curriculum is enrollment-gated: only the owning instructor, an admin,
