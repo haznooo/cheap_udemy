@@ -1,5 +1,4 @@
-﻿using System.Security.Claims;
-using Business.Dto.Request;
+﻿using Business.Dto.Request;
 using Business.Dto.Rsponse;
 using Business.Services;
 using DataAccess.Data;
@@ -142,44 +141,7 @@ namespace Api.Controllers
             return Ok(true);
         }
 
-        // ---- Admin-only cross-user endpoints (id from the URL) ----
-
-        [HttpGet("{userId:int}")]
-        [Authorize(Roles = "admin")]
-        public async Task<ActionResult<UserProfileResponse>> GetUserProfile(int userId)
-        {
-            var result = await new UserService(context).GetUserProfile(userId);
-            return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
-        }
-
-        // An admin deleting another user's account — always audited.
-        [HttpPost("{userId:int}/delete")]
-        [Authorize(Roles = "admin")]
-        public async Task<ActionResult<bool>> DeleteUser(int userId, [FromBody] DeleteUserRequest request)
-        {
-            var result = await new UserService(context).DeleteUser(userId, request);
-            if (!result.IsSuccess) return MapFailure(result);
-
-            // Account is gone; remove its now-orphaned avatar file (best-effort).
-            if (!string.IsNullOrEmpty(result.Value))
-            {
-                await mediaService.DeleteAvatarAsync(result.Value);
-            }
-
-            if (int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out int adminId))
-            {
-                await new AdminActionService(context).LogAsync(
-                    adminId,
-                    actionType: "delete",
-                    targetTable: "users",
-                    targetId: userId,
-                    oldValue: new { user_id = userId });
-
-                logger.LogInformation("Admin {AdminId} deleted user {TargetId}", adminId, userId);
-            }
-
-            return Ok(true);
-        }
+        // Admin-only cross-user endpoints now live in AdminController (api/admin/users).
     }
 
 }

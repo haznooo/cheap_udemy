@@ -46,6 +46,32 @@ namespace Business.Services
 			return MyResult<string?>.Success(avatarFileName);
 		}
 
+		// Admin-initiated delete. Authority is the caller's admin role + the audit-log
+		// entry — NOT the target's credentials (an admin never knows another user's
+		// password), so there is NO password confirmation. Returns the target's avatar
+		// file name (captured before the anonymize trigger wipes the profile row) for
+		// best-effort storage cleanup by the caller.
+		public async Task<MyResult<string?>> AdminDeleteUser(int userId)
+		{
+			if (userId <= 0) { return MyResult<string?>.Failure(ErrorType.BadRequest, "user id can not be zero or negative"); }
+
+			UserAndProfileRepository UserRepository = new UserAndProfileRepository(context);
+
+			// Reject a missing / already-deleted target with a clean 404 instead of
+			// silently "succeeding" on a no-op anonymize.
+			if (!await UserRepository.DoesUserExistByIdAsync(userId))
+				return MyResult<string?>.Failure(ErrorType.NotFound, "user not found");
+
+			// Capture the avatar name BEFORE the delete wipes the profile row.
+			string? avatarFileName = (await UserRepository.GetUserProfileByIdAsync(userId))?.ImageUrl;
+
+			var result = await UserRepository.DeleteUserAsync_Anonymize(userId);
+
+			if (!result) return MyResult<string?>.Failure(ErrorType.Failure, "failed to delete user");
+
+			return MyResult<string?>.Success(avatarFileName);
+		}
+
 		public async Task<bool> IsUserActive(int userId)
 		{
             UserAndProfileRepository repo = new UserAndProfileRepository(context);
