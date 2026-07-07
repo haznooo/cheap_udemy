@@ -21,13 +21,22 @@ namespace Business.Services
 
 			// Business Rule
 
-			// Username: required, non-blank, and within the DB's VARCHAR(20). Without these the
-			// request reaches the DB and blows up as a 500 (constraint violation) or, for a blank
-			// username, trips the valid_username_format CHECK — return a clean 400 instead.
-			if (string.IsNullOrWhiteSpace(request.Username) || request.Username.Length > 20)
+			// Username: an Instagram/TikTok-style handle — ASCII letters, digits, '.' and '_' only,
+			// 1-20 chars (bounded by users.username VARCHAR(20)). The regex anchors force the first and
+			// last char to be non-period (no leading/trailing dot); the Contains("..") check blocks
+			// consecutive dots (and, with the anchors, the all-dots case). Restricting the charset keeps
+			// the handle URL-safe and removes it as a homoglyph-spoofing / stored-XSS surface — real
+			// names live in users_profile.display_name, which stays free-form.
+			if (string.IsNullOrWhiteSpace(request.Username)
+				|| request.Username.Length > 20
+				|| !Regex.IsMatch(request.Username, @"^[a-zA-Z0-9_](?:[a-zA-Z0-9._]*[a-zA-Z0-9_])?$")
+				|| request.Username.Contains(".."))
 			{
-				return MyResult<LoginResponse>.Failure(ErrorType.BadRequest, "Bad username format. Username must be 1-20 characters and not blank.");
+				return MyResult<LoginResponse>.Failure(ErrorType.BadRequest, "Invalid username. Use 1-20 letters, digits, '.' or '_' — no spaces or other symbols, and no leading/trailing or repeated dots.");
 			}
+			// Handles are case-insensitive (IG behavior): normalize to lowercase so 'John' and 'john'
+			// can't coexist. Stored lowercased, so the existing UNIQUE constraint enforces this for free.
+			string normalizedUsername = request.Username.ToLowerInvariant();
 			// Password: at least 5, and capped at 20. BCrypt silently truncates at 72 bytes, so an
 			// arbitrarily long password is misleading — the tail is ignored. Cap it low and explicit.
 			if(request.Password == null || request.Password.Length < 5 || request.Password.Length > 20)
@@ -40,7 +49,7 @@ namespace Business.Services
                 return MyResult<LoginResponse>.Failure(ErrorType.BadRequest, "Invalid email format. Email must be at most 50 characters.");
             }
             UserAndProfileRepository UserRepository = new UserAndProfileRepository(context);
-            if (await UserRepository.IsUsernameUsedAsync(request.Username))
+            if (await UserRepository.IsUsernameUsedAsync(normalizedUsername))
             {
 
                 return MyResult<LoginResponse>.Failure(ErrorType.Conflict, "Username is already in use.");
@@ -60,7 +69,7 @@ namespace Business.Services
             var UserEntity = new UserEntity
             {
                 user_id = 0,
-                username = request.Username,
+                username = normalizedUsername,
                 email = request.Email,
                 hashed_password = hashedPassword,
                 role = "student",
