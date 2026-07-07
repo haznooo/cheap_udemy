@@ -105,7 +105,10 @@ namespace Business.Services
         {
 
 
-            if (request.Email == null || !Regex.IsMatch(request.Email, @"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"))
+            // Length capped at the users.email / login_logs.attempted_identifier column width (254) so an
+            // oversized identifier can't overflow the failed-login audit insert. No signup-style 50 cap here:
+            // login must keep accepting any account that was created under an older, looser policy.
+            if (request.Email == null || request.Email.Length > 254 || !Regex.IsMatch(request.Email, @"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"))
             {
                 return MyResult<LoginResponse>.Failure(ErrorType.BadRequest, "Invalid email format.");
             }

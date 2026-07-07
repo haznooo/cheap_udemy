@@ -41,6 +41,10 @@ namespace CheapUdemy.Controllers
                 ipAddress = "unknown";
             }
 
+            // device_info is VARCHAR(255); the UA header is client-controlled, so cap it before it
+            // reaches the refresh-token insert (an oversized header would otherwise fail the insert).
+            if (userAgent.Length > 255) userAgent = userAgent.Substring(0, 255);
+
             AuthenticationService authenticationService = new AuthenticationService(context);
 
             //refresh token is generated in the service layer and stored securely (hashed + expiry + not revoked)
@@ -74,6 +78,8 @@ namespace CheapUdemy.Controllers
                 ipAddress = "unknown";
             }
 
+            // device_info is VARCHAR(255); cap the client-controlled UA header before it reaches the insert.
+            if (userAgent.Length > 255) userAgent = userAgent.Substring(0, 255);
 
             AuthenticationService authenticationService = new AuthenticationService(context);
 
@@ -107,6 +113,9 @@ namespace CheapUdemy.Controllers
                 userAgent = "unknown";
             if (string.IsNullOrWhiteSpace(ipAddress))
                 ipAddress = "unknown";
+
+            // device_info is VARCHAR(255); cap the client-controlled UA header before it reaches the insert.
+            if (userAgent.Length > 255) userAgent = userAgent.Substring(0, 255);
 
             if (string.IsNullOrWhiteSpace(request.AccessToken) || string.IsNullOrWhiteSpace(request.RefreshToken))
                 return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "access token and refresh token are required");
