@@ -86,9 +86,6 @@ mock with a real hash from `BCrypt.HashPassword(...)`; no need to fake BCrypt.
   "UserService only" scope we test its **failure branches only** (short password / bad id /
   user-not-found / wrong old password). Fully testing the success path needs `IRefreshTokenService`
   injected too — **deferred**.
-- `AddUserProfile`/`UpdateUserProfile` map `r?.country?.name` — the mock must return a
-  `UserProfileEntity` with a populated `country` navigation for a success-path test. Failure-path
-  tests (409/404) avoid this.
 
 ## Deferred (out of scope now — the "later" list)
 

@@ -50,7 +50,7 @@ Api (learning_platform/Api.csproj)
 | `api/Courses/{courseId}/reviews` | Reviews                                                            |
 | `api/Lessons`                    | Lessons (`POST add`, `PUT update/{id}`, `GET get/{id}`, `DELETE {id}` — delete is hard-delete, owner/admin via section→course→instructor, cleans up the lesson's bucket media) |
 | `api/Enrollments`                | Enrollments                                                        |
-| `api/categories`, `api/countries`| Anonymous lookup lists                                             |
+| `api/categories`                 | Lookup list (authenticated — `[Authorize]`, no anonymous access)   |
 
 > Note: `api/User` (auth) and `api/user` (profile) differ only by case — both are real, distinct controllers.
 > There is **no longer** an `api/media` controller — generic media upload was replaced by owner-scoped `POST api/Courses/{courseId}/media`.

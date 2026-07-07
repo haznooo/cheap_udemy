@@ -143,8 +143,7 @@ namespace Business.Services
                 RefreshToken = NewRefreshToken.Value?.RefreshToken,
                 RefreshTokenExpiresAt = NewRefreshToken.Value?.ExpiresAt,
                 Profile = new UserProfileResponse
-                (userE.Profile?.DisplayName, userE.Profile?.Bio, userE.Profile?.ImageUrl,
-                userE.Profile?.CountryId, userE.Profile?.CountryName, userE.Profile?.CountryIsoCode)
+                (userE.Profile?.DisplayName, userE.Profile?.Bio, userE.Profile?.ImageUrl)
 
 
             });

@@ -97,7 +97,7 @@ namespace Business.Services
             if (p == null) return MyResult<UserProfileResponse>.Failure(ErrorType.NotFound, "user not found");
 
             return MyResult<UserProfileResponse>.Success(
-                new UserProfileResponse(p.DisplayName, p.Bio, p.ImageUrl, p.CountryId, p.CountryName, p.CountryIsoCode));
+                new UserProfileResponse(p.DisplayName, p.Bio, p.ImageUrl));
         }
 
         // Persists an already-uploaded avatar file name onto the user's profile.
@@ -130,13 +130,12 @@ namespace Business.Services
             {
                 user_id = userid,
                 bio = request?.Bio,
-                country_id = request?.CountryId,
                 display_name = request?.DisplayName,
             };
 
             var r = await repo.AddUserProfileAsync(userid, profileE);
 
-            return MyResult<UserProfileResponse>.Success(new UserProfileResponse(r?.display_name, r?.bio, r?.image_url, r?.country_id, r?.country?.name, r?.country?.iso_code));
+            return MyResult<UserProfileResponse>.Success(new UserProfileResponse(r?.display_name, r?.bio, r?.image_url));
         }
 
         public async Task<MyResult<UserProfileResponse>> UpdateUserProfile(int userid, UserProfileRequest request)
@@ -151,13 +150,12 @@ namespace Business.Services
             {
                 user_id = userid,
                 bio = request?.Bio,
-                country_id = request?.CountryId,
                 display_name = request?.DisplayName,
             };
 
             var r = await repo.UpdateUserProfileByUserIdAsync(userid, profileE);
 
-            return MyResult<UserProfileResponse>.Success(new UserProfileResponse(r?.display_name, r?.bio, r?.image_url, r?.country_id, r?.country?.name, r?.country?.iso_code));
+            return MyResult<UserProfileResponse>.Success(new UserProfileResponse(r?.display_name, r?.bio, r?.image_url));
         }
 	
 	}

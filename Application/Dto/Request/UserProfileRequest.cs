@@ -5,7 +5,6 @@ namespace Business.Dto.Request
     // file itself and generates the stored name.
     public record UserProfileRequest(
      string? DisplayName,
-     string? Bio,
-     int? CountryId
+     string? Bio
  );
 }

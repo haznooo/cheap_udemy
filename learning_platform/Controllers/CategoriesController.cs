@@ -8,7 +8,7 @@ namespace Api.Controllers
 {
     [ApiController]
     [Route("api/categories")]
-    [AllowAnonymous]
+    [Authorize]
     public class CategoriesController(AppDbContext context) : ControllerBase
     {
         [HttpGet]

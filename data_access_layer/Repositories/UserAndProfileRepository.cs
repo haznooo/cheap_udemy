@@ -25,7 +25,6 @@ namespace DataAccess.Repositories
                         user_id = User.user_id,
                         bio = User.UserProfile?.bio,
                         image_url = User.UserProfile?.image_url,
-                        country_id = User.UserProfile?.country_id,
                         display_name = User.UserProfile?.display_name,
 
                     };
@@ -47,23 +46,7 @@ namespace DataAccess.Repositories
                 await context.Users.AddAsync(newUser);
                 await context.SaveChangesAsync();
 
-                var countryInnerInfo = new { CountryName = (string?)null, CountryIsoCode = (string?)null };
-
-                if (newUser.UserProfile?.country_id != null) 
-                {
-
-                     countryInnerInfo = await context.UsersProfile
-                .Where(u => u.user_id == newUser.user_id)
-                   .Select(u => new
-                   {
-                       CountryName = u.country.name,
-                       CountryIsoCode = u.country.iso_code
-                   })
-                   .FirstOrDefaultAsync();
-
-                }
-      
-                return new UserAndProfileDto 
+                return new UserAndProfileDto
                 {
                     UserId = newUser.user_id,
                     Username = newUser.username,
@@ -74,10 +57,7 @@ namespace DataAccess.Repositories
                     {
                         Bio = newUser.UserProfile?.bio,
                         ImageUrl = newUser.UserProfile?.image_url,
-                        DisplayName = newUser.UserProfile?.display_name,
-                        CountryId = newUser.UserProfile?.country_id,
-                        CountryName = countryInnerInfo?.CountryName,
-                        CountryIsoCode = countryInnerInfo?.CountryIsoCode
+                        DisplayName = newUser.UserProfile?.display_name
                     }
                 };
 
@@ -215,10 +195,7 @@ namespace DataAccess.Repositories
               // Fields from the UserProfile navigation property
              u.UserProfile.bio,
               u.UserProfile.image_url,
-               u.UserProfile.display_name,
-               u.UserProfile.country.iso_code,
-              u.UserProfile.country_id,
-               u.UserProfile.country.name
+               u.UserProfile.display_name
            }).FirstOrDefaultAsync();
 
             if(User == null) return null;   
@@ -234,10 +211,7 @@ namespace DataAccess.Repositories
                 {
                    Bio = User.bio,
                  ImageUrl = User.image_url,
-                    DisplayName = User.display_name,
-                   CountryId = User.country_id,
-                   CountryName = User.name,
-                    CountryIsoCode = User.iso_code
+                    DisplayName = User.display_name
                 }
             };
 
@@ -261,10 +235,7 @@ namespace DataAccess.Repositories
                  // Fields from the UserProfile navigation property
                  u.UserProfile.bio,
                  u.UserProfile.image_url,
-                 u.UserProfile.display_name,
-                 u.UserProfile.country.iso_code,
-                 u.UserProfile.country_id,
-                 u.UserProfile.country.name
+                 u.UserProfile.display_name
              }).FirstOrDefaultAsync();
 
             if (R == null) return null;
@@ -274,10 +245,7 @@ namespace DataAccess.Repositories
 
                 DisplayName = R.display_name,
                 Bio = R.bio,
-                ImageUrl = R.image_url,
-                CountryId = R.country_id,
-                CountryName = R.name,
-                CountryIsoCode = R.iso_code
+                ImageUrl = R.image_url
 
             };
 
@@ -312,10 +280,7 @@ namespace DataAccess.Repositories
                 // Fields from the UserProfile navigation property
                 u.UserProfile.bio,
                 u.UserProfile.image_url,
-                u.UserProfile.display_name,
-                u.UserProfile.country.iso_code,
-                u.UserProfile.country_id,
-                u.UserProfile.country.name
+                u.UserProfile.display_name
             }).FirstOrDefaultAsync();
 
             // No active user with this id (deleted/banned/missing). Return null instead of
@@ -328,10 +293,7 @@ namespace DataAccess.Repositories
 
                 DisplayName = R.display_name,
                 Bio = R.bio,
-                ImageUrl = R.image_url,
-                CountryId = R.country_id,
-                CountryName = R.name,
-                CountryIsoCode = R.iso_code
+                ImageUrl = R.image_url
 
             };
 
@@ -363,10 +325,7 @@ namespace DataAccess.Repositories
                 {
                     DisplayName = p.display_name,
                     Bio = p.bio,
-                    ImageUrl = p.image_url,
-                    CountryId = p.country_id,
-                    CountryName = p.country != null ? p.country.name : null,
-                    CountryIsoCode = p.country != null ? p.country.iso_code : null
+                    ImageUrl = p.image_url
                 })
                 .FirstOrDefaultAsync();
         }
@@ -402,16 +361,11 @@ namespace DataAccess.Repositories
             {
                 user_id = UserId,
                 bio = NewUserProfileData.bio,
-                country_id = NewUserProfileData.country_id,
                 display_name = NewUserProfileData.display_name
             };
 
             context.UsersProfile.Add(userProfileE);
             await context.SaveChangesAsync();
-
-            // Load the country navigation so the caller can read it off the returned entity
-            if (userProfileE.country_id != null)
-                await context.Entry(userProfileE).Reference(up => up.country).LoadAsync();
 
             return userProfileE;
         }
@@ -419,7 +373,6 @@ namespace DataAccess.Repositories
         public async Task<UserProfileEntity> UpdateUserProfileByUserIdAsync(int UserId, UserProfileEntity NewUserProfileData)
         {
             var userProfileE = await context.UsersProfile
-                .Include(up => up.country) // Eager load the country if you need to return it
                 .FirstOrDefaultAsync(up => up.user_id == UserId);
 
             if (userProfileE == null) return null;
@@ -428,7 +381,6 @@ namespace DataAccess.Repositories
             // UpdateUserAvatarAsync (via the avatar upload endpoint). Copying it from the
             // incoming data would wipe the existing avatar on every profile update.
             userProfileE.bio = NewUserProfileData.bio;
-            userProfileE.country_id = NewUserProfileData.country_id;
             userProfileE.display_name = NewUserProfileData.display_name;
 
             await context.SaveChangesAsync();

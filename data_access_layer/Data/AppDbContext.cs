@@ -27,7 +27,6 @@ namespace DataAccess.Data
         public virtual DbSet<UserEntity> Users { get; set; }
         public virtual DbSet<UserProfileEntity> UsersProfile { get; set; }
         public virtual DbSet<RefreshTokenEntity> UserRefreshToken { get; set; }
-        public virtual DbSet<CountryEntitiy> Countries { get; set; }
         public virtual DbSet<AdminActionEntitiy> AdminActions { get; set; }
         public virtual DbSet<LoginLogEntitiy> LoginLogs { get; set; }
         public virtual DbSet<CourseEntitiy> Courses { get; set; }
@@ -48,7 +47,6 @@ namespace DataAccess.Data
             modelBuilder.Entity<UserEntity>().ToTable("users");
             modelBuilder.Entity<UserProfileEntity>().ToTable("users_profile");
             modelBuilder.Entity<RefreshTokenEntity>().ToTable("user_refresh_tokens");
-            modelBuilder.Entity<CountryEntitiy>().ToTable("countries");
             modelBuilder.Entity<AdminActionEntitiy>().ToTable("admin_actions");
             modelBuilder.Entity<LoginLogEntitiy>().ToTable("login_logs");
             modelBuilder.Entity<CourseEntitiy>().ToTable("courses");
@@ -109,12 +107,6 @@ namespace DataAccess.Data
                       .WithOne(u => u.UserProfile) // <-- This links the two entities together!
                       .HasForeignKey<UserProfileEntity>(d => d.user_id)
                       .HasConstraintName("fk_user_profile");
-
-                // FK to Country
-                entity.HasOne(d => d.country)
-                      .WithMany()
-                      .HasForeignKey(d => d.country_id)
-                      .HasConstraintName("fk_user_country");
             });
    
             modelBuilder.Entity<SectionEntitiy>(entity =>
@@ -327,16 +319,6 @@ namespace DataAccess.Data
                 });
             });
    
-            modelBuilder.Entity<CountryEntitiy>(entity =>
-            {
-                entity.HasKey(e => e.country_id);
-                // Create index on iso_code
-                entity.HasIndex(e => e.iso_code)
-                      .IsUnique();
-
-                entity.Property(e => e.name).HasMaxLength(100).IsRequired();
-                entity.Property(e => e.iso_code).HasMaxLength(2).IsRequired();
-            });
             modelBuilder.Entity<AdminActionEntitiy>(entity =>
             {
                 entity.HasKey(e => e.id);

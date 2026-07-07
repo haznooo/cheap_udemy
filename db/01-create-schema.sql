@@ -6,12 +6,6 @@ CREATE SCHEMA public;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 
-CREATE TABLE countries (
-    country_id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    iso_code CHAR(2) UNIQUE NOT NULL
-);
-
 CREATE TABLE users (
     user_id         SERIAL PRIMARY KEY,
     username        VARCHAR(20) NOT NULL UNIQUE,
@@ -34,10 +28,8 @@ CREATE TABLE users_profile (
     user_id      INT PRIMARY KEY,
     bio          TEXT NULL,
     avatar_url    VARCHAR(300) NULL,     -- avatar (filename from media upload)
-    country_id   INT NULL,
     display_name VARCHAR(30) NULL,
-    CONSTRAINT fk_user_profile FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    CONSTRAINT fk_user_country FOREIGN KEY (country_id) REFERENCES countries(country_id)
+    CONSTRAINT fk_user_profile FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
 CREATE TABLE user_refresh_tokens (

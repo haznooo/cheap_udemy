@@ -6,7 +6,7 @@ the schema is managed entirely by these files. Run them in numeric order:
 | Order | Script               | Purpose                                                  |
 | ----- | -------------------- | -------------------------------------------------------- |
 | 1     | `01-create-schema.sql` | Full schema: tables, constraints, indexes, triggers.   |
-| 2     | `02-seed.sql`          | Seed data (countries, categories, an initial admin).   |
+| 2     | `02-seed.sql`          | Seed data (categories, an initial admin).              |
 
 > `01-create-schema.sql` starts with `DROP SCHEMA public CASCADE` — running it wipes the
 > existing `public` schema. Only run it against a database you are happy to reset.
