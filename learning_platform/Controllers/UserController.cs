@@ -74,6 +74,23 @@ namespace Api.Controllers
             return Ok(new { avatar = fileName });
         }
 
+        [HttpDelete("me/avatar")]
+        public async Task<ActionResult> DeleteMyAvatar()
+        {
+            if (CallerId is not int callerId) return MissingIdentity();
+
+            var result = await new UserService(context).RemoveAvatar(callerId);
+            if (!result.IsSuccess) return MapFailure(result);
+
+            // Avatar cleared in the DB; remove the now-orphaned file (best-effort).
+            if (!string.IsNullOrEmpty(result.Value))
+            {
+                await mediaService.DeleteAvatarAsync(result.Value);
+            }
+
+            return NoContent();
+        }
+
         [HttpPost("me/password")]
         public async Task<ActionResult<bool>> UpdateMyPassword([FromBody] UpdatePasswordRequest request)
         {

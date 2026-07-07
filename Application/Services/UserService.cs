@@ -114,6 +114,19 @@ namespace Business.Services
             return MyResult<string?>.Success(oldFileName);
         }
 
+        // Clears the user's avatar. On success the value is the REMOVED file name
+        // (null if there was none) so the controller can delete the stale file.
+        public async Task<MyResult<string?>> RemoveAvatar(int userId)
+        {
+            if (userId <= 0) return MyResult<string?>.Failure(ErrorType.BadRequest, "user id can not be zero or negative");
+
+            UserAndProfileRepository repo = new UserAndProfileRepository(context);
+
+            var oldFileName = await repo.RemoveUserAvatarAsync(userId);
+
+            return MyResult<string?>.Success(oldFileName);
+        }
+
         public async Task<MyResult<UserProfileResponse>> AddUserProfile(int userid, UserProfileRequest request)
         {
             UserAndProfileRepository repo = new UserAndProfileRepository(context);

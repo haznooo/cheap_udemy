@@ -355,6 +355,22 @@ namespace DataAccess.Repositories
             return oldFileName;
         }
 
+        // Clears the user's avatar. Returns the REMOVED file name (null if there
+        // was no profile row or no avatar set) so the caller can delete the stale
+        // file from storage. No row is created here — nothing to remove.
+        public async Task<string?> RemoveUserAvatarAsync(int userId)
+        {
+            var profile = await context.UsersProfile.FirstOrDefaultAsync(p => p.user_id == userId);
+
+            if (profile == null || string.IsNullOrEmpty(profile.image_url)) return null;
+
+            var oldFileName = profile.image_url;
+            profile.image_url = null;
+
+            await context.SaveChangesAsync();
+            return oldFileName;
+        }
+
         public async Task<UserProfileEntity> AddUserProfileAsync(int UserId, UserProfileEntity NewUserProfileData)
         {
             var userProfileE = new UserProfileEntity
