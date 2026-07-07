@@ -21,15 +21,30 @@ namespace Business.Services
 
 			// Business Rule
 
-			if(request.Password == null || request.Password.Length < 5)
+			// Username: required, non-blank, and within the DB's VARCHAR(20). Without these the
+			// request reaches the DB and blows up as a 500 (constraint violation) or, for a blank
+			// username, trips the valid_username_format CHECK — return a clean 400 instead.
+			if (string.IsNullOrWhiteSpace(request.Username) || request.Username.Length > 20)
 			{
-				return MyResult<LoginResponse>.Failure(ErrorType.BadRequest, "Password must be at least 5 characters long.");
+				return MyResult<LoginResponse>.Failure(ErrorType.BadRequest, "Bad username format. Username must be 1-20 characters and not blank.");
 			}
-            if (request.Email == null || !Regex.IsMatch(request.Email, @"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"))
+			// Password: at least 5, and capped at 20. BCrypt silently truncates at 72 bytes, so an
+			// arbitrarily long password is misleading — the tail is ignored. Cap it low and explicit.
+			if(request.Password == null || request.Password.Length < 5 || request.Password.Length > 20)
+			{
+				return MyResult<LoginResponse>.Failure(ErrorType.BadRequest, "Password must be between 5 and 20 characters long.");
+			}
+            // Email: valid format and at most 50 chars (app policy — 254 is absurd for this app).
+            if (request.Email == null || request.Email.Length > 50 || !Regex.IsMatch(request.Email, @"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"))
             {
-                return MyResult<LoginResponse>.Failure(ErrorType.BadRequest, "Invalid email format.");
+                return MyResult<LoginResponse>.Failure(ErrorType.BadRequest, "Invalid email format. Email must be at most 50 characters.");
             }
             UserAndProfileRepository UserRepository = new UserAndProfileRepository(context);
+            if (await UserRepository.IsUsernameUsedAsync(request.Username))
+            {
+
+                return MyResult<LoginResponse>.Failure(ErrorType.Conflict, "Username is already in use.");
+            }
             if (await UserRepository.IsEmailUsedAsync(request.Email))
             {
 

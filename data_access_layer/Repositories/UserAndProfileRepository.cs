@@ -411,6 +411,12 @@ namespace DataAccess.Repositories
             return await context.Users.AnyAsync(e => e.email == email);
 
         }
+        public async Task<bool> IsUsernameUsedAsync(string username)
+        {
+
+            return await context.Users.AnyAsync(e => e.username == username);
+
+        }
         public async Task<bool> IsUserActiveAsync(int userId)
         {
             return await context.Users.AnyAsync(e => e.user_id == userId && e.status == "active");
