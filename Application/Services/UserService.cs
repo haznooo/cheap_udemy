@@ -18,10 +18,13 @@ namespace Business.Services
         // On success the value is the deleted user's avatar file name (null if none)
         // so the controller can remove the file from storage — the anonymize trigger
         // deletes the profile row, after which the name is unrecoverable.
+        // Self-delete: the caller confirms with their OWN password (userid == caller).
         public async Task<MyResult<string?>> DeleteUser(int userid,DeleteUserRequest request)
 		{
 
 			if (userid <= 0) { return MyResult<string?>.Failure(ErrorType.BadRequest, "user id can not be zero or negative"); }
+
+			if (string.IsNullOrEmpty(request.Password)) { return MyResult<string?>.Failure(ErrorType.BadRequest, "Password is required."); }
 
 			UserAndProfileRepository UserRepository = new UserAndProfileRepository(context);
 
@@ -58,9 +61,20 @@ namespace Business.Services
                 return MyResult<bool>.Failure(ErrorType.BadRequest, "Password must be at least 5 characters long.");
             }
 
+            if (string.IsNullOrEmpty(request.OldPassword))
+            {
+                return MyResult<bool>.Failure(ErrorType.BadRequest, "Current password is required.");
+            }
+
             if (userId <= 0) { return MyResult<bool>.Failure(ErrorType.BadRequest, "user id can not be zero or negative"); }
 
             UserAndProfileRepository UserRepository = new UserAndProfileRepository(context);
+
+            // A still-valid access token can outlive the account by up to its 20-min
+            // lifetime (deletion/ban does NOT revoke JWTs). Block a non-active caller
+            // from mutating a dead/suspended account.
+            if (!await UserRepository.IsUserActiveAsync(userId))
+                return MyResult<bool>.Failure(ErrorType.NotFound, "user not found");
 
             string? HashedPassword = await UserRepository.GetHashedPasswordByIdAsync(userId);
 
@@ -109,6 +123,12 @@ namespace Business.Services
 
             UserAndProfileRepository repo = new UserAndProfileRepository(context);
 
+            // A still-valid access token can outlive the account (deletion/ban does
+            // NOT revoke JWTs). Without this guard the avatar upsert below would
+            // resurrect a profile row for a deleted account.
+            if (!await repo.IsUserActiveAsync(userId))
+                return MyResult<string?>.Failure(ErrorType.NotFound, "user not found");
+
             var oldFileName = await repo.UpdateUserAvatarAsync(userId, fileName);
 
             return MyResult<string?>.Success(oldFileName);
@@ -121,6 +141,11 @@ namespace Business.Services
             if (userId <= 0) return MyResult<string?>.Failure(ErrorType.BadRequest, "user id can not be zero or negative");
 
             UserAndProfileRepository repo = new UserAndProfileRepository(context);
+
+            // Same 20-min stale-token window as SetAvatar: don't let a deleted/banned
+            // caller mutate the (already-gone) profile row.
+            if (!await repo.IsUserActiveAsync(userId))
+                return MyResult<string?>.Failure(ErrorType.NotFound, "user not found");
 
             var oldFileName = await repo.RemoveUserAvatarAsync(userId);
 

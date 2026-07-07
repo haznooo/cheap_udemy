@@ -62,7 +62,13 @@ namespace Api.Controllers
             var fileName = await mediaService.UploadAvatarAsync(file);
 
             var result = await new UserService(context).SetAvatar(callerId, fileName);
-            if (!result.IsSuccess) return MapFailure(result);
+            if (!result.IsSuccess)
+            {
+                // Persisting failed (e.g. the account is no longer active); the file we
+                // just uploaded is now orphaned — remove it best-effort.
+                await mediaService.DeleteAvatarAsync(fileName);
+                return MapFailure(result);
+            }
 
             // The new name is persisted; the replaced file is now orphaned in the
             // bucket, so remove it (best-effort — a leftover file is harmless).
