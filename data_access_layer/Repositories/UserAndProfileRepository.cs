@@ -219,32 +219,95 @@ namespace DataAccess.Repositories
 
 
         }
-        // Single-query login lookup: everything LoginUser needs (id, account fields,
-        // hash, profile) in one round-trip. NO status filter — login must see
-        // deleted/suspended rows to branch on them (null hash => deleted/anonymized;
-        // status != "active" => suspended). A deleted user's hash is NULL, which reads
-        // back safely now that UserEntity.hashed_password is modeled as nullable.
+        public async Task<UserAndProfileDto> GetUserByEmailAsync(string email)
+        {
+            var R = await context.Users.Where(u => u.email == email && u.status == "active")
+             .Select(u => new
+             {
+                 // Fields from the User table
+                 UserId = u.user_id,
+                 u.username,
+                 u.email,
+                 u.role,
+                 u.status,
+
+
+                 // Fields from the UserProfile navigation property
+                 u.UserProfile.bio,
+                 u.UserProfile.image_url,
+                 u.UserProfile.display_name
+             }).FirstOrDefaultAsync();
+
+            if (R == null) return null;
+
+            UserProfileDto response = new UserProfileDto
+            {
+
+                DisplayName = R.display_name,
+                Bio = R.bio,
+                ImageUrl = R.image_url
+
+            };
+
+
+            return new UserAndProfileDto
+            {
+
+                UserId = R.UserId,
+                Username = R.username,
+                Email = R.email,
+                Role = R.role,
+                Status = R.status,
+                Profile = response
+
+            };
+
+        }
+        // Single-query fetch for the login flow. Deliberately NOT filtered by status —
+        // login needs to see anonymized/deleted (NULL hash) and suspended/banned accounts
+        // so it can spend equal BCrypt time and return the same 401 as a wrong password,
+        // never leaking whether an email exists or an account's state. Carries the password
+        // hash (LoginLookupDto is internal-only, never serialized). Profile is null when the
+        // user has no profile row (signup no longer creates one).
         public async Task<LoginLookupDto?> GetUserForLoginAsync(string email)
         {
-            return await context.Users
-                .Where(u => u.email == email)
-                .Select(u => new LoginLookupDto
-                {
-                    UserId = u.user_id,
-                    Username = u.username,
-                    Email = u.email,
-                    Role = u.role,
-                    Status = u.status,
-                    HashedPassword = u.hashed_password,
-                    Profile = new UserProfileDto
+            var R = await context.Users.Where(u => u.email == email)
+             .Select(u => new
+             {
+                 UserId = u.user_id,
+                 u.username,
+                 u.email,
+                 u.role,
+                 u.status,
+                 u.hashed_password,
+
+                 HasProfile = u.UserProfile != null,
+                 u.UserProfile.bio,
+                 u.UserProfile.image_url,
+                 u.UserProfile.display_name
+             }).FirstOrDefaultAsync();
+
+            if (R == null) return null;
+
+            return new LoginLookupDto
+            {
+                UserId = R.UserId,
+                Username = R.username,
+                Email = R.email,
+                Role = R.role,
+                Status = R.status,
+                HashedPassword = R.hashed_password,
+                Profile = R.HasProfile
+                    ? new UserProfileDto
                     {
-                        DisplayName = u.UserProfile.display_name,
-                        Bio = u.UserProfile.bio,
-                        ImageUrl = u.UserProfile.image_url
+                        DisplayName = R.display_name,
+                        Bio = R.bio,
+                        ImageUrl = R.image_url
                     }
-                })
-                .FirstOrDefaultAsync();
+                    : null
+            };
         }
+
         public async Task<UserAndProfileDto> GetUserByIdAsync(int userId)
         {
 
@@ -413,6 +476,14 @@ namespace DataAccess.Repositories
         }
 
         //custom elemnts
+        public async Task<string?> GetHashedPasswordByEmailAsync(string email)
+        {
+
+            string? hasshedPassword = await context.Users.Where(u => u.email == email).Select(u => u.hashed_password).FirstOrDefaultAsync();
+
+            return hasshedPassword;
+
+        }
         public async Task<bool> PromotUserToInstructorAsync(int userId, string newStatus)
         {
             var user = await context.Users.FirstOrDefaultAsync(u => u.user_id == userId);
@@ -423,12 +494,17 @@ namespace DataAccess.Repositories
         }
         public async Task<string?> GetHashedPasswordByIdAsync(int userId)
         {
-            // Returns null for a deleted/anonymized user (their hash is NULL). Safe to read
-            // now that UserEntity.hashed_password is modeled as nullable — the caller must
-            // treat null as "no usable credential" (fail closed), never as "user not found".
             string? hashedPassword = await context.Users.Where(u => u.user_id == userId).Select(u => u.hashed_password).FirstOrDefaultAsync();
 
             return hashedPassword;
+        }
+
+        public async Task<int?> GetUserIdByEmail(string email)
+        {
+
+            int id = await context.Users.Where(u => u.email == email).Select(u => u.user_id).FirstOrDefaultAsync();
+
+            return id;
         }
     }
 }

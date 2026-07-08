@@ -24,6 +24,7 @@ namespace Business.Services
 
 			if (userid <= 0) { return MyResult<string?>.Failure(ErrorType.BadRequest, "user id can not be zero or negative"); }
 
+
 			if (string.IsNullOrEmpty(request.Password)) { return MyResult<string?>.Failure(ErrorType.BadRequest, "Password is required."); }
 
 			UserAndProfileRepository UserRepository = new UserAndProfileRepository(context);
