@@ -36,13 +36,12 @@ a separate, later effort (see "Deferred").
 
 ### 1. Extract `IUserAndProfileRepository`
 - New file `data_access_layer/Repositories/IUserAndProfileRepository.cs`.
-- Contains **every public method** of `UserAndProfileRepository` (all ~20: `AddUserAsync`,
+- Contains **every public method** of `UserAndProfileRepository` (`AddUserAsync`,
   `DeleteUserAsync_Anonymize` (both overloads), `UpdateUserPasswordAsync`, `GetUsersAsync`,
-  `GetUserByCredentialsAsync`, `GetUserByEmailAsync`, `GetUserByIdAsync`, `GetUserProfileByIdAsync`,
+  `GetUserByCredentialsAsync`, `GetUserForLoginAsync`, `GetUserByIdAsync`, `GetUserProfileByIdAsync`,
   `UpdateUserAvatarAsync`, `AddUserProfileAsync`, `UpdateUserProfileByUserIdAsync`, `IsEmailUsedAsync`,
   `IsUserActiveAsync`, `DoesUserExistByIdAsync`, `DoesUserProfileExistAsync`,
-  `GetHashedPasswordByEmailAsync`, `PromotUserToInstructorAsync`, `GetHashedPasswordByIdAsync`,
-  `GetUserIdByEmail`).
+  `PromotUserToInstructorAsync`, `GetHashedPasswordByIdAsync`).
 - `class UserAndProfileRepository(...) : IUserAndProfileRepository` — no body changes.
 
 ### 2. Inject the repo into `UserService`

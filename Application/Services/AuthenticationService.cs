@@ -124,53 +124,52 @@ namespace Business.Services
 
             UserAndProfileRepository repo = new UserAndProfileRepository(context);
 
-            string? HashedPassword = await repo.GetHashedPasswordByEmailAsync(request.Email);
+            // One query fetches everything the login needs — id, account fields, hash, profile.
+            var user = await repo.GetUserForLoginAsync(request.Email);
 
-            if (HashedPassword == null)
+            // Unknown email OR an anonymized/deleted user (NULL hash): still auditable (record the
+            // attempted identifier, never the password). Spend the same BCrypt time as a real login
+            // and return the SAME failure (401, same message) as a wrong password, so neither status
+            // code nor timing reveals whether the email exists.
+            if (user == null || user.HashedPassword == null)
             {
-                // Unknown email: still auditable. Record the attempted identifier (never the password).
-                await new LoginLogService(context).LogAsync(null, "failed", ipAddress, deviceInfo, request.Email);
-                // Spend the same BCrypt time as a real login and return the SAME failure (401, same
-                // message) as a wrong password, so neither status code nor timing reveals that the
-                // email doesn't exist.
+                await new LoginLogService(context).LogAsync(user?.UserId, "failed", ipAddress, deviceInfo, request.Email);
                 BCrypt.Net.BCrypt.Verify(request.Password ?? "", DummyPasswordHash);
                 return MyResult<LoginResponse>.Failure(ErrorType.Unauthorized, "invalid credentials");
             }
 
-            // user exists — get their id so we can log success or failure
-            int? userId = await repo.GetUserIdByEmail(request.Email);
-
-            bool isValidPassword = BCrypt.Net.BCrypt.Verify(request.Password ?? "", Convert.ToString(HashedPassword));
+            bool isValidPassword = BCrypt.Net.BCrypt.Verify(request.Password ?? "", user.HashedPassword);
 
             if (!isValidPassword)
             {
-                await new LoginLogService(context).LogAsync(userId, "failed", ipAddress, deviceInfo, request.Email);
+                await new LoginLogService(context).LogAsync(user.UserId, "failed", ipAddress, deviceInfo, request.Email);
                 return MyResult<LoginResponse>.Failure(ErrorType.Unauthorized, "invalid credentials");
             }
 
-            var userE = await repo.GetUserByEmailAsync(request.Email);
-
-
-            if (userE == null) return MyResult<LoginResponse>.Failure(ErrorType.Unauthorized, "invalid credentials");
+            // Correct password but the account isn't active (suspended/banned): same 401, so account
+            // state isn't leaked. Mirrors the old flow where GetUserByEmailAsync's status=="active"
+            // filter returned null at this point.
+            if (user.Status != "active")
+                return MyResult<LoginResponse>.Failure(ErrorType.Unauthorized, "invalid credentials");
 
 
             RefreshTokenService refreshTokenService = new RefreshTokenService(context);
-            var NewRefreshToken = await refreshTokenService.AddNewRefreshTokenFirstTime(userE.UserId, deviceInfo, ipAddress);
+            var NewRefreshToken = await refreshTokenService.AddNewRefreshTokenFirstTime(user.UserId, deviceInfo, ipAddress);
 
-            await new LoginLogService(context).LogAsync(userE.UserId, "success", ipAddress, deviceInfo);
+            await new LoginLogService(context).LogAsync(user.UserId, "success", ipAddress, deviceInfo);
 
             return MyResult<LoginResponse>.Success(new LoginResponse
             {
-                Id = userE.UserId,
-                Username = userE.Username,
-                Email = userE.Email,
-                Role = userE.Role,
-                Status = userE.Status,
+                Id = user.UserId,
+                Username = user.Username,
+                Email = user.Email,
+                Role = user.Role,
+                Status = user.Status,
 				IsRefreshTokenRevoked = false,
                 RefreshToken = NewRefreshToken.Value?.RefreshToken,
                 RefreshTokenExpiresAt = NewRefreshToken.Value?.ExpiresAt,
                 Profile = new UserProfileResponse
-                (userE.Profile?.DisplayName, userE.Profile?.Bio, userE.Profile?.ImageUrl)
+                (user.Profile?.DisplayName, user.Profile?.Bio, user.Profile?.ImageUrl)
 
 
             });
