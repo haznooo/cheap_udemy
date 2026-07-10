@@ -35,7 +35,7 @@ namespace Business.Services
                 return MyResult<LessonDto>.Failure(ErrorType.NotFound, "Section not found.");
             }
 
-            var permission = await new CourseService(context).CheckCourseEditPermission(courseId.Value, callerId, isAdmin);
+            var permission = await new CourseService(new CoursesRepository(context), new EnrollmentRepository(context)).CheckCourseEditPermission(courseId.Value, callerId, isAdmin);
             if (!permission.IsSuccess)
             {
                 return MyResult<LessonDto>.Failure(permission.FailureType, permission.Errors.Select(e => e.Message).ToArray());
@@ -183,7 +183,7 @@ namespace Business.Services
             if (courseId == null)
                 return MyResult<LessonDto>.Failure(ErrorType.NotFound, "Section not found.");
 
-            var permission = await new CourseService(context).CheckCourseEditPermission(courseId.Value, callerId, isAdmin);
+            var permission = await new CourseService(new CoursesRepository(context), new EnrollmentRepository(context)).CheckCourseEditPermission(courseId.Value, callerId, isAdmin);
             if (!permission.IsSuccess)
                 return MyResult<LessonDto>.Failure(permission.FailureType, permission.Errors.Select(e => e.Message).ToArray());
 
@@ -242,7 +242,7 @@ namespace Business.Services
             if (courseId == null)
                 return MyResult<bool>.Failure(ErrorType.NotFound, "Section not found.");
 
-            var permission = await new CourseService(context).CheckCourseEditPermission(courseId.Value, callerId, isAdmin);
+            var permission = await new CourseService(new CoursesRepository(context), new EnrollmentRepository(context)).CheckCourseEditPermission(courseId.Value, callerId, isAdmin);
             if (!permission.IsSuccess)
                 return MyResult<bool>.Failure(permission.FailureType, permission.Errors.Select(e => e.Message).ToArray());
 

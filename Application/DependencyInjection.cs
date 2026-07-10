@@ -17,6 +17,7 @@ namespace Business.DependencyInjection
             service.AddScoped<IAuthenticationService, AuthenticationService>();
             service.AddScoped<IEnrollmentService, EnrollmentService>();
             service.AddScoped<IReviewService, ReviewService>();
+            service.AddScoped<ICourseService, CourseService>();
 
             return service;
         }

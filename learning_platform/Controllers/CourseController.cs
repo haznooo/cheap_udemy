@@ -1,8 +1,8 @@
 using Business.Common;
 using Business.Dto.Request;
+using Business.Interfaces;
 using Business.Services;
 using DataAccess.Common;
-using DataAccess.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using DataAccess.Dto;
@@ -12,7 +12,7 @@ namespace Api.Controllers
 {
     [ApiController]
     [Route("api/Courses")]
-    public class CourseController(AppDbContext context, IMediaService mediaService) : ApiControllerBase
+    public class CourseController(ICourseService courseService, IMediaService mediaService) : ApiControllerBase
     {
         // 5 MB limit for thumbnails; images only.
         private const long MaxThumbnailSize = 5 * 1024 * 1024;
@@ -26,8 +26,6 @@ namespace Api.Controllers
         [HttpPost("get")]
         public async Task<ActionResult<clsPageResult.PageResult<CourseDto>>> GetCourses(GetCoursesRequest request)
         {
-            var courseService = new CourseService(context);
-
             var Result = await courseService.GetAllCourses(request);
 
             if (!Result.IsSuccess) return MapFailure(Result);
@@ -42,8 +40,7 @@ namespace Api.Controllers
             // Instructor id is taken from the authenticated caller, never from the body.
             if (CallerId is not int instructorId) return MissingIdentity();
 
-            var courseServic = new CourseService(context);
-            var Result = await courseServic.AddNewCourse(request, instructorId);
+            var Result = await courseService.AddNewCourse(request, instructorId);
 
             if (!Result.IsSuccess) return MapFailure(Result);
 
@@ -54,7 +51,6 @@ namespace Api.Controllers
         [HttpGet("{courseId}")]
         public async Task<ActionResult<CourseDto>> GetCourse(int courseId)
         {
-            var courseService = new CourseService(context);
             var Result = await courseService.GetCourseById(courseId);
 
             if (!Result.IsSuccess) return MapFailure(Result);
@@ -83,7 +79,6 @@ namespace Api.Controllers
                 return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Invalid file type. Only JPG and PNG are allowed.");
             }
 
-            var courseService = new CourseService(context);
             bool isAdmin = User.IsInRole("admin");
 
             // Verify ownership BEFORE uploading anything to storage, so a non-owner
@@ -130,7 +125,6 @@ namespace Api.Controllers
                 return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Invalid file type. Only JPG, PNG, MP4, and MOV are allowed.");
             }
 
-            var courseService = new CourseService(context);
             bool isAdmin = User.IsInRole("admin");
 
             var permission = await courseService.CheckCourseEditPermission(courseId, callerId, isAdmin);
@@ -150,7 +144,6 @@ namespace Api.Controllers
             if (CallerId is not int callerId) return MissingIdentity();
 
             bool isAdmin = User.IsInRole("admin");
-            var courseService = new CourseService(context);
             var Result = await courseService.GetCourseLessons(courseId, callerId, isAdmin, pageNumber, pageSize);
 
             if (!Result.IsSuccess) return MapFailure(Result);
@@ -167,7 +160,6 @@ namespace Api.Controllers
         {
             if (CallerId is not int callerId) return MissingIdentity();
 
-            var courseService = new CourseService(context);
             var result = await courseService.GetInstructorCourses(callerId, callerId, CallerRole, pageNumber, pageSize);
 
             if (!result.IsSuccess) return MapFailure(result);
@@ -185,7 +177,6 @@ namespace Api.Controllers
         {
             if (CallerId is not int callerId) return MissingIdentity();
 
-            var courseService = new CourseService(context);
             var result = await courseService.GetInstructorCourses(instructorId, callerId, CallerRole, pageNumber, pageSize);
 
             if (!result.IsSuccess) return MapFailure(result);
@@ -200,7 +191,6 @@ namespace Api.Controllers
             if (CallerId is not int callerId) return MissingIdentity();
 
             bool isAdmin = User.IsInRole("admin");
-            var courseService = new CourseService(context);
             var result = await courseService.UpdateCourse(courseId, request, callerId, isAdmin);
 
             if (!result.IsSuccess) return MapFailure(result);
@@ -215,7 +205,6 @@ namespace Api.Controllers
             if (CallerId is not int callerId) return MissingIdentity();
 
             bool isAdmin = User.IsInRole("admin");
-            var courseService = new CourseService(context);
             var result = await courseService.PublishCourse(courseId, callerId, isAdmin);
 
             if (!result.IsSuccess) return MapFailure(result);
@@ -230,7 +219,6 @@ namespace Api.Controllers
             if (CallerId is not int callerId) return MissingIdentity();
 
             bool isAdmin = User.IsInRole("admin");
-            var courseService = new CourseService(context);
             var result = await courseService.UnpublishCourse(courseId, callerId, isAdmin);
 
             if (!result.IsSuccess) return MapFailure(result);
@@ -244,14 +232,13 @@ namespace Api.Controllers
         {
             if (CallerId is not int callerId) return MissingIdentity();
 
-            var courseServic = new CourseService(context);
             bool isAdmin = User.IsInRole("admin");
 
             // Only the owning instructor (or an admin) may add sections to a course.
-            var permission = await courseServic.CheckCourseEditPermission(request.CourseId, callerId, isAdmin);
+            var permission = await courseService.CheckCourseEditPermission(request.CourseId, callerId, isAdmin);
             if (!permission.IsSuccess) return MapFailure(permission);
 
-            var Result = await courseServic.AddNewSection(request);
+            var Result = await courseService.AddNewSection(request);
 
             if (!Result.IsSuccess) return MapFailure(Result);
 

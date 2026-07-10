@@ -1,15 +1,12 @@
-﻿using AngleSharp.Io;
-using Business.Common;
+﻿using Business.Common;
 using Business.Dto.Request;
 using Business.Dto.Rsponse;
+using Business.Interfaces;
 using DataAccess.Common;
-using DataAccess.Data;
 using DataAccess.Dto;
 using DataAccess.Entities;
 using DataAccess.Entities.json;
-using DataAccess.Repositories;
-using MediatR;
-using Microsoft.EntityFrameworkCore;
+using DataAccess.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -17,7 +14,7 @@ using static DataAccess.Common.clsPageResult;
 
 namespace Business.Services
 {
-    public class CourseService(AppDbContext context)
+    public class CourseService(ICoursesRepository coursesRepository, IEnrollmentRepository enrollmentRepository) : ICourseService
     {
 
         public async Task<MyResult<PageResult<CourseDto>>> GetAllCourses(GetCoursesRequest request)
@@ -28,10 +25,7 @@ namespace Business.Services
                 return MyResult<PageResult<CourseDto>>.Failure(ErrorType.BadRequest, "Invalid page number or page size.");
             }
 
-            CoursesRepository repo = new CoursesRepository(context);
-
-
-            var R = await repo.GetAllCourses(
+            var R = await coursesRepository.GetAllCourses(
                 request.PageNumber, request.PageSize,
                 request.SearchTerm, request.CategoryId, request.Level,
                 request.MinPrice, request.MaxPrice, request.SortBy);
@@ -57,7 +51,7 @@ namespace Business.Services
                 return MyResult<CourseDto>.Failure(ErrorType.BadRequest, "Invalid category ID.");
             }
             // Validate against the categories table instead of a hardcoded upper bound.
-            bool categoryExists = await context.Categories.AnyAsync(c => c.category_id == request.CategoryId);
+            bool categoryExists = await coursesRepository.DoesCategoryExistAsync(request.CategoryId);
             if (!categoryExists)
             {
                 return MyResult<CourseDto>.Failure(ErrorType.BadRequest, "Category does not exist.");
@@ -90,8 +84,7 @@ namespace Business.Services
                 }
             };
 
-            CoursesRepository repo = new CoursesRepository(context);
-            var result = await repo.AddNewCourse(courseEntity);
+            var result = await coursesRepository.AddNewCourse(courseEntity);
 
             if(result == null)
             {
@@ -109,8 +102,7 @@ namespace Business.Services
                 return MyResult<CourseDto>.Failure(ErrorType.BadRequest, "Invalid course ID.");
             }
 
-            CoursesRepository repo = new CoursesRepository(context);
-            var course = await repo.GetCourseById(courseId);
+            var course = await coursesRepository.GetCourseById(courseId);
 
             if (course == null)
             {
@@ -130,8 +122,7 @@ namespace Business.Services
                 return MyResult<bool>.Failure(ErrorType.BadRequest, "Invalid course ID.");
             }
 
-            CoursesRepository repo = new CoursesRepository(context);
-            var ownerId = await repo.GetCourseInstructorId(courseId);
+            var ownerId = await coursesRepository.GetCourseInstructorId(courseId);
 
             if (ownerId == null)
             {
@@ -158,8 +149,7 @@ namespace Business.Services
                 return MyResult<string?>.Failure(permission.FailureType, permission.Errors.Select(e => e.Message).ToArray());
             }
 
-            CoursesRepository repo = new CoursesRepository(context);
-            var (ok, oldFileName) = await repo.UpdateThumbnail(courseId, fileName);
+            var (ok, oldFileName) = await coursesRepository.UpdateThumbnail(courseId, fileName);
             if (!ok)
             {
                 return MyResult<string?>.Failure(ErrorType.Failure, "Failed to update thumbnail.");
@@ -183,14 +173,12 @@ namespace Business.Services
                 return MyResult<PageResult<LessonDto>>.Failure(ErrorType.BadRequest, "Invalid page number or page size.");
             }
 
-            var enrollmentRepo = new EnrollmentRepository(context);
-            if (!await enrollmentRepo.CanViewCourseContentAsync(courseId, callerId, isAdmin))
+            if (!await enrollmentRepository.CanViewCourseContentAsync(courseId, callerId, isAdmin))
             {
                 return MyResult<PageResult<LessonDto>>.Failure(ErrorType.NotFound, "Course not found.");
             }
 
-            CoursesRepository repo = new CoursesRepository(context);
-            var lessons = await repo.GetCourseLessons(courseId, pageNumber, pageSize);
+            var lessons = await coursesRepository.GetCourseLessons(courseId, pageNumber, pageSize);
 
             if (lessons == null)
             {
@@ -212,8 +200,7 @@ namespace Business.Services
             if (!isAdmin && callerId != instructorId)
                 return MyResult<PageResult<CourseDto>>.Failure(ErrorType.Unauthorized, "Access denied.");
 
-            CoursesRepository repo = new CoursesRepository(context);
-            var r = await repo.GetCoursesByInstructorIdAsync(instructorId, pageNumber, pageSize);
+            var r = await coursesRepository.GetCoursesByInstructorIdAsync(instructorId, pageNumber, pageSize);
             if (r == null)
                 return MyResult<PageResult<CourseDto>>.Failure(ErrorType.Failure, "Failed to retrieve courses.");
 
@@ -235,7 +222,7 @@ namespace Business.Services
 
             if (request.CategoryId.HasValue)
             {
-                bool categoryExists = await context.Categories.AnyAsync(c => c.category_id == request.CategoryId.Value);
+                bool categoryExists = await coursesRepository.DoesCategoryExistAsync(request.CategoryId.Value);
                 if (!categoryExists)
                     return MyResult<CourseDto>.Failure(ErrorType.BadRequest, "Category does not exist.");
             }
@@ -243,8 +230,7 @@ namespace Business.Services
             if (request.Price.HasValue && request.Price.Value < 0)
                 return MyResult<CourseDto>.Failure(ErrorType.BadRequest, "Price cannot be negative.");
 
-            CoursesRepository repo = new CoursesRepository(context);
-            var result = await repo.UpdateCourseAsync(courseId, request.Title, request.Description, request.Code, request.Price, request.Level, request.CategoryId);
+            var result = await coursesRepository.UpdateCourseAsync(courseId, request.Title, request.Description, request.Code, request.Price, request.Level, request.CategoryId);
             if (result == null)
                 return MyResult<CourseDto>.Failure(ErrorType.Failure, "Failed to update course.");
 
@@ -260,15 +246,14 @@ namespace Business.Services
             if (!permission.IsSuccess)
                 return MyResult<CourseDto>.Failure(permission.FailureType, permission.Errors.Select(e => e.Message).ToArray());
 
-            CoursesRepository repo = new CoursesRepository(context);
-            var course = await repo.GetRawCourseAsync(courseId);
+            var course = await coursesRepository.GetRawCourseAsync(courseId);
             if (course == null)
                 return MyResult<CourseDto>.Failure(ErrorType.NotFound, "Course not found.");
 
             if (course.status == "published")
                 return MyResult<CourseDto>.Failure(ErrorType.Conflict, "Course is already published.");
 
-            var result = await repo.UpdateCourseStatusAsync(courseId, "published");
+            var result = await coursesRepository.UpdateCourseStatusAsync(courseId, "published");
             if (result == null)
                 return MyResult<CourseDto>.Failure(ErrorType.Failure, "Failed to publish course.");
 
@@ -284,15 +269,14 @@ namespace Business.Services
             if (!permission.IsSuccess)
                 return MyResult<CourseDto>.Failure(permission.FailureType, permission.Errors.Select(e => e.Message).ToArray());
 
-            CoursesRepository repo = new CoursesRepository(context);
-            var course = await repo.GetRawCourseAsync(courseId);
+            var course = await coursesRepository.GetRawCourseAsync(courseId);
             if (course == null)
                 return MyResult<CourseDto>.Failure(ErrorType.NotFound, "Course not found.");
 
             if (course.status != "published")
                 return MyResult<CourseDto>.Failure(ErrorType.Conflict, "Course is not published.");
 
-            var result = await repo.UpdateCourseStatusAsync(courseId, "draft");
+            var result = await coursesRepository.UpdateCourseStatusAsync(courseId, "draft");
             if (result == null)
                 return MyResult<CourseDto>.Failure(ErrorType.Failure, "Failed to unpublish course.");
 
@@ -317,8 +301,7 @@ namespace Business.Services
                 course_id = request.CourseId
             };
 
-            CoursesRepository repo = new CoursesRepository(context);
-            var result = await repo.AddNewSection(sectionEntity);
+            var result = await coursesRepository.AddNewSection(sectionEntity);
 
             if (result == null)
             {

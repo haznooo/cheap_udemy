@@ -40,6 +40,7 @@ namespace DataAccess.DependencyInjection
             service.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
             service.AddScoped<IEnrollmentRepository, EnrollmentRepository>();
             service.AddScoped<IReviewRepository, ReviewRepository>();
+            service.AddScoped<ICoursesRepository, CoursesRepository>();
 
             return service;
 

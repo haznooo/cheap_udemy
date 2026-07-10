@@ -2,6 +2,7 @@
 using DataAccess.Data;
 using DataAccess.Dto;
 using DataAccess.Entities;
+using DataAccess.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
@@ -10,7 +11,7 @@ using static DataAccess.Common.clsPageResult;
 
 namespace DataAccess.Repositories
 {
-    public class CoursesRepository(AppDbContext context)
+    public class CoursesRepository(AppDbContext context) : ICoursesRepository
     {
 
 
@@ -497,8 +498,10 @@ namespace DataAccess.Repositories
             }
         }
 
-
-
+        public async Task<bool> DoesCategoryExistAsync(int categoryId)
+        {
+            return await context.Categories.AnyAsync(c => c.category_id == categoryId);
+        }
 
     }
 }
