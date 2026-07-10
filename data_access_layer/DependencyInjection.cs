@@ -35,6 +35,7 @@ namespace DataAccess.DependencyInjection
             });
 
             service.AddScoped<IUserAndProfileRepository, UserAndProfileRepository>();
+            service.AddScoped<IAdminActionRepository, AdminActionRepository>();
 
             return service;
 

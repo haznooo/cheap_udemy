@@ -12,6 +12,7 @@ namespace Business.DependencyInjection
             // request-scoped context, directly or via their repositories).
             service.AddScoped<IUserService, UserService>();
             service.AddScoped<IRefreshTokenService, RefreshTokenService>();
+            service.AddScoped<IAdminActionService, AdminActionService>();
 
             return service;
         }

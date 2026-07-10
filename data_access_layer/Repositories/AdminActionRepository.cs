@@ -1,10 +1,11 @@
 using System.Text.Json;
 using DataAccess.Data;
 using DataAccess.Entities;
+using DataAccess.Interfaces;
 
 namespace DataAccess.Repositories
 {
-    public class AdminActionRepository(AppDbContext context)
+    public class AdminActionRepository(AppDbContext context) : IAdminActionRepository
     {
         // action_type must be one of: 'create', 'update', 'delete', 'ban', 'unban'
         // NOTE: the DB trigger trg_verify_admin_action rejects the insert if adminId is not an admin.

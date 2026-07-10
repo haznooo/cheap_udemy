@@ -1,7 +1,6 @@
 using Business.Dto.Rsponse;
 using Business.Interfaces;
 using Business.Services;
-using DataAccess.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,9 +12,7 @@ namespace Api.Controllers
     [ApiController]
     [Route("api/admin")]
     [Authorize(Roles = "admin")]
-    // context is only kept for `new AdminActionService(context)` — goes away when
-    // the admin/audit slice gets its own interface + DI registration.
-    public class AdminController(IUserService userService, AppDbContext context, ILogger<AdminController> logger, IMediaService mediaService) : ApiControllerBase
+    public class AdminController(IUserService userService, IAdminActionService adminActionService, ILogger<AdminController> logger, IMediaService mediaService) : ApiControllerBase
     {
         // Read any user's profile.
         [HttpGet("users/{userId:int}")]
@@ -41,7 +38,7 @@ namespace Api.Controllers
 
             if (CallerId is int adminId)
             {
-                await new AdminActionService(context).LogAsync(
+                await adminActionService.LogAsync(
                     adminId,
                     actionType: "delete",
                     targetTable: "users",

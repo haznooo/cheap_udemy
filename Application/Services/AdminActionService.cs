@@ -1,9 +1,9 @@
-using DataAccess.Data;
-using DataAccess.Repositories;
+using Business.Interfaces;
+using DataAccess.Interfaces;
 
 namespace Business.Services
 {
-    public class AdminActionService(AppDbContext context)
+    public class AdminActionService(IAdminActionRepository adminActionRepository) : IAdminActionService
     {
         // Writes an immutable audit row to admin_actions.
         // action_type must be one of: 'create', 'update', 'delete', 'ban', 'unban'.
@@ -16,8 +16,7 @@ namespace Business.Services
             object? oldValue = null,
             object? newValue = null)
         {
-            var repo = new AdminActionRepository(context);
-            await repo.AddAdminActionAsync(adminId, actionType, targetTable, targetId, oldValue, newValue);
+            await adminActionRepository.AddAdminActionAsync(adminId, actionType, targetTable, targetId, oldValue, newValue);
         }
     }
 }
