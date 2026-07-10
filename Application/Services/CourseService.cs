@@ -14,7 +14,7 @@ using static DataAccess.Common.clsPageResult;
 
 namespace Business.Services
 {
-    public class CourseService(ICoursesRepository coursesRepository, IEnrollmentRepository enrollmentRepository) : ICourseService
+    public class CourseService(ICoursesRepository coursesRepository, IEnrollmentRepository enrollmentRepository, IUserAndProfileRepository userAndProfileRepository) : ICourseService
     {
 
         public async Task<MyResult<PageResult<CourseDto>>> GetAllCourses(GetCoursesRequest request)
@@ -60,6 +60,20 @@ namespace Business.Services
             if (!validLevels.Contains(request.level))
             {
                 return MyResult<CourseDto>.Failure(ErrorType.BadRequest, "Invalid level. Must be beginner, intermediate, or advanced.");
+            }
+
+            // Creating a course is what turns a student into an instructor — there's no
+            // separate "become an instructor" action. The DB trigger trg_verify_instructor
+            // rejects the insert below unless instructor_id already has role instructor/admin,
+            // so a first-time student caller must be promoted before the insert.
+            var callerRole = await userAndProfileRepository.GetUserRoleAsync(instructorId);
+            if (callerRole == null)
+            {
+                return MyResult<CourseDto>.Failure(ErrorType.Unauthorized, "User not found or inactive.");
+            }
+            if (callerRole == "student" && !await userAndProfileRepository.PromoteUserToInstructorAsync(instructorId))
+            {
+                return MyResult<CourseDto>.Failure(ErrorType.Failure, "Failed to promote user to instructor.");
             }
 
             CourseEntitiy courseEntity = new CourseEntitiy

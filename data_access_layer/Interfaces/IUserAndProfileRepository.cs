@@ -33,7 +33,8 @@ namespace DataAccess.Interfaces
 
         //custom elemnts
         Task<string?> GetHashedPasswordByEmailAsync(string email);
-        Task<bool> PromotUserToInstructorAsync(int userId, string newStatus);
+        Task<bool> PromoteUserToInstructorAsync(int userId);
+        Task<string?> GetUserRoleAsync(int userId);
         Task<string?> GetHashedPasswordByIdAsync(int userId);
         Task<int?> GetUserIdByEmail(string email);
     }

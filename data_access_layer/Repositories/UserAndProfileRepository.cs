@@ -485,13 +485,26 @@ namespace DataAccess.Repositories
             return hasshedPassword;
 
         }
-        public async Task<bool> PromotUserToInstructorAsync(int userId, string newStatus)
+        // Promotes a student to instructor on their first course creation (see
+        // CourseService.AddNewCourse). No-op (still true) if already instructor/admin.
+        public async Task<bool> PromoteUserToInstructorAsync(int userId)
         {
             var user = await context.Users.FirstOrDefaultAsync(u => u.user_id == userId);
             if (user == null) return false;
-            user.status = newStatus;
-            await context.SaveChangesAsync();
+            if (user.role == "student")
+            {
+                user.role = "instructor";
+                await context.SaveChangesAsync();
+            }
             return true;
+        }
+
+        public async Task<string?> GetUserRoleAsync(int userId)
+        {
+            return await context.Users
+                .Where(u => u.user_id == userId && u.status == "active")
+                .Select(u => u.role)
+                .FirstOrDefaultAsync();
         }
         public async Task<string?> GetHashedPasswordByIdAsync(int userId)
         {
