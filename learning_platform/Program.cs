@@ -2,7 +2,6 @@
 using Api;
 using Api.Authorization;
 using Business.Services;
-using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;

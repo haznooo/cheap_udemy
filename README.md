@@ -26,6 +26,39 @@ Every setting other than `Supabase:Url` and logging is read from environment var
 On Windows: search → *Edit the system environment variables* → *Advanced* →
 *Environment Variables* → under the user or system section click *New* to add each one.
 
+## Packages
+
+3 projects, 3 `.csproj` files (`Api`, `Business`, `DataAccess`). Verified against actual code usage, not just what's referenced.
+
+### Actively used
+
+| Package | Purpose |
+| --- | --- |
+| `BCrypt.Net-Next` | Password hashing (signup/login/password change) |
+| `supabase-csharp` | Supabase client — storage uploads (avatar/thumbnail/course media), signed URLs for private lesson media |
+| `System.IdentityModel.Tokens.Jwt` | JWT creation/validation in `AuthenticationController` |
+| `Microsoft.IdentityModel.Tokens` | Token validation parameters |
+| `Microsoft.AspNetCore.Authentication.JwtBearer` | JWT bearer auth middleware |
+| `Microsoft.AspNetCore.OpenApi` | OpenAPI document generation, paired with Scalar |
+| `Scalar.AspNetCore` | `/scalar/v1` API explorer UI |
+| `Microsoft.EntityFrameworkCore` / `Npgsql.EntityFrameworkCore.PostgreSQL` | ORM + Postgres provider for `AppDbContext` |
+| `Microsoft.Extensions.Configuration` / `.Binder` / `.Json` | Env-var/config binding (connection string, JWT key, Supabase key) |
+| `Microsoft.Extensions.DependencyInjection` | `AddDataAccessDI`/`AddBusinessDI` extension methods |
+
+### Tooling only (not exercised by app code)
+
+| Package | Why it's there |
+| --- | --- |
+| `Microsoft.EntityFrameworkCore.Design` | Enables `dotnet ef` CLI tooling — but no migrations exist; schema is raw SQL (see below) |
+| `Microsoft.EntityFrameworkCore.Tools` | Same, CLI-only |
+| `Microsoft.Extensions.ApiDescription.Server` | Build-time OpenAPI JSON generation, no direct code reference |
+
+### Removed (were referenced but unused)
+
+`MediatR`, `Riok.Mapperly`, `Mapster`, `CloudinaryDotNet`, `LinqKit.Microsoft.EntityFrameworkCore`, `Swashbuckle.AspNetCore`, `FluentValidation` + `FluentValidation.DependencyInjectionExtensions`, `EFCore.NamingConventions` — no code anywhere used them (no CQRS, no `[Mapper]` class, manual mapping/validation throughout, `UseSnakeCaseNamingConvention()` never called, Swagger superseded by `Microsoft.AspNetCore.OpenApi` + Scalar). `HtmlSanitizer` is kept — it's referenced ahead of planned input-sanitizing work (review/lesson/profile free-text fields), not dead.
+
+Removing `Swashbuckle.AspNetCore` from `DataAccess.csproj` had a side effect: `Business.csproj` (a plain class library, not the Web SDK) was getting `Microsoft.AspNetCore.Http.IFormFile` transitively through Swashbuckle's own dependency chain via the `DataAccess` project reference. Fixed with an explicit `<FrameworkReference Include="Microsoft.AspNetCore.App" />` in `Business.csproj` — the standard way for a non-Web-SDK library to access ASP.NET Core types.
+
 ## Database setup
 
 There are **no EF Core migrations** — the schema is managed by the raw SQL scripts in
