@@ -1,17 +1,16 @@
 ﻿using Business.Dto.Request;
 using Business.Dto.Rsponse;
+using Business.Interfaces;
 using Business.Services;
-using DataAccess.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace Api.Controllers
 {
     [ApiController]
     [Route("api/user")]
     [Authorize]
-    public class UserController(AppDbContext context, ILogger<UserController> logger, IMediaService mediaService) : ApiControllerBase
+    public class UserController(IUserService userService, ILogger<UserController> logger, IMediaService mediaService) : ApiControllerBase
     {
         // 3 MB limit for avatars (matches the avatar bucket's own cap); images only.
         private const long MaxAvatarSize = 3 * 1024 * 1024;
@@ -30,7 +29,7 @@ namespace Api.Controllers
          
             if (CallerId is not int callerId) return MissingIdentity();
 
-            var result = await new UserService(context).GetUserProfile(callerId);
+            var result = await userService.GetUserProfile(callerId);
             return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
         }
 
@@ -60,7 +59,7 @@ namespace Api.Controllers
 
             var fileName = await mediaService.UploadAvatarAsync(file);
 
-            var result = await new UserService(context).SetAvatar(callerId, fileName);
+            var result = await userService.SetAvatar(callerId, fileName);
             if (!result.IsSuccess)
             {
                 // Persisting failed (e.g. the account is no longer active); the file we
@@ -84,7 +83,7 @@ namespace Api.Controllers
         {
             if (CallerId is not int callerId) return MissingIdentity();
 
-            var result = await new UserService(context).RemoveAvatar(callerId);
+            var result = await userService.RemoveAvatar(callerId);
             if (!result.IsSuccess) return MapFailure(result);
 
             // Avatar cleared in the DB; remove the now-orphaned file (best-effort).
@@ -101,7 +100,7 @@ namespace Api.Controllers
         {
             if (CallerId is not int callerId) return MissingIdentity();
 
-            var result = await new UserService(context).UpdatePassword(callerId, request);
+            var result = await userService.UpdatePassword(callerId, request);
             return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
         }
 
@@ -110,7 +109,7 @@ namespace Api.Controllers
         {
             if (CallerId is not int callerId) return MissingIdentity();
 
-            var result = await new UserService(context).AddUserProfile(callerId, ProfileRequest);
+            var result = await userService.AddUserProfile(callerId, ProfileRequest);
             return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
         }
 
@@ -119,7 +118,7 @@ namespace Api.Controllers
         {
             if (CallerId is not int callerId) return MissingIdentity();
 
-            var result = await new UserService(context).UpdateUserProfile(callerId, ProfileRequest);
+            var result = await userService.UpdateUserProfile(callerId, ProfileRequest);
             return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
         }
 
@@ -129,7 +128,7 @@ namespace Api.Controllers
         {
             if (CallerId is not int callerId) return MissingIdentity();
 
-            var result = await new UserService(context).DeleteUser(callerId, request);
+            var result = await userService.DeleteUser(callerId, request);
             if (!result.IsSuccess) return MapFailure(result);
 
             // Account is gone; remove its now-orphaned avatar file (best-effort).

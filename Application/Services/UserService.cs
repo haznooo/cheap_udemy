@@ -1,19 +1,15 @@
-﻿
-using AngleSharp.Io;
+
 using Business.Common;
 using Business.Dto.Request;
 using Business.Dto.Rsponse;
-using DataAccess.Data;
+using Business.Interfaces;
 using DataAccess.Entities;
-using DataAccess.Repositories;
-using Supabase.Gotrue;
-using System.Security.Cryptography;
-using System.Text;
+using DataAccess.Interfaces;
 
 
 namespace Business.Services
 {
-	public class UserService(AppDbContext context)
+	public class UserService(IUserAndProfileRepository userRepository, IRefreshTokenService refreshTokenService) : IUserService
 	{
         // On success the value is the deleted user's avatar file name (null if none)
         // so the controller can remove the file from storage — the anonymize trigger
@@ -27,9 +23,7 @@ namespace Business.Services
 
 			if (string.IsNullOrEmpty(request.Password)) { return MyResult<string?>.Failure(ErrorType.BadRequest, "Password is required."); }
 
-			UserAndProfileRepository UserRepository = new UserAndProfileRepository(context);
-
-			string? HashedPassword = await UserRepository.GetHashedPasswordByIdAsync(userid);
+			string? HashedPassword = await userRepository.GetHashedPasswordByIdAsync(userid);
 
 			if (HashedPassword == null) return MyResult<string?>.Failure(ErrorType.NotFound, "user not found");
 
@@ -38,9 +32,9 @@ namespace Business.Services
 			if (!isValidPassword) return MyResult<string?>.Failure(ErrorType.Unauthorized, "invalid credintials");
 
 			// Capture the avatar name BEFORE the delete wipes the profile row.
-			string? avatarFileName = (await UserRepository.GetUserProfileByIdAsync(userid))?.ImageUrl;
+			string? avatarFileName = (await userRepository.GetUserProfileByIdAsync(userid))?.ImageUrl;
 
-			var result = await UserRepository.DeleteUserAsync_Anonymize(userid);
+			var result = await userRepository.DeleteUserAsync_Anonymize(userid);
 
 			if (!result) return MyResult<string?>.Failure(ErrorType.Failure, "failed to delete user");
 
@@ -56,17 +50,15 @@ namespace Business.Services
 		{
 			if (userId <= 0) { return MyResult<string?>.Failure(ErrorType.BadRequest, "user id can not be zero or negative"); }
 
-			UserAndProfileRepository UserRepository = new UserAndProfileRepository(context);
-
 			// Reject a missing / already-deleted target with a clean 404 instead of
 			// silently "succeeding" on a no-op anonymize.
-			if (!await UserRepository.DoesUserExistByIdAsync(userId))
+			if (!await userRepository.DoesUserExistByIdAsync(userId))
 				return MyResult<string?>.Failure(ErrorType.NotFound, "user not found");
 
 			// Capture the avatar name BEFORE the delete wipes the profile row.
-			string? avatarFileName = (await UserRepository.GetUserProfileByIdAsync(userId))?.ImageUrl;
+			string? avatarFileName = (await userRepository.GetUserProfileByIdAsync(userId))?.ImageUrl;
 
-			var result = await UserRepository.DeleteUserAsync_Anonymize(userId);
+			var result = await userRepository.DeleteUserAsync_Anonymize(userId);
 
 			if (!result) return MyResult<string?>.Failure(ErrorType.Failure, "failed to delete user");
 
@@ -75,8 +67,7 @@ namespace Business.Services
 
 		public async Task<bool> IsUserActive(int userId)
 		{
-            UserAndProfileRepository repo = new UserAndProfileRepository(context);
-            return await repo.IsUserActiveAsync(userId);
+            return await userRepository.IsUserActiveAsync(userId);
 
         }
 
@@ -95,15 +86,13 @@ namespace Business.Services
 
             if (userId <= 0) { return MyResult<bool>.Failure(ErrorType.BadRequest, "user id can not be zero or negative"); }
 
-            UserAndProfileRepository UserRepository = new UserAndProfileRepository(context);
-
             // A still-valid access token can outlive the account by up to its 20-min
             // lifetime (deletion/ban does NOT revoke JWTs). Block a non-active caller
             // from mutating a dead/suspended account.
-            if (!await UserRepository.IsUserActiveAsync(userId))
+            if (!await userRepository.IsUserActiveAsync(userId))
                 return MyResult<bool>.Failure(ErrorType.NotFound, "user not found");
 
-            string? HashedPassword = await UserRepository.GetHashedPasswordByIdAsync(userId);
+            string? HashedPassword = await userRepository.GetHashedPasswordByIdAsync(userId);
 
             if (HashedPassword == null) return MyResult<bool>.Failure(ErrorType.NotFound, "user not found");
 
@@ -114,13 +103,13 @@ namespace Business.Services
 
             string NewhashedPassword = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
 
-            var results = await UserRepository.UpdateUserPasswordAsync(userId, NewhashedPassword);
+            var results = await userRepository.UpdateUserPasswordAsync(userId, NewhashedPassword);
 
             if (results)
             {
                 // A password change must kill existing sessions, otherwise a stolen refresh token
                 // survives the very change meant to lock the attacker out.
-                await new RefreshTokenService(context).RevokeAllForUser(userId);
+                await refreshTokenService.RevokeAllForUser(userId);
             }
 
             return MyResult<bool>.Success(results);
@@ -131,9 +120,7 @@ namespace Business.Services
         {
             if (userId <= 0) return MyResult<UserProfileResponse>.Failure(ErrorType.BadRequest, "user id can not be zero or negative");
 
-            UserAndProfileRepository repo = new UserAndProfileRepository(context);
-
-            var p = await repo.GetUserProfileByIdAsync(userId);
+            var p = await userRepository.GetUserProfileByIdAsync(userId);
 
             if (p == null) return MyResult<UserProfileResponse>.Failure(ErrorType.NotFound, "user not found");
 
@@ -148,15 +135,13 @@ namespace Business.Services
         {
             if (userId <= 0) return MyResult<string?>.Failure(ErrorType.BadRequest, "user id can not be zero or negative");
 
-            UserAndProfileRepository repo = new UserAndProfileRepository(context);
-
             // A still-valid access token can outlive the account (deletion/ban does
             // NOT revoke JWTs). Without this guard the avatar upsert below would
             // resurrect a profile row for a deleted account.
-            if (!await repo.IsUserActiveAsync(userId))
+            if (!await userRepository.IsUserActiveAsync(userId))
                 return MyResult<string?>.Failure(ErrorType.NotFound, "user not found");
 
-            var oldFileName = await repo.UpdateUserAvatarAsync(userId, fileName);
+            var oldFileName = await userRepository.UpdateUserAvatarAsync(userId, fileName);
 
             return MyResult<string?>.Success(oldFileName);
         }
@@ -167,27 +152,23 @@ namespace Business.Services
         {
             if (userId <= 0) return MyResult<string?>.Failure(ErrorType.BadRequest, "user id can not be zero or negative");
 
-            UserAndProfileRepository repo = new UserAndProfileRepository(context);
-
             // Same 20-min stale-token window as SetAvatar: don't let a deleted/banned
             // caller mutate the (already-gone) profile row.
-            if (!await repo.IsUserActiveAsync(userId))
+            if (!await userRepository.IsUserActiveAsync(userId))
                 return MyResult<string?>.Failure(ErrorType.NotFound, "user not found");
 
-            var oldFileName = await repo.RemoveUserAvatarAsync(userId);
+            var oldFileName = await userRepository.RemoveUserAvatarAsync(userId);
 
             return MyResult<string?>.Success(oldFileName);
         }
 
         public async Task<MyResult<UserProfileResponse>> AddUserProfile(int userid, UserProfileRequest request)
         {
-            UserAndProfileRepository repo = new UserAndProfileRepository(context);
-
-            bool userExists = await repo.DoesUserExistByIdAsync(userid);
+            bool userExists = await userRepository.DoesUserExistByIdAsync(userid);
 
             if (!userExists) return MyResult<UserProfileResponse>.Failure(ErrorType.NotFound, "user not found");
 
-            bool profileExists = await repo.DoesUserProfileExistAsync(userid);
+            bool profileExists = await userRepository.DoesUserProfileExistAsync(userid);
 
             if (profileExists) return MyResult<UserProfileResponse>.Failure(ErrorType.Conflict, "user profile already exists");
 
@@ -198,16 +179,14 @@ namespace Business.Services
                 display_name = request?.DisplayName,
             };
 
-            var r = await repo.AddUserProfileAsync(userid, profileE);
+            var r = await userRepository.AddUserProfileAsync(userid, profileE);
 
             return MyResult<UserProfileResponse>.Success(new UserProfileResponse(r?.display_name, r?.bio, r?.image_url));
         }
 
         public async Task<MyResult<UserProfileResponse>> UpdateUserProfile(int userid, UserProfileRequest request)
         {
-            UserAndProfileRepository repo = new UserAndProfileRepository(context);
-
-            bool profileExists = await repo.DoesUserProfileExistAsync(userid);
+            bool profileExists = await userRepository.DoesUserProfileExistAsync(userid);
 
             if (!profileExists) return MyResult<UserProfileResponse>.Failure(ErrorType.NotFound, "user profile not found");
 
@@ -218,10 +197,10 @@ namespace Business.Services
                 display_name = request?.DisplayName,
             };
 
-            var r = await repo.UpdateUserProfileByUserIdAsync(userid, profileE);
+            var r = await userRepository.UpdateUserProfileByUserIdAsync(userid, profileE);
 
             return MyResult<UserProfileResponse>.Success(new UserProfileResponse(r?.display_name, r?.bio, r?.image_url));
         }
-	
+
 	}
 }

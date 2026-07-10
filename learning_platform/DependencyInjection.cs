@@ -1,4 +1,5 @@
 ﻿
+using Business.DependencyInjection;
 using DataAccess;
 using DataAccess.DependencyInjection;
 
@@ -8,8 +9,9 @@ namespace Api
     {
         public static IServiceCollection AddApiDI(this IServiceCollection service, IConfiguration configuration)
         {
-         
+
             service.AddDataAccessDI(configuration);
+            service.AddBusinessDI();
             return service;
         }
     }

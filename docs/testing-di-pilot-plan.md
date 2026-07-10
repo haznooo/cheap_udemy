@@ -1,7 +1,13 @@
 # Plan: First unit-testing pilot on `UserService` (deferred)
 
-> **Status: NOT implemented yet.** Documents *what we will do later*. Nothing in the repo
-> changes until this is deliberately picked up. Scope is intentionally **one service only**.
+> **Status: SUPERSEDED (2026-07-10).** The DI/interface half of this doc was implemented — and
+> went further than planned: interfaces for **both** the repository (`DataAccess.Interfaces/IUserAndProfileRepository`)
+> **and** the services (`Business.Interfaces/IUserService`, `IRefreshTokenService`), all
+> DI-registered (`AddDataAccessDI` / new `AddBusinessDI`), with `UserController`/`AdminController`
+> injecting `IUserService` instead of `new`-ing it. `UserService` no longer takes `AppDbContext`
+> at all (the "keep context / controller keeps new-ing" half-measures below are obsolete, and the
+> 17-method interface list is stale — the real surface is 23 methods). The **test project + tests**
+> half of this doc is still future work; the sections below remain useful for that.
 
 ## Context
 

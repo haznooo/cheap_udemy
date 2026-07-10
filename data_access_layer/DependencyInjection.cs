@@ -1,6 +1,8 @@
 ﻿
 
 using DataAccess.Data;
+using DataAccess.Interfaces;
+using DataAccess.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,6 +33,8 @@ namespace DataAccess.DependencyInjection
                 options.UseNpgsql(dataSource);
 
             });
+
+            service.AddScoped<IUserAndProfileRepository, UserAndProfileRepository>();
 
             return service;
 

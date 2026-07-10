@@ -2,6 +2,7 @@
 using Business.Common;
 using Business.Dto.Request;
 using Business.Dto.Rsponse;
+using Business.Interfaces;
 using DataAccess.Data;
 using DataAccess.Dto;
 using DataAccess.Entities;
@@ -14,7 +15,7 @@ using System.Text;
 
 namespace Business.Services
 {
-    public class RefreshTokenService(AppDbContext context)
+    public class RefreshTokenService(AppDbContext context) : IRefreshTokenService
     {
 
 

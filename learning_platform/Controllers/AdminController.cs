@@ -1,4 +1,5 @@
 using Business.Dto.Rsponse;
+using Business.Interfaces;
 using Business.Services;
 using DataAccess.Data;
 using Microsoft.AspNetCore.Authorization;
@@ -12,13 +13,15 @@ namespace Api.Controllers
     [ApiController]
     [Route("api/admin")]
     [Authorize(Roles = "admin")]
-    public class AdminController(AppDbContext context, ILogger<AdminController> logger, IMediaService mediaService) : ApiControllerBase
+    // context is only kept for `new AdminActionService(context)` — goes away when
+    // the admin/audit slice gets its own interface + DI registration.
+    public class AdminController(IUserService userService, AppDbContext context, ILogger<AdminController> logger, IMediaService mediaService) : ApiControllerBase
     {
         // Read any user's profile.
         [HttpGet("users/{userId:int}")]
         public async Task<ActionResult<UserProfileResponse>> GetUser(int userId)
         {
-            var result = await new UserService(context).GetUserProfile(userId);
+            var result = await userService.GetUserProfile(userId);
             return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
         }
 
@@ -27,7 +30,7 @@ namespace Api.Controllers
         [HttpDelete("users/{userId:int}")]
         public async Task<ActionResult> DeleteUser(int userId)
         {
-            var result = await new UserService(context).AdminDeleteUser(userId);
+            var result = await userService.AdminDeleteUser(userId);
             if (!result.IsSuccess) return MapFailure(result);
 
             // Account is gone; remove its now-orphaned avatar file (best-effort).

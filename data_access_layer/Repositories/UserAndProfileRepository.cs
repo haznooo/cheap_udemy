@@ -2,6 +2,7 @@
 using DataAccess.Data;
 using DataAccess.Dto;
 using DataAccess.Entities;
+using DataAccess.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
 using static DataAccess.Common.clsPageResult;
@@ -9,7 +10,7 @@ using static DataAccess.Common.clsPageResult;
 
 namespace DataAccess.Repositories
 {
-    public class UserAndProfileRepository(AppDbContext context)
+    public class UserAndProfileRepository(AppDbContext context) : IUserAndProfileRepository
     {
     
         //user
