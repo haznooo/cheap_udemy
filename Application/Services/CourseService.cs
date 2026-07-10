@@ -299,15 +299,15 @@ namespace Business.Services
             return MyResult<CourseDto>.Success(result);
         }
 
-        public async Task<MyResult<SectionEntitiy>> AddNewSection(AddSectionRequest request)
+        public async Task<MyResult<SectionResponse>> AddNewSection(AddSectionRequest request)
         {
             if (request.CourseId <= 0)
             {
-                return MyResult<SectionEntitiy>.Failure(ErrorType.BadRequest, "Invalid course ID.");
+                return MyResult<SectionResponse>.Failure(ErrorType.BadRequest, "Invalid course ID.");
             }
             if (string.IsNullOrWhiteSpace(request.Title))
             {
-                return MyResult<SectionEntitiy>.Failure(ErrorType.BadRequest, "Section title is required.");
+                return MyResult<SectionResponse>.Failure(ErrorType.BadRequest, "Section title is required.");
             }
 
             SectionEntitiy sectionEntity = new SectionEntitiy
@@ -322,15 +322,15 @@ namespace Business.Services
 
             if (result == null)
             {
-                return MyResult<SectionEntitiy>.Failure(ErrorType.Failure, "Failed to add new section.");
+                return MyResult<SectionResponse>.Failure(ErrorType.Failure, "Failed to add new section.");
             }
 
-            return MyResult<SectionEntitiy>.Success(new SectionEntitiy
+            return MyResult<SectionResponse>.Success(new SectionResponse
             {
-                section_id = result.section_id,
-                title = result.title,
-                sort_order = result.sort_order,
-                course_id = result.course_id
+                SectionId = result.section_id,
+                Title = result.title,
+                SortOrder = result.sort_order,
+                CourseId = result.course_id
             });
         }
     }

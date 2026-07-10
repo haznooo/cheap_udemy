@@ -6,7 +6,7 @@ using DataAccess.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using DataAccess.Dto;
-using DataAccess.Entities;
+using Business.Dto.Rsponse;
 
 namespace Api.Controllers
 {
@@ -240,7 +240,7 @@ namespace Api.Controllers
 
         [Authorize]
         [HttpPost("section/add")]
-        public async Task<ActionResult<SectionEntitiy>> AddSection(AddSectionRequest request)
+        public async Task<ActionResult<SectionResponse>> AddSection(AddSectionRequest request)
         {
             if (CallerId is not int callerId) return MissingIdentity();
 
