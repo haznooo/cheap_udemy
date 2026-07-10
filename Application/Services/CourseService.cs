@@ -109,14 +109,14 @@ namespace Business.Services
 
         }
 
-        public async Task<MyResult<CourseDto>> GetCourseById(int courseId)
+        public async Task<MyResult<CourseDto>> GetCourseById(int courseId, int? callerId = null, bool isAdmin = false)
         {
             if (courseId <= 0)
             {
                 return MyResult<CourseDto>.Failure(ErrorType.BadRequest, "Invalid course ID.");
             }
 
-            var course = await coursesRepository.GetCourseById(courseId);
+            var course = await coursesRepository.GetCourseById(courseId, callerId, isAdmin);
 
             if (course == null)
             {

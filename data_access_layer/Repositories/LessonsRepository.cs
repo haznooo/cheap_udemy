@@ -20,18 +20,6 @@ namespace DataAccess.Repositories
             return lesson;
         }
 
-        public async Task<LessonEntity?> GetLessonByIdAsync(int lessonId)
-        {
-            // AsNoTracking is great for read-only operations to boost performance.
-            // Only expose lessons of published, non-deleted courses (no draft/retired leak).
-            return await context.Lessons
-                .AsNoTracking()
-                .FirstOrDefaultAsync(l => l.lesson_id == lessonId
-                    && l.section.course.status == "published"
-                    && l.section.course.deleted_at == null);
-        }
-
-
         // Returns any lesson by ID without filtering by course status (for owner/admin operations).
         public async Task<LessonEntity?> GetAnyLessonByIdAsync(int lessonId)
         {

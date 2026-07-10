@@ -10,7 +10,7 @@ namespace Business.Interfaces
     {
         Task<MyResult<PageResult<CourseDto>>> GetAllCourses(GetCoursesRequest request);
         Task<MyResult<CourseDto>> AddNewCourse(AddCourseRequest request, int instructorId);
-        Task<MyResult<CourseDto>> GetCourseById(int courseId);
+        Task<MyResult<CourseDto>> GetCourseById(int courseId, int? callerId = null, bool isAdmin = false);
         Task<MyResult<bool>> CheckCourseEditPermission(int courseId, int callerId, bool isAdmin);
         Task<MyResult<string?>> SetThumbnail(int courseId, int callerId, bool isAdmin, string fileName);
         Task<MyResult<PageResult<LessonDto>>> GetCourseLessons(int courseId, int callerId, bool isAdmin, int pageNumber, int pageSize);

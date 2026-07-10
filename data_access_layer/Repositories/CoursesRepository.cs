@@ -108,14 +108,16 @@ namespace DataAccess.Repositories
             }
         }
 
-        // Single published course with full detail. Returns null if it does not exist,
-        // is not published, or has been soft-deleted.
-        public async Task<CourseDto> GetCourseById(int courseId)
+        // Single course with full detail. Returns null if it does not exist, has been
+        // soft-deleted, or (for a draft/retired course) the caller is neither the
+        // owning instructor nor an admin — anonymous/other callers only see published.
+        public async Task<CourseDto> GetCourseById(int courseId, int? callerId = null, bool isAdmin = false)
         {
             try
             {
                 var c = await context.Courses
-                    .Where(c => c.course_id == courseId && c.status == "published" && c.deleted_at == null)
+                    .Where(c => c.course_id == courseId && c.deleted_at == null
+                        && (c.status == "published" || isAdmin || c.instructor_id == callerId))
                     .AsNoTracking()
                     .FirstOrDefaultAsync();
 

@@ -89,7 +89,10 @@ namespace Business.Services
                 return MyResult<LessonDto>.Failure(ErrorType.NotFound, $"Lesson with ID {lessonId} not found.");
             }
 
-            var entity = await lessonsRepository.GetLessonByIdAsync(lessonId);
+            // Authorization (incl. the owner/admin bypass for a draft course) was already
+            // decided above by CanViewCourseContentAsync — fetch unconditionally here
+            // instead of re-filtering to published-only and undoing that bypass.
+            var entity = await lessonsRepository.GetAnyLessonByIdAsync(lessonId);
             if (entity == null)
             {
                 return MyResult<LessonDto>.Failure(ErrorType.NotFound, $"Lesson with ID {lessonId} not found.");

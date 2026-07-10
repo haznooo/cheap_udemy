@@ -10,7 +10,7 @@ namespace DataAccess.Interfaces
             int pageNumber, int pageSize,
             string? search = null, int? categoryId = null, string? level = null,
             decimal? minPrice = null, decimal? maxPrice = null, string? sortBy = null);
-        Task<CourseDto> GetCourseById(int courseId);
+        Task<CourseDto> GetCourseById(int courseId, int? callerId = null, bool isAdmin = false);
         Task<int?> GetCourseInstructorId(int courseId);
         Task<int?> GetCourseIdBySection(int sectionId);
         Task<(bool Success, string? OldFileName)> UpdateThumbnail(int courseId, string fileName);

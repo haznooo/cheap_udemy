@@ -47,11 +47,14 @@ namespace Api.Controllers
             return Ok(Result.Value);
         }
 
+        // Anonymous callers (and non-owners) only see published courses; the owning
+        // instructor or an admin may also fetch their own draft/retired course here.
         [AllowAnonymous]
         [HttpGet("{courseId}")]
         public async Task<ActionResult<CourseDto>> GetCourse(int courseId)
         {
-            var Result = await courseService.GetCourseById(courseId);
+            bool isAdmin = User.IsInRole("admin");
+            var Result = await courseService.GetCourseById(courseId, CallerId, isAdmin);
 
             if (!Result.IsSuccess) return MapFailure(Result);
 
