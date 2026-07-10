@@ -169,7 +169,6 @@ namespace CheapUdemy
 
             var options = new SupabaseOptions { AutoConnectRealtime = false };
             var supabaseClient = new Supabase.Client(supabaseUrl, supabaseKey, options);
-            builder.Services.AddScoped<LessonService>();
             builder.Services.AddSingleton(supabaseClient);
             builder.Services.AddScoped<IMediaService, SupabaseMediaService>();
          

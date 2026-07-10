@@ -1,17 +1,15 @@
 using Business.Dto.Request;
+using Business.Interfaces;
 using DataAccess.Dto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using DataAccess.Data;
-using Business.Services;
 
 namespace Api.Controllers
 {
     [ApiController]
     [Route("api/Lessons")]
     [Authorize]
-    public class LessonsController(LessonService lessonService) : ApiControllerBase
+    public class LessonsController(ILessonService lessonService) : ApiControllerBase
     {
         [HttpPost("add")]
         public async Task<ActionResult<LessonDto>> CreateLesson([FromBody] LessonRequest request)

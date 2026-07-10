@@ -41,6 +41,7 @@ namespace DataAccess.DependencyInjection
             service.AddScoped<IEnrollmentRepository, EnrollmentRepository>();
             service.AddScoped<IReviewRepository, ReviewRepository>();
             service.AddScoped<ICoursesRepository, CoursesRepository>();
+            service.AddScoped<ILessonsRepository, LessonsRepository>();
 
             return service;
 

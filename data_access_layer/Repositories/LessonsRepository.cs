@@ -2,6 +2,7 @@
 using DataAccess.Dto;
 using DataAccess.Entities;
 using DataAccess.Entities.json;
+using DataAccess.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
@@ -9,7 +10,7 @@ using System.Text;
 
 namespace DataAccess.Repositories
 {
-    public class LessonsRepository(AppDbContext context)
+    public class LessonsRepository(AppDbContext context) : ILessonsRepository
     {
 
         public async Task<LessonEntity> AddLessonAsync(LessonEntity lesson)

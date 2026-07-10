@@ -1,10 +1,10 @@
-﻿using Business.Common;
+using Business.Common;
 using Business.Dto.Request;
-using DataAccess.Data;
+using Business.Interfaces;
 using DataAccess.Dto;
 using DataAccess.Entities;
 using DataAccess.Entities.json;
-using DataAccess.Repositories;
+using DataAccess.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -13,7 +13,13 @@ using Supabase;
 
 namespace Business.Services
 {
-    public class LessonService(AppDbContext context, Client supabaseClient, IMediaService mediaService)
+    public class LessonService(
+        ILessonsRepository lessonsRepository,
+        ICoursesRepository coursesRepository,
+        IEnrollmentRepository enrollmentRepository,
+        ICourseService courseService,
+        Client supabaseClient,
+        IMediaService mediaService) : ILessonService
     {
         private const string BucketName = MediaBuckets.CourseMedia;
 
@@ -28,14 +34,13 @@ namespace Business.Services
 
             // A lesson is owned transitively: lesson -> section -> course -> instructor.
             // Resolve the section's course and verify the caller may edit it before inserting.
-            CoursesRepository coursesRepo = new CoursesRepository(context);
-            var courseId = await coursesRepo.GetCourseIdBySection(request.SectionId);
+            var courseId = await coursesRepository.GetCourseIdBySection(request.SectionId);
             if (courseId == null)
             {
                 return MyResult<LessonDto>.Failure(ErrorType.NotFound, "Section not found.");
             }
 
-            var permission = await new CourseService(new CoursesRepository(context), new EnrollmentRepository(context)).CheckCourseEditPermission(courseId.Value, callerId, isAdmin);
+            var permission = await courseService.CheckCourseEditPermission(courseId.Value, callerId, isAdmin);
             if (!permission.IsSuccess)
             {
                 return MyResult<LessonDto>.Failure(permission.FailureType, permission.Errors.Select(e => e.Message).ToArray());
@@ -47,8 +52,7 @@ namespace Business.Services
                 return MyResult<LessonDto>.Failure(ErrorType.BadRequest, [.. validationErrors]);
             }
 
-            LessonsRepository repository = new LessonsRepository(context);
-            var nextSortOrder = (await repository.GetMaxSortOrderForSectionAsync(request.SectionId)) + 1;
+            var nextSortOrder = (await lessonsRepository.GetMaxSortOrderForSectionAsync(request.SectionId)) + 1;
 
             var entity = new LessonEntity
             {
@@ -63,7 +67,7 @@ namespace Business.Services
                 }).ToList()
             };
 
-            var savedEntity = await repository.AddLessonAsync(entity);
+            var savedEntity = await lessonsRepository.AddLessonAsync(entity);
 
             var dto = await PrepareLessonResponseAsync(savedEntity);
             return MyResult<LessonDto>.Success(dto);
@@ -74,20 +78,18 @@ namespace Business.Services
         // Anyone else gets 404 so lesson existence/content can't be browsed without enrolling.
         public async Task<MyResult<LessonDto>> GetLessonAsync(int lessonId, int callerId, bool isAdmin)
         {
-            var enrollmentRepo = new EnrollmentRepository(context);
-            int? courseId = await enrollmentRepo.GetCourseIdByLessonAsync(lessonId);
+            int? courseId = await enrollmentRepository.GetCourseIdByLessonAsync(lessonId);
             if (courseId == null)
             {
                 return MyResult<LessonDto>.Failure(ErrorType.NotFound, $"Lesson with ID {lessonId} not found.");
             }
 
-            if (!await enrollmentRepo.CanViewCourseContentAsync(courseId.Value, callerId, isAdmin))
+            if (!await enrollmentRepository.CanViewCourseContentAsync(courseId.Value, callerId, isAdmin))
             {
                 return MyResult<LessonDto>.Failure(ErrorType.NotFound, $"Lesson with ID {lessonId} not found.");
             }
 
-            LessonsRepository repository = new LessonsRepository(context);
-            var entity = await repository.GetLessonByIdAsync(lessonId);
+            var entity = await lessonsRepository.GetLessonByIdAsync(lessonId);
             if (entity == null)
             {
                 return MyResult<LessonDto>.Failure(ErrorType.NotFound, $"Lesson with ID {lessonId} not found.");
@@ -154,7 +156,7 @@ namespace Business.Services
                 catch (JsonException ex)
                 {
                     Console.WriteLine($"Failed to deserialize block {b.BlockId}: {ex.Message}");
-                   
+
                 }
 
                 dto.ContentBlocks.Add(new ContentBlockDto
@@ -173,17 +175,15 @@ namespace Business.Services
             if (lessonId <= 0)
                 return MyResult<LessonDto>.Failure(ErrorType.BadRequest, "Invalid lesson ID.");
 
-            LessonsRepository repository = new LessonsRepository(context);
-            var lesson = await repository.GetAnyLessonByIdAsync(lessonId);
+            var lesson = await lessonsRepository.GetAnyLessonByIdAsync(lessonId);
             if (lesson == null)
                 return MyResult<LessonDto>.Failure(ErrorType.NotFound, $"Lesson with ID {lessonId} not found.");
 
-            CoursesRepository coursesRepo = new CoursesRepository(context);
-            var courseId = await coursesRepo.GetCourseIdBySection(lesson.section_id);
+            var courseId = await coursesRepository.GetCourseIdBySection(lesson.section_id);
             if (courseId == null)
                 return MyResult<LessonDto>.Failure(ErrorType.NotFound, "Section not found.");
 
-            var permission = await new CourseService(new CoursesRepository(context), new EnrollmentRepository(context)).CheckCourseEditPermission(courseId.Value, callerId, isAdmin);
+            var permission = await courseService.CheckCourseEditPermission(courseId.Value, callerId, isAdmin);
             if (!permission.IsSuccess)
                 return MyResult<LessonDto>.Failure(permission.FailureType, permission.Errors.Select(e => e.Message).ToArray());
 
@@ -202,7 +202,7 @@ namespace Business.Services
                 }).ToList();
             }
 
-            var updated = await repository.UpdateLessonAsync(lessonId, request.Title, request.EstimatedDurationMinutes, newBlocks);
+            var updated = await lessonsRepository.UpdateLessonAsync(lessonId, request.Title, request.EstimatedDurationMinutes, newBlocks);
             if (updated == null)
                 return MyResult<LessonDto>.Failure(ErrorType.Failure, "Failed to update lesson.");
 
@@ -217,7 +217,7 @@ namespace Business.Services
                 // name it should send) still embeds the file name in that URL — the
                 // file is kept, not deleted out from under the lesson.
                 removedFiles.RemoveWhere(old => keptNames.Any(kept => kept.Contains(old, StringComparison.Ordinal)));
-                await DeleteUnreferencedMediaAsync(repository, lessonId, removedFiles);
+                await DeleteUnreferencedMediaAsync(lessonId, removedFiles);
             }
 
             var dto = await PrepareLessonResponseAsync(updated);
@@ -232,28 +232,26 @@ namespace Business.Services
             if (lessonId <= 0)
                 return MyResult<bool>.Failure(ErrorType.BadRequest, "Invalid lesson ID.");
 
-            LessonsRepository repository = new LessonsRepository(context);
-            var lesson = await repository.GetAnyLessonByIdAsync(lessonId);
+            var lesson = await lessonsRepository.GetAnyLessonByIdAsync(lessonId);
             if (lesson == null)
                 return MyResult<bool>.Failure(ErrorType.NotFound, $"Lesson with ID {lessonId} not found.");
 
-            CoursesRepository coursesRepo = new CoursesRepository(context);
-            var courseId = await coursesRepo.GetCourseIdBySection(lesson.section_id);
+            var courseId = await coursesRepository.GetCourseIdBySection(lesson.section_id);
             if (courseId == null)
                 return MyResult<bool>.Failure(ErrorType.NotFound, "Section not found.");
 
-            var permission = await new CourseService(new CoursesRepository(context), new EnrollmentRepository(context)).CheckCourseEditPermission(courseId.Value, callerId, isAdmin);
+            var permission = await courseService.CheckCourseEditPermission(courseId.Value, callerId, isAdmin);
             if (!permission.IsSuccess)
                 return MyResult<bool>.Failure(permission.FailureType, permission.Errors.Select(e => e.Message).ToArray());
 
             // Collect the file names BEFORE the row (and with it the block data) is gone.
             var mediaFiles = ExtractMediaFileNames(lesson.content_blocks);
 
-            var deleted = await repository.DeleteLessonAsync(lessonId);
+            var deleted = await lessonsRepository.DeleteLessonAsync(lessonId);
             if (!deleted)
                 return MyResult<bool>.Failure(ErrorType.Failure, "Failed to delete lesson.");
 
-            await DeleteUnreferencedMediaAsync(repository, lessonId, mediaFiles);
+            await DeleteUnreferencedMediaAsync(lessonId, mediaFiles);
 
             return MyResult<bool>.Success(true);
         }
@@ -261,11 +259,11 @@ namespace Business.Services
         // Runs after the DB change is saved. Best-effort: a failed storage delete only
         // leaks a file, so it never fails the request. A file still referenced by
         // another lesson (instructor reused an upload) is kept.
-        private async Task DeleteUnreferencedMediaAsync(LessonsRepository repository, int lessonId, HashSet<string> fileNames)
+        private async Task DeleteUnreferencedMediaAsync(int lessonId, HashSet<string> fileNames)
         {
             foreach (var fileName in fileNames)
             {
-                if (!await repository.IsMediaReferencedByOtherLessonsAsync(lessonId, fileName))
+                if (!await lessonsRepository.IsMediaReferencedByOtherLessonsAsync(lessonId, fileName))
                 {
                     await mediaService.DeleteCourseMediaAsync(fileName);
                 }
