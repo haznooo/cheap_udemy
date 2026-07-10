@@ -1,6 +1,5 @@
 using Business.Dto.Request;
-using Business.Services;
-using DataAccess.Data;
+using Business.Interfaces;
 using DataAccess.Dto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,7 +10,7 @@ namespace Api.Controllers
     [ApiController]
     [Authorize]
     [Route("api/Courses/{courseId}/reviews")]
-    public class ReviewController(AppDbContext context) : ApiControllerBase
+    public class ReviewController(IReviewService reviewService) : ApiControllerBase
     {
 
         [HttpPost("add")]
@@ -19,8 +18,7 @@ namespace Api.Controllers
         {
             if (CallerId is not int callerId) return MissingIdentity();
 
-            var service = new ReviewService(context);
-            var result = await service.AddReview(callerId, CallerRole, courseId, request);
+            var result = await reviewService.AddReview(callerId, CallerRole, courseId, request);
 
             if (!result.IsSuccess) return MapFailure(result);
 
@@ -33,8 +31,7 @@ namespace Api.Controllers
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10)
         {
-            var service = new ReviewService(context);
-            var result = await service.GetCourseReviews(courseId, pageNumber, pageSize);
+            var result = await reviewService.GetCourseReviews(courseId, pageNumber, pageSize);
 
             if (!result.IsSuccess) return MapFailure(result);
 
@@ -46,8 +43,7 @@ namespace Api.Controllers
         {
             if (CallerId is not int callerId) return MissingIdentity();
 
-            var service = new ReviewService(context);
-            var result = await service.UpdateReview(callerId, courseId, request);
+            var result = await reviewService.UpdateReview(callerId, courseId, request);
 
             if (!result.IsSuccess) return MapFailure(result);
 
@@ -59,8 +55,7 @@ namespace Api.Controllers
         {
             if (CallerId is not int callerId) return MissingIdentity();
 
-            var service = new ReviewService(context);
-            var result = await service.DeleteReview(callerId, CallerRole, courseId, reviewId);
+            var result = await reviewService.DeleteReview(callerId, CallerRole, courseId, reviewId);
 
             if (!result.IsSuccess) return MapFailure(result);
 

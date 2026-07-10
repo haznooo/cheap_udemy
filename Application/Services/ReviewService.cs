@@ -1,14 +1,14 @@
 using Business.Common;
 using Business.Dto.Request;
-using DataAccess.Data;
+using Business.Interfaces;
 using DataAccess.Dto;
 using DataAccess.Entities;
-using DataAccess.Repositories;
+using DataAccess.Interfaces;
 using static DataAccess.Common.clsPageResult;
 
 namespace Business.Services
 {
-    public class ReviewService(AppDbContext context)
+    public class ReviewService(IReviewRepository reviewRepository, IEnrollmentRepository enrollmentRepository) : IReviewService
     {
         // Only enrolled students can add a review (not the course instructor).
         // Admins bypass the enrollment check.
@@ -20,11 +20,8 @@ namespace Business.Services
             if (request.Rating < 1 || request.Rating > 5)
                 return MyResult<ReviewDto>.Failure(ErrorType.BadRequest, "Rating must be between 1 and 5.");
 
-            var repo = new ReviewRepository(context);
-            var enrollmentRepo = new EnrollmentRepository(context);
-
             // Course must exist and be published/non-deleted to be reviewable.
-            var course = await enrollmentRepo.GetCourseEnrollmentInfoAsync(courseId);
+            var course = await enrollmentRepository.GetCourseEnrollmentInfoAsync(courseId);
             if (course == null || course.IsDeleted || course.Status != "published")
                 return MyResult<ReviewDto>.Failure(ErrorType.NotFound, "Course not found.");
 
@@ -37,12 +34,12 @@ namespace Business.Services
             {
                 // Must actually be (or have been) a student of the course — an active or
                 // completed enrollment. A dropped/suspended enrollment can't review.
-                string? status = await enrollmentRepo.GetEnrollmentStatusAsync(callerId, courseId);
+                string? status = await enrollmentRepository.GetEnrollmentStatusAsync(callerId, courseId);
                 if (status is not ("active" or "completed"))
                     return MyResult<ReviewDto>.Failure(ErrorType.Unauthorized, "You must be enrolled in this course to leave a review.");
             }
 
-            bool alreadyReviewed = await repo.HasAlreadyReviewedAsync(callerId, courseId);
+            bool alreadyReviewed = await reviewRepository.HasAlreadyReviewedAsync(callerId, courseId);
             if (alreadyReviewed)
                 return MyResult<ReviewDto>.Failure(ErrorType.Conflict, "You have already reviewed this course.");
 
@@ -55,7 +52,7 @@ namespace Business.Services
                 created_at = DateTime.UtcNow
             };
 
-            var result = await repo.AddReviewAsync(entity);
+            var result = await reviewRepository.AddReviewAsync(entity);
             if (result == null)
                 return MyResult<ReviewDto>.Failure(ErrorType.Failure, "Failed to save review.");
 
@@ -71,13 +68,11 @@ namespace Business.Services
             if (pageNumber <= 0 || pageSize <= 0)
                 return MyResult<PageResult<ReviewDto>>.Failure(ErrorType.BadRequest, "Invalid page number or page size.");
 
-            var repo = new ReviewRepository(context);
-
-            int? instructorId = await repo.GetCourseInstructorIdAsync(courseId);
+            int? instructorId = await reviewRepository.GetCourseInstructorIdAsync(courseId);
             if (instructorId == null)
                 return MyResult<PageResult<ReviewDto>>.Failure(ErrorType.NotFound, "Course not found.");
 
-            var reviews = await repo.GetReviewsByCourseIdAsync(courseId, pageNumber, pageSize);
+            var reviews = await reviewRepository.GetReviewsByCourseIdAsync(courseId, pageNumber, pageSize);
             if (reviews == null)
                 return MyResult<PageResult<ReviewDto>>.Failure(ErrorType.Failure, "Failed to retrieve reviews.");
 
@@ -93,13 +88,11 @@ namespace Business.Services
             if (request.Rating < 1 || request.Rating > 5)
                 return MyResult<ReviewDto>.Failure(ErrorType.BadRequest, "Rating must be between 1 and 5.");
 
-            var repo = new ReviewRepository(context);
-
-            bool hasReview = await repo.HasAlreadyReviewedAsync(callerId, courseId);
+            bool hasReview = await reviewRepository.HasAlreadyReviewedAsync(callerId, courseId);
             if (!hasReview)
                 return MyResult<ReviewDto>.Failure(ErrorType.NotFound, "You have no review on this course.");
 
-            var result = await repo.UpdateReviewAsync(callerId, courseId, request.Rating, request.Comment);
+            var result = await reviewRepository.UpdateReviewAsync(callerId, courseId, request.Rating, request.Comment);
             if (result == null)
                 return MyResult<ReviewDto>.Failure(ErrorType.Failure, "Failed to update review.");
 
@@ -113,9 +106,7 @@ namespace Business.Services
             if (reviewId <= 0)
                 return MyResult<bool>.Failure(ErrorType.BadRequest, "Invalid review ID.");
 
-            var repo = new ReviewRepository(context);
-
-            var review = await repo.GetReviewByIdAsync(reviewId);
+            var review = await reviewRepository.GetReviewByIdAsync(reviewId);
             if (review == null || review.course_id != courseId)
                 return MyResult<bool>.Failure(ErrorType.NotFound, "Review not found.");
 
@@ -125,7 +116,7 @@ namespace Business.Services
             if (!isAdmin && !isOwner)
                 return MyResult<bool>.Failure(ErrorType.Unauthorized, "Access denied.");
 
-            bool deleted = await repo.DeleteReviewAsync(reviewId);
+            bool deleted = await reviewRepository.DeleteReviewAsync(reviewId);
             if (!deleted)
                 return MyResult<bool>.Failure(ErrorType.Failure, "Failed to delete review.");
 

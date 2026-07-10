@@ -1,12 +1,13 @@
 using DataAccess.Data;
 using DataAccess.Dto;
 using DataAccess.Entities;
+using DataAccess.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using static DataAccess.Common.clsPageResult;
 
 namespace DataAccess.Repositories
 {
-    public class ReviewRepository(AppDbContext context)
+    public class ReviewRepository(AppDbContext context) : IReviewRepository
     {
         public async Task<bool> IsEnrolledAsync(int userId, int courseId)
             => await context.Enrollments.AnyAsync(e => e.user_id == userId && e.course_id == courseId);
