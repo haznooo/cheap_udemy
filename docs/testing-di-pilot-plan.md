@@ -6,8 +6,11 @@
 > DI-registered (`AddDataAccessDI` / new `AddBusinessDI`), with `UserController`/`AdminController`
 > injecting `IUserService` instead of `new`-ing it. `UserService` no longer takes `AppDbContext`
 > at all (the "keep context / controller keeps new-ing" half-measures below are obsolete, and the
-> 17-method interface list is stale — the real surface is 23 methods). The **test project + tests**
-> half of this doc is still future work; the sections below remain useful for that.
+> 17-method interface list is stale — the real surface is 23 methods). The same recipe was then
+> rolled out to the rest of the project (AdminAction, Auth, Enrollment, Review, Courses, Lessons
+> slices) — see the "Object creation" bullet in `CLAUDE.md` for the current full-project state.
+> The **test project + tests** half of this doc is still future work; the sections below remain
+> useful for that.
 
 ## Context
 
