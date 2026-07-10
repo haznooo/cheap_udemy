@@ -3,8 +3,8 @@ using Api.Controllers;
 using Business.Common;
 using Business.Dto.Request;
 using Business.Dto.Rsponse;
+using Business.Interfaces;
 using Business.Services;
-using DataAccess.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
@@ -20,7 +20,7 @@ namespace CheapUdemy.Controllers
     [ApiController]
     [Route("api/User")]
     [AllowAnonymous] // signUp/login/refresh/logout must stay public under the authenticated-by-default fallback policy
-    public class AuthenticationController(AppDbContext context, IConfiguration configuration, ILogger<AuthenticationController> logger) : ApiControllerBase
+    public class AuthenticationController(IAuthenticationService authenticationService, IRefreshTokenService refreshTokenService, IConfiguration configuration, ILogger<AuthenticationController> logger) : ApiControllerBase
     {
 
    
@@ -44,8 +44,6 @@ namespace CheapUdemy.Controllers
             // device_info is VARCHAR(255); the UA header is client-controlled, so cap it before it
             // reaches the refresh-token insert (an oversized header would otherwise fail the insert).
             if (userAgent.Length > 255) userAgent = userAgent.Substring(0, 255);
-
-            AuthenticationService authenticationService = new AuthenticationService(context);
 
             //refresh token is generated in the service layer and stored securely (hashed + expiry + not revoked)
             var result = await authenticationService.UserSignUp(request, userAgent, ipAddress);
@@ -80,8 +78,6 @@ namespace CheapUdemy.Controllers
 
             // device_info is VARCHAR(255); cap the client-controlled UA header before it reaches the insert.
             if (userAgent.Length > 255) userAgent = userAgent.Substring(0, 255);
-
-            AuthenticationService authenticationService = new AuthenticationService(context);
 
             var result = await authenticationService.LoginUser(request,userAgent,ipAddress);
 
@@ -129,8 +125,6 @@ namespace CheapUdemy.Controllers
                 return Problem(statusCode: StatusCodes.Status401Unauthorized, detail: "invalid access token");
             }
 
-            RefreshTokenService refreshTokenService = new RefreshTokenService(context);
-
             var result = await refreshTokenService.RefreshAccessToken(request.RefreshToken, userId.Value, userAgent, ipAddress);
 
             if (!result.IsSuccess)
@@ -156,7 +150,6 @@ namespace CheapUdemy.Controllers
 
             if (userId != null)
             {
-                RefreshTokenService refreshTokenService = new RefreshTokenService(context);
                 await refreshTokenService.RevokeRefreshToken(request.RefreshToken, userId.Value);
             }
 

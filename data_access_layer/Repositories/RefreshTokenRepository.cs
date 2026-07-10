@@ -1,13 +1,14 @@
 ﻿
 using DataAccess.Data;
 using DataAccess.Entities;
+using DataAccess.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
 
 
 namespace DataAccess.Repositories
 {
-    public class RefreshTokenRepository(AppDbContext context)
+    public class RefreshTokenRepository(AppDbContext context) : IRefreshTokenRepository
     {
 
         public async Task<RefreshTokenEntity> AddRefreshTokenAsync(RefreshTokenEntity RefreshToken)

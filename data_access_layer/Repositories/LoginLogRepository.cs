@@ -1,9 +1,10 @@
 using DataAccess.Data;
 using DataAccess.Entities;
+using DataAccess.Interfaces;
 
 namespace DataAccess.Repositories
 {
-    public class LoginLogRepository(AppDbContext context)
+    public class LoginLogRepository(AppDbContext context) : ILoginLogRepository
     {
         public async Task<bool> AddLoginLogAsync(int? userId, string status, string? ipAddress, string? userAgent, string? attemptedIdentifier = null)
         {

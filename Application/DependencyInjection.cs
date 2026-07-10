@@ -13,6 +13,8 @@ namespace Business.DependencyInjection
             service.AddScoped<IUserService, UserService>();
             service.AddScoped<IRefreshTokenService, RefreshTokenService>();
             service.AddScoped<IAdminActionService, AdminActionService>();
+            service.AddScoped<ILoginLogService, LoginLogService>();
+            service.AddScoped<IAuthenticationService, AuthenticationService>();
 
             return service;
         }

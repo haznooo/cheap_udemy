@@ -1,21 +1,15 @@
-﻿using AngleSharp.Io;
-using Business.Common;
-using Business.Dto.Request;
+﻿using Business.Common;
 using Business.Dto.Rsponse;
 using Business.Interfaces;
-using DataAccess.Data;
 using DataAccess.Dto;
 using DataAccess.Entities;
-using DataAccess.Repositories;
-using MediatR;
-using System;
-using System.Collections.Generic;
+using DataAccess.Interfaces;
 using System.Security.Cryptography;
 using System.Text;
 
 namespace Business.Services
 {
-    public class RefreshTokenService(AppDbContext context) : IRefreshTokenService
+    public class RefreshTokenService(IRefreshTokenRepository refreshTokenRepository, IUserAndProfileRepository userRepository) : IRefreshTokenService
     {
 
 
@@ -24,9 +18,6 @@ namespace Business.Services
         /// </summary>
         public async Task<MyResult<RefreshTokenDto>> AddNewRefreshTokenFirstTime(int userId, string deviceInfo, string ipAddress, DateTime? expiresAt = null)
         {
-
-            RefreshTokenRepository refreshTokenRepository = new RefreshTokenRepository(context);
-
 
             string refreshToken = GenerateRefreshToken();
             string RefreshTokenHashed = HashRefreshToken(refreshToken);
@@ -78,13 +69,10 @@ namespace Business.Services
             // Validate the user exists and is active. If the user was deleted or deactivated, we don't want to issue a new token
             // or even doing a lookup on the refresh token. This prevents a deleted user from being able to use a refresh token to get a new access token.
 
-            UserAndProfileRepository userRepository = new UserAndProfileRepository(context);
             var user = await userRepository.GetUserByIdAsync(userId);
 
             if (user == null)
                 return MyResult<LoginResponse>.Failure(ErrorType.Unauthorized, "user no longer exists");
-
-            RefreshTokenRepository refreshTokenRepository = new RefreshTokenRepository(context);
 
             // Look the token up across ALL states (SHA-256 is deterministic → direct indexed lookup).
             // We need used/revoked/expired rows too, so a replayed used token is visible below.
@@ -151,8 +139,6 @@ namespace Business.Services
             if (userId <= 0 || string.IsNullOrWhiteSpace(refreshToken))
                 return MyResult<bool>.Success(true);
 
-            RefreshTokenRepository refreshTokenRepository = new RefreshTokenRepository(context);
-
             string tokenHash = HashRefreshToken(refreshToken);
             var currentToken = await refreshTokenRepository.GetValidRefreshTokenByHashAsync(userId, tokenHash);
 
@@ -176,7 +162,6 @@ namespace Business.Services
             if (userId <= 0)
                 return MyResult<bool>.Failure(ErrorType.BadRequest, "invalid user id");
 
-            RefreshTokenRepository refreshTokenRepository = new RefreshTokenRepository(context);
             var revoked = await refreshTokenRepository.RevokeAllRefreshTokensAsync(userId);
 
             if (revoked < 0)

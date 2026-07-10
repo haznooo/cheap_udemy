@@ -2,14 +2,14 @@
 using Business.Common;
 using Business.Dto.Request;
 using Business.Dto.Rsponse;
-using DataAccess.Data;
+using Business.Interfaces;
 using DataAccess.Entities;
-using DataAccess.Repositories;
+using DataAccess.Interfaces;
 using System.Text.RegularExpressions;
 
 namespace Business.Services
 {
-	public class AuthenticationService(AppDbContext context)
+	public class AuthenticationService(IUserAndProfileRepository userRepository, IRefreshTokenService refreshTokenService, ILoginLogService loginLogService) : IAuthenticationService
 	{
 		// A real BCrypt hash (default work factor) used only to spend the same verify time on the
 		// unknown-email path as on a real login, so response timing doesn't reveal whether an email
@@ -48,13 +48,12 @@ namespace Business.Services
             {
                 return MyResult<LoginResponse>.Failure(ErrorType.BadRequest, "Invalid email format. Email must be at most 50 characters.");
             }
-            UserAndProfileRepository UserRepository = new UserAndProfileRepository(context);
-            if (await UserRepository.IsUsernameUsedAsync(normalizedUsername))
+            if (await userRepository.IsUsernameUsedAsync(normalizedUsername))
             {
 
                 return MyResult<LoginResponse>.Failure(ErrorType.Conflict, "Username is already in use.");
             }
-            if (await UserRepository.IsEmailUsedAsync(request.Email))
+            if (await userRepository.IsEmailUsedAsync(request.Email))
             {
 
                 return MyResult<LoginResponse>.Failure(ErrorType.Conflict, "Email is already in use.");
@@ -78,17 +77,16 @@ namespace Business.Services
 
             };
 
-            var userE = await UserRepository.AddUserAsync(UserEntity);
+            var userE = await userRepository.AddUserAsync(UserEntity);
 
             //check if user was created successfully
             if (userE == null) return MyResult<LoginResponse>.Failure(ErrorType.Failure, "An error occurred while creating the user.");
 
 
             //generate refresh token and save it to database
-            RefreshTokenService refreshTokenService = new RefreshTokenService(context);
 			var NewToken = await refreshTokenService.AddNewRefreshTokenFirstTime(userE.UserId, deviceInfo, ipAddress);
 
-            await new LoginLogService(context).LogAsync(userE.UserId, "success", ipAddress, deviceInfo);
+            await loginLogService.LogAsync(userE.UserId, "success", ipAddress, deviceInfo);
 
 			//make the response
 			var response = new LoginResponse
@@ -122,10 +120,8 @@ namespace Business.Services
                 return MyResult<LoginResponse>.Failure(ErrorType.BadRequest, "Invalid email format.");
             }
 
-            UserAndProfileRepository repo = new UserAndProfileRepository(context);
-
             // One query fetches everything the login needs — id, account fields, hash, profile.
-            var user = await repo.GetUserForLoginAsync(request.Email);
+            var user = await userRepository.GetUserForLoginAsync(request.Email);
 
             // Unknown email OR an anonymized/deleted user (NULL hash): still auditable (record the
             // attempted identifier, never the password). Spend the same BCrypt time as a real login
@@ -133,7 +129,7 @@ namespace Business.Services
             // code nor timing reveals whether the email exists.
             if (user == null || user.HashedPassword == null)
             {
-                await new LoginLogService(context).LogAsync(user?.UserId, "failed", ipAddress, deviceInfo, request.Email);
+                await loginLogService.LogAsync(user?.UserId, "failed", ipAddress, deviceInfo, request.Email);
                 BCrypt.Net.BCrypt.Verify(request.Password ?? "", DummyPasswordHash);
                 return MyResult<LoginResponse>.Failure(ErrorType.Unauthorized, "invalid credentials");
             }
@@ -142,7 +138,7 @@ namespace Business.Services
 
             if (!isValidPassword)
             {
-                await new LoginLogService(context).LogAsync(user.UserId, "failed", ipAddress, deviceInfo, request.Email);
+                await loginLogService.LogAsync(user.UserId, "failed", ipAddress, deviceInfo, request.Email);
                 return MyResult<LoginResponse>.Failure(ErrorType.Unauthorized, "invalid credentials");
             }
 
@@ -153,10 +149,9 @@ namespace Business.Services
                 return MyResult<LoginResponse>.Failure(ErrorType.Unauthorized, "invalid credentials");
 
 
-            RefreshTokenService refreshTokenService = new RefreshTokenService(context);
             var NewRefreshToken = await refreshTokenService.AddNewRefreshTokenFirstTime(user.UserId, deviceInfo, ipAddress);
 
-            await new LoginLogService(context).LogAsync(user.UserId, "success", ipAddress, deviceInfo);
+            await loginLogService.LogAsync(user.UserId, "success", ipAddress, deviceInfo);
 
             return MyResult<LoginResponse>.Success(new LoginResponse
             {
