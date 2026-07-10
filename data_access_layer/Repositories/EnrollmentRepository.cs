@@ -1,12 +1,13 @@
 using DataAccess.Data;
 using DataAccess.Dto;
 using DataAccess.Entities;
+using DataAccess.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using static DataAccess.Common.clsPageResult;
 
 namespace DataAccess.Repositories
 {
-    public class EnrollmentRepository(AppDbContext context)
+    public class EnrollmentRepository(AppDbContext context) : IEnrollmentRepository
     {
         public async Task<bool> IsAlreadyEnrolledAsync(int userId, int courseId)
         {

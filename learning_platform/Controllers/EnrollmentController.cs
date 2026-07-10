@@ -1,7 +1,6 @@
 using Business.Common;
 using Business.Dto.Request;
-using Business.Services;
-using DataAccess.Data;
+using Business.Interfaces;
 using DataAccess.Dto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,15 +11,14 @@ namespace Api.Controllers
     [ApiController]
     [Authorize]
     [Route("api/Enrollments")]
-    public class EnrollmentController(AppDbContext context) : ApiControllerBase
+    public class EnrollmentController(IEnrollmentService enrollmentService) : ApiControllerBase
     {
         [HttpPost("enroll")]
         public async Task<ActionResult<EnrollmentDto>> Enroll(EnrollRequest request)
         {
             if (CallerId is not int callerId) return MissingIdentity();
 
-            var service = new EnrollmentService(context);
-            var result = await service.EnrollStudent(callerId, request);
+            var result = await enrollmentService.EnrollStudent(callerId, request);
 
             if (!result.IsSuccess) return MapFailure(result);
 
@@ -35,8 +33,7 @@ namespace Api.Controllers
         {
             if (CallerId is not int callerId) return MissingIdentity();
 
-            var service = new EnrollmentService(context);
-            var result = await service.GetUserEnrollments(callerId, CallerRole, callerId, pageNumber, pageSize);
+            var result = await enrollmentService.GetUserEnrollments(callerId, CallerRole, callerId, pageNumber, pageSize);
 
             if (!result.IsSuccess) return MapFailure(result);
 
@@ -53,8 +50,7 @@ namespace Api.Controllers
         {
             if (CallerId is not int callerId) return MissingIdentity();
 
-            var service = new EnrollmentService(context);
-            var result = await service.GetUserEnrollments(callerId, CallerRole, userId, pageNumber, pageSize);
+            var result = await enrollmentService.GetUserEnrollments(callerId, CallerRole, userId, pageNumber, pageSize);
 
             if (!result.IsSuccess) return MapFailure(result);
 
@@ -69,8 +65,7 @@ namespace Api.Controllers
         {
             if (CallerId is not int callerId) return MissingIdentity();
 
-            var service = new EnrollmentService(context);
-            var result = await service.GetCourseEnrollments(callerId, CallerRole, courseId, pageNumber, pageSize);
+            var result = await enrollmentService.GetCourseEnrollments(callerId, CallerRole, courseId, pageNumber, pageSize);
 
             if (!result.IsSuccess) return MapFailure(result);
 
@@ -82,8 +77,7 @@ namespace Api.Controllers
         {
             if (CallerId is not int callerId) return MissingIdentity();
 
-            var service = new EnrollmentService(context);
-            var result = await service.MarkLessonProgress(callerId, request);
+            var result = await enrollmentService.MarkLessonProgress(callerId, request);
 
             if (!result.IsSuccess) return MapFailure(result);
 
@@ -98,8 +92,7 @@ namespace Api.Controllers
         {
             if (CallerId is not int callerId) return MissingIdentity();
 
-            var service = new EnrollmentService(context);
-            var result = await service.GetCourseProgress(callerId, courseId, pageNumber, pageSize);
+            var result = await enrollmentService.GetCourseProgress(callerId, courseId, pageNumber, pageSize);
 
             if (!result.IsSuccess) return MapFailure(result);
 
@@ -111,8 +104,7 @@ namespace Api.Controllers
         {
             if (CallerId is not int callerId) return MissingIdentity();
 
-            var service = new EnrollmentService(context);
-            var result = await service.DropEnrollment(callerId, request);
+            var result = await enrollmentService.DropEnrollment(callerId, request);
 
             if (!result.IsSuccess) return MapFailure(result);
 

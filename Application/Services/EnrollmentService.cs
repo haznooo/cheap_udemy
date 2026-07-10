@@ -1,14 +1,14 @@
 using Business.Common;
 using Business.Dto.Request;
-using DataAccess.Data;
+using Business.Interfaces;
 using DataAccess.Dto;
 using DataAccess.Entities;
-using DataAccess.Repositories;
+using DataAccess.Interfaces;
 using static DataAccess.Common.clsPageResult;
 
 namespace Business.Services
 {
-    public class EnrollmentService(AppDbContext context)
+    public class EnrollmentService(IEnrollmentRepository enrollmentRepository) : IEnrollmentService
     {
         // callerId is the authenticated user (from the JWT) — a user can only enroll themselves.
         public async Task<MyResult<EnrollmentDto>> EnrollStudent(int callerId, EnrollRequest request)
@@ -19,9 +19,7 @@ namespace Business.Services
             if (request.CourseId <= 0)
                 return MyResult<EnrollmentDto>.Failure(ErrorType.BadRequest, "Invalid course ID.");
 
-            var repo = new EnrollmentRepository(context);
-
-            var course = await repo.GetCourseEnrollmentInfoAsync(request.CourseId);
+            var course = await enrollmentRepository.GetCourseEnrollmentInfoAsync(request.CourseId);
 
             // Treat draft/retired/deleted courses as non-existent (don't reveal unpublished courses).
             if (course == null || course.IsDeleted || course.Status != "published")
@@ -34,7 +32,7 @@ namespace Business.Services
             if (course.Price > 0)
                 return MyResult<EnrollmentDto>.Failure(ErrorType.BadRequest, "This course requires payment, which is not supported yet.");
 
-            string? existingStatus = await repo.GetEnrollmentStatusAsync(callerId, request.CourseId);
+            string? existingStatus = await enrollmentRepository.GetEnrollmentStatusAsync(callerId, request.CourseId);
 
             if (existingStatus != null && existingStatus != "dropped")
                 return MyResult<EnrollmentDto>.Failure(ErrorType.Conflict, "User is already enrolled in this course.");
@@ -43,7 +41,7 @@ namespace Business.Services
             // be reactivated rather than a new row inserted.
             if (existingStatus == "dropped")
             {
-                var reactivated = await repo.ReactivateDroppedEnrollmentAsync(callerId, request.CourseId);
+                var reactivated = await enrollmentRepository.ReactivateDroppedEnrollmentAsync(callerId, request.CourseId);
                 if (reactivated == null)
                     return MyResult<EnrollmentDto>.Failure(ErrorType.Failure, "Failed to re-enroll student.");
                 return MyResult<EnrollmentDto>.Success(reactivated);
@@ -58,7 +56,7 @@ namespace Business.Services
                 progress_percentage = 0
             };
 
-            var result = await repo.EnrollStudentAsync(enrollment);
+            var result = await enrollmentRepository.EnrollStudentAsync(enrollment);
             if (result == null)
                 return MyResult<EnrollmentDto>.Failure(ErrorType.Failure, "Failed to enroll student.");
 
@@ -77,8 +75,7 @@ namespace Business.Services
             if (pageNumber <= 0 || pageSize <= 0)
                 return MyResult<PageResult<EnrollmentDto>>.Failure(ErrorType.BadRequest, "Invalid page number or page size.");
 
-            var repo = new EnrollmentRepository(context);
-            var r = await repo.GetEnrollmentsByUserIdAsync(userId, pageNumber, pageSize);
+            var r = await enrollmentRepository.GetEnrollmentsByUserIdAsync(userId, pageNumber, pageSize);
 
             if (r == null)
                 return MyResult<PageResult<EnrollmentDto>>.Failure(ErrorType.Failure, "Failed to retrieve enrollments.");
@@ -95,16 +92,14 @@ namespace Business.Services
             if (pageNumber <= 0 || pageSize <= 0)
                 return MyResult<PageResult<EnrollmentDto>>.Failure(ErrorType.BadRequest, "Invalid page number or page size.");
 
-            var repo = new EnrollmentRepository(context);
-
-            int? instructorId = await repo.GetCourseInstructorIdAsync(courseId);
+            int? instructorId = await enrollmentRepository.GetCourseInstructorIdAsync(courseId);
             if (instructorId == null)
                 return MyResult<PageResult<EnrollmentDto>>.Failure(ErrorType.NotFound, "Course not found.");
 
             if (callerRole != "admin" && callerId != instructorId)
                 return MyResult<PageResult<EnrollmentDto>>.Failure(ErrorType.Unauthorized, "Access denied.");
 
-            var r = await repo.GetEnrollmentsByCourseIdAsync(courseId, pageNumber, pageSize);
+            var r = await enrollmentRepository.GetEnrollmentsByCourseIdAsync(courseId, pageNumber, pageSize);
 
             if (r == null)
                 return MyResult<PageResult<EnrollmentDto>>.Failure(ErrorType.Failure, "Failed to retrieve enrollments.");
@@ -120,13 +115,11 @@ namespace Business.Services
             if (request.LessonId <= 0)
                 return MyResult<EnrollmentDto>.Failure(ErrorType.BadRequest, "Invalid lesson ID.");
 
-            var repo = new EnrollmentRepository(context);
-
-            int? courseId = await repo.GetCourseIdByLessonAsync(request.LessonId);
+            int? courseId = await enrollmentRepository.GetCourseIdByLessonAsync(request.LessonId);
             if (courseId == null)
                 return MyResult<EnrollmentDto>.Failure(ErrorType.NotFound, "Lesson not found.");
 
-            string? enrollmentStatus = await repo.GetEnrollmentStatusAsync(callerId, courseId.Value);
+            string? enrollmentStatus = await enrollmentRepository.GetEnrollmentStatusAsync(callerId, courseId.Value);
             if (enrollmentStatus == null)
                 return MyResult<EnrollmentDto>.Failure(ErrorType.BadRequest, "User is not enrolled in this course.");
 
@@ -136,11 +129,11 @@ namespace Business.Services
             if (enrollmentStatus == "completed")
                 return MyResult<EnrollmentDto>.Failure(ErrorType.Conflict, "Course is already completed.");
 
-            bool lessonDone = await repo.IsLessonAlreadyCompletedAsync(callerId, request.LessonId);
+            bool lessonDone = await enrollmentRepository.IsLessonAlreadyCompletedAsync(callerId, request.LessonId);
             if (lessonDone)
                 return MyResult<EnrollmentDto>.Failure(ErrorType.Conflict, "Lesson is already completed.");
 
-            var result = await repo.MarkLessonProgressAsync(callerId, request.LessonId, courseId.Value);
+            var result = await enrollmentRepository.MarkLessonProgressAsync(callerId, request.LessonId, courseId.Value);
             if (result == null)
                 return MyResult<EnrollmentDto>.Failure(ErrorType.Failure, "Failed to mark lesson progress.");
 
@@ -155,16 +148,14 @@ namespace Business.Services
             if (pageNumber <= 0 || pageSize <= 0)
                 return MyResult<PageResult<LessonProgressDto>>.Failure(ErrorType.BadRequest, "Invalid page number or page size.");
 
-            var repo = new EnrollmentRepository(context);
-
-            string? enrollmentStatus = await repo.GetEnrollmentStatusAsync(callerId, courseId);
+            string? enrollmentStatus = await enrollmentRepository.GetEnrollmentStatusAsync(callerId, courseId);
             if (enrollmentStatus == null)
                 return MyResult<PageResult<LessonProgressDto>>.Failure(ErrorType.NotFound, "You are not enrolled in this course.");
 
             if (enrollmentStatus is "dropped" or "suspended")
                 return MyResult<PageResult<LessonProgressDto>>.Failure(ErrorType.Unauthorized, "Enrollment is not active.");
 
-            var progress = await repo.GetUserCourseProgressAsync(callerId, courseId, pageNumber, pageSize);
+            var progress = await enrollmentRepository.GetUserCourseProgressAsync(callerId, courseId, pageNumber, pageSize);
             if (progress == null)
                 return MyResult<PageResult<LessonProgressDto>>.Failure(ErrorType.Failure, "Failed to retrieve progress.");
 
@@ -178,13 +169,11 @@ namespace Business.Services
             if (request.CourseId <= 0)
                 return MyResult<bool>.Failure(ErrorType.BadRequest, "Invalid course ID.");
 
-            var repo = new EnrollmentRepository(context);
-
-            bool alreadyEnrolled = await repo.IsAlreadyEnrolledAsync(callerId, request.CourseId);
+            bool alreadyEnrolled = await enrollmentRepository.IsAlreadyEnrolledAsync(callerId, request.CourseId);
             if (!alreadyEnrolled)
                 return MyResult<bool>.Failure(ErrorType.NotFound, "Enrollment not found.");
 
-            var result = await repo.DropEnrollmentAsync(callerId, request.CourseId);
+            var result = await enrollmentRepository.DropEnrollmentAsync(callerId, request.CourseId);
             if (!result)
                 return MyResult<bool>.Failure(ErrorType.Failure, "Failed to drop enrollment.");
 
