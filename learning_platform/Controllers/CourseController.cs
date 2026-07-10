@@ -154,6 +154,23 @@ namespace Api.Controllers
             return Ok(Result.Value);
         }
 
+        [Authorize]
+        [HttpGet("{courseId}/sections")]
+        public async Task<ActionResult<clsPageResult.PageResult<SectionResponse>>> GetCourseSections(
+            int courseId,
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10)
+        {
+            if (CallerId is not int callerId) return MissingIdentity();
+
+            bool isAdmin = User.IsInRole("admin");
+            var Result = await courseService.GetCourseSections(courseId, callerId, isAdmin, pageNumber, pageSize);
+
+            if (!Result.IsSuccess) return MapFailure(Result);
+
+            return Ok(Result.Value);
+        }
+
         // The caller's own courses as an instructor (identity from the access token).
         [Authorize]
         [HttpGet("instructor/me")]

@@ -260,15 +260,16 @@ namespace DataAccess.Repositories
             
         }
 
-        public async Task<PageResult<LessonDto>> GetCourseLessons(int courseId, int pageNumber, int pageSize)
+        public async Task<PageResult<LessonDto>> GetCourseLessons(int courseId, int pageNumber, int pageSize, int? callerId = null, bool isAdmin = false)
         {
             try
             {
-                // Only expose lessons of published, non-deleted courses (matches GetCourseById).
+                // Non-deleted courses only; published-only unless the caller is the
+                // owning instructor or an admin (matches GetCourseById's owner bypass).
                 var query = context.Lessons
                     .Where(l => l.section.course_id == courseId
-                        && l.section.course.status == "published"
-                        && l.section.course.deleted_at == null)
+                        && l.section.course.deleted_at == null
+                        && (l.section.course.status == "published" || isAdmin || l.section.course.instructor_id == callerId))
                     .AsNoTracking();
 
                 var totalCount = await query.CountAsync();
@@ -289,6 +290,46 @@ namespace DataAccess.Repositories
                     .ToListAsync();
 
                 return new PageResult<LessonDto>
+                {
+                    Items = items,
+                    TotalCount = totalCount,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                return null;
+            }
+        }
+
+        // Section list itself carries no published/deleted filter — the caller (service layer)
+        // must authorize access via CanViewCourseContentAsync before calling this, same as lessons.
+        public async Task<PageResult<SectionDto>> GetCourseSections(int courseId, int pageNumber, int pageSize)
+        {
+            try
+            {
+                var query = context.Sections
+                    .Where(s => s.course_id == courseId)
+                    .AsNoTracking();
+
+                var totalCount = await query.CountAsync();
+
+                var items = await query
+                    .OrderBy(s => s.sort_order)
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .Select(s => new SectionDto
+                    {
+                        SectionId = s.section_id,
+                        CourseId = s.course_id,
+                        Title = s.title,
+                        SortOrder = s.sort_order
+                    })
+                    .ToListAsync();
+
+                return new PageResult<SectionDto>
                 {
                     Items = items,
                     TotalCount = totalCount,

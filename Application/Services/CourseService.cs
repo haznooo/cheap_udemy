@@ -192,7 +192,7 @@ namespace Business.Services
                 return MyResult<PageResult<LessonDto>>.Failure(ErrorType.NotFound, "Course not found.");
             }
 
-            var lessons = await coursesRepository.GetCourseLessons(courseId, pageNumber, pageSize);
+            var lessons = await coursesRepository.GetCourseLessons(courseId, pageNumber, pageSize, callerId, isAdmin);
 
             if (lessons == null)
             {
@@ -200,6 +200,49 @@ namespace Business.Services
             }
 
             return MyResult<PageResult<LessonDto>>.Success(lessons);
+        }
+
+        // Section list uses the same enrollment gate as GetCourseLessons: owning instructor,
+        // admin, or an active/completed enrollment. Everyone else gets 404 (curriculum hidden).
+        public async Task<MyResult<PageResult<SectionResponse>>> GetCourseSections(int courseId, int callerId, bool isAdmin, int pageNumber, int pageSize)
+        {
+            if (courseId <= 0)
+            {
+                return MyResult<PageResult<SectionResponse>>.Failure(ErrorType.BadRequest, "Invalid course ID.");
+            }
+
+            if (pageNumber <= 0 || pageSize <= 0)
+            {
+                return MyResult<PageResult<SectionResponse>>.Failure(ErrorType.BadRequest, "Invalid page number or page size.");
+            }
+
+            if (!await enrollmentRepository.CanViewCourseContentAsync(courseId, callerId, isAdmin))
+            {
+                return MyResult<PageResult<SectionResponse>>.Failure(ErrorType.NotFound, "Course not found.");
+            }
+
+            var sections = await coursesRepository.GetCourseSections(courseId, pageNumber, pageSize);
+
+            if (sections == null)
+            {
+                return MyResult<PageResult<SectionResponse>>.Failure(ErrorType.NotFound, "Failed to retrieve sections.");
+            }
+
+            var mapped = new PageResult<SectionResponse>
+            {
+                Items = sections.Items.Select(s => new SectionResponse
+                {
+                    SectionId = s.SectionId,
+                    CourseId = s.CourseId,
+                    Title = s.Title,
+                    SortOrder = s.SortOrder
+                }).ToList(),
+                TotalCount = sections.TotalCount,
+                PageNumber = sections.PageNumber,
+                PageSize = sections.PageSize
+            };
+
+            return MyResult<PageResult<SectionResponse>>.Success(mapped);
         }
 
         public async Task<MyResult<PageResult<CourseDto>>> GetInstructorCourses(int instructorId, int callerId, string callerRole, int pageNumber, int pageSize)

@@ -14,6 +14,7 @@ namespace Business.Interfaces
         Task<MyResult<bool>> CheckCourseEditPermission(int courseId, int callerId, bool isAdmin);
         Task<MyResult<string?>> SetThumbnail(int courseId, int callerId, bool isAdmin, string fileName);
         Task<MyResult<PageResult<LessonDto>>> GetCourseLessons(int courseId, int callerId, bool isAdmin, int pageNumber, int pageSize);
+        Task<MyResult<PageResult<SectionResponse>>> GetCourseSections(int courseId, int callerId, bool isAdmin, int pageNumber, int pageSize);
         Task<MyResult<PageResult<CourseDto>>> GetInstructorCourses(int instructorId, int callerId, string callerRole, int pageNumber, int pageSize);
         Task<MyResult<CourseDto>> UpdateCourse(int courseId, UpdateCourseRequest request, int callerId, bool isAdmin);
         Task<MyResult<CourseDto>> PublishCourse(int courseId, int callerId, bool isAdmin);
