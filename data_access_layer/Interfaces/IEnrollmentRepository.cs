@@ -10,6 +10,7 @@ namespace DataAccess.Interfaces
         Task<int?> GetCourseInstructorIdAsync(int courseId);
         Task<CourseEnrollmentInfoDto?> GetCourseEnrollmentInfoAsync(int courseId);
         Task<bool> CanViewCourseContentAsync(int courseId, int callerId, bool isAdmin);
+        Task<bool> HasAnyEnrollmentAsync(int courseId);
         Task<int?> GetCourseIdByLessonAsync(int lessonId);
         Task<string?> GetEnrollmentStatusAsync(int userId, int courseId);
         Task<bool> IsLessonAlreadyCompletedAsync(int userId, int lessonId);

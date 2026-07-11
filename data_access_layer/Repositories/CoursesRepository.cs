@@ -366,6 +366,80 @@ namespace DataAccess.Repositories
             }
         }
 
+        public async Task<SectionDto?> UpdateSectionAsync(int sectionId, string? title, int? sortOrder)
+        {
+            try
+            {
+                var section = await context.Sections.FirstOrDefaultAsync(s => s.section_id == sectionId);
+                if (section == null) return null;
+
+                if (!string.IsNullOrWhiteSpace(title)) section.title = title;
+                if (sortOrder.HasValue) section.sort_order = sortOrder.Value;
+
+                await context.SaveChangesAsync();
+
+                return new SectionDto
+                {
+                    SectionId = section.section_id,
+                    CourseId = section.course_id,
+                    Title = section.title,
+                    SortOrder = section.sort_order
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                return null;
+            }
+        }
+
+        // Hard delete — sections have no soft-delete column. Cascades to the section's
+        // lessons at the DB level (fk_lessons_sections ON DELETE CASCADE); any lesson media
+        // in storage is not cleaned up by this path (accepted leak, same as the other
+        // accepted leaks documented in CLAUDE.md's media-cleanup section).
+        public async Task<bool> DeleteSectionAsync(int sectionId)
+        {
+            try
+            {
+                var section = await context.Sections.FirstOrDefaultAsync(s => s.section_id == sectionId);
+                if (section == null) return false;
+
+                context.Sections.Remove(section);
+                var results = await context.SaveChangesAsync();
+                return results > 0;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                return false;
+            }
+        }
+
+        // Soft-delete: sets deleted_at + removal_reason (columns already existed, unused
+        // until now). Same anonymize-not-erase convention as user delete elsewhere in this
+        // app — avoids FK issues with reviews/payments referencing the course, and makes the
+        // course fully invisible/gone from every read path without an actual row DELETE.
+        public async Task<bool> SoftDeleteCourseAsync(int courseId, string? removalReason)
+        {
+            try
+            {
+                var course = await context.Courses.FirstOrDefaultAsync(c => c.course_id == courseId && c.deleted_at == null);
+                if (course == null) return false;
+
+                course.deleted_at = DateTime.UtcNow;
+                course.removal_reason = removalReason;
+                course.updated_at = DateTime.UtcNow;
+
+                var results = await context.SaveChangesAsync();
+                return results > 0;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                return false;
+            }
+        }
+
         public async Task<CourseDto?> UpdateCourseAsync(int courseId, string? title, string? description, string? code, decimal? price, string? level, int? categoryId)
         {
             try

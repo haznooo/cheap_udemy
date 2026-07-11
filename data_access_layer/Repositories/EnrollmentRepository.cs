@@ -50,10 +50,21 @@ namespace DataAccess.Repositories
 
             if (isAdmin || info.InstructorId == callerId) return true;
 
-            if (info.IsDeleted || info.Status != "published") return false;
+            // Deliberately NOT gated on info.Status: an existing active/completed enrollment
+            // keeps content access even after the instructor unpublishes the course — only a
+            // hard-deleted course cuts off access. New-enrollment eligibility (which does
+            // require "published") is a separate check, in EnrollmentService.EnrollStudent.
+            if (info.IsDeleted) return false;
 
             string? status = await GetEnrollmentStatusAsync(callerId, courseId);
             return status is "active" or "completed";
+        }
+
+        // True if anyone has ever enrolled in this course (any status, including dropped) —
+        // used to decide whether a course can still be hard-deleted or only unpublished.
+        public async Task<bool> HasAnyEnrollmentAsync(int courseId)
+        {
+            return await context.Enrollments.AnyAsync(e => e.course_id == courseId);
         }
 
         public async Task<int?> GetCourseIdByLessonAsync(int lessonId)

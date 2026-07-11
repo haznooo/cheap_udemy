@@ -18,10 +18,13 @@ namespace DataAccess.Interfaces
         Task<PageResult<LessonDto>> GetCourseLessons(int courseId, int pageNumber, int pageSize, int? callerId = null, bool isAdmin = false);
         Task<PageResult<SectionDto>> GetCourseSections(int courseId, int pageNumber, int pageSize);
         Task<SectionEntitiy> AddNewSection(SectionEntitiy section);
+        Task<SectionDto?> UpdateSectionAsync(int sectionId, string? title, int? sortOrder);
+        Task<bool> DeleteSectionAsync(int sectionId);
         Task<CourseDto?> UpdateCourseAsync(int courseId, string? title, string? description, string? code, decimal? price, string? level, int? categoryId);
         Task<PageResult<CourseDto>> GetCoursesByInstructorIdAsync(int instructorId, int pageNumber, int pageSize);
         Task<CourseEntitiy?> GetRawCourseAsync(int courseId);
         Task<CourseDto?> UpdateCourseStatusAsync(int courseId, string newStatus);
+        Task<bool> SoftDeleteCourseAsync(int courseId, string? removalReason);
         Task<bool> DoesCategoryExistAsync(int categoryId);
     }
 }

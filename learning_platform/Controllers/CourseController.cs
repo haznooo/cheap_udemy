@@ -264,5 +264,54 @@ namespace Api.Controllers
 
             return Ok(Result.Value);
         }
+
+        // Rename/reorder a section. Owner/admin only, allowed regardless of enrollment
+        // (same as lesson edits — only course-level hard delete is enrollment-gated).
+        [Authorize]
+        [HttpPut("section/{sectionId}")]
+        public async Task<ActionResult<SectionResponse>> UpdateSection(int sectionId, [FromBody] UpdateSectionRequest request)
+        {
+            if (CallerId is not int callerId) return MissingIdentity();
+
+            bool isAdmin = User.IsInRole("admin");
+            var result = await courseService.UpdateSection(sectionId, request, callerId, isAdmin);
+
+            if (!result.IsSuccess) return MapFailure(result);
+
+            return Ok(result.Value);
+        }
+
+        // Hard-delete a section (and, via DB cascade, its lessons). Owner/admin only,
+        // allowed regardless of enrollment.
+        [Authorize]
+        [HttpDelete("section/{sectionId}")]
+        public async Task<ActionResult> DeleteSection(int sectionId)
+        {
+            if (CallerId is not int callerId) return MissingIdentity();
+
+            bool isAdmin = User.IsInRole("admin");
+            var result = await courseService.DeleteSection(sectionId, callerId, isAdmin);
+
+            if (!result.IsSuccess) return MapFailure(result);
+
+            return NoContent();
+        }
+
+        // Hard-delete (soft-delete: deleted_at + removal_reason) a course with no enrollment
+        // history. If anyone has ever enrolled (any status, including dropped), this is
+        // blocked (409) — unpublish instead.
+        [Authorize]
+        [HttpDelete("{courseId}")]
+        public async Task<ActionResult> DeleteCourse(int courseId, [FromBody] DeleteCourseRequest? request)
+        {
+            if (CallerId is not int callerId) return MissingIdentity();
+
+            bool isAdmin = User.IsInRole("admin");
+            var result = await courseService.DeleteCourse(courseId, callerId, isAdmin, request?.RemovalReason);
+
+            if (!result.IsSuccess) return MapFailure(result);
+
+            return NoContent();
+        }
     }
 }

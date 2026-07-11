@@ -373,5 +373,80 @@ namespace Business.Services
                 CourseId = result.course_id
             });
         }
+
+        public async Task<MyResult<SectionResponse>> UpdateSection(int sectionId, UpdateSectionRequest request, int callerId, bool isAdmin)
+        {
+            if (sectionId <= 0)
+                return MyResult<SectionResponse>.Failure(ErrorType.BadRequest, "Invalid section ID.");
+
+            var courseId = await coursesRepository.GetCourseIdBySection(sectionId);
+            if (courseId == null)
+                return MyResult<SectionResponse>.Failure(ErrorType.NotFound, "Section not found.");
+
+            // Sections/lessons stay editable by the owner/admin regardless of enrollment —
+            // only course-level hard delete is blocked once anyone has ever enrolled.
+            var permission = await CheckCourseEditPermission(courseId.Value, callerId, isAdmin);
+            if (!permission.IsSuccess)
+                return MyResult<SectionResponse>.Failure(permission.FailureType, permission.Errors.Select(e => e.Message).ToArray());
+
+            if (request.SortOrder.HasValue && request.SortOrder.Value <= 0)
+                return MyResult<SectionResponse>.Failure(ErrorType.BadRequest, "Sort order must be positive.");
+
+            var result = await coursesRepository.UpdateSectionAsync(sectionId, request.Title, request.SortOrder);
+            if (result == null)
+                return MyResult<SectionResponse>.Failure(ErrorType.Failure, "Failed to update section.");
+
+            return MyResult<SectionResponse>.Success(new SectionResponse
+            {
+                SectionId = result.SectionId,
+                CourseId = result.CourseId,
+                Title = result.Title,
+                SortOrder = result.SortOrder
+            });
+        }
+
+        public async Task<MyResult<bool>> DeleteSection(int sectionId, int callerId, bool isAdmin)
+        {
+            if (sectionId <= 0)
+                return MyResult<bool>.Failure(ErrorType.BadRequest, "Invalid section ID.");
+
+            var courseId = await coursesRepository.GetCourseIdBySection(sectionId);
+            if (courseId == null)
+                return MyResult<bool>.Failure(ErrorType.NotFound, "Section not found.");
+
+            // Same as UpdateSection: allowed regardless of enrollment, owner/admin only.
+            var permission = await CheckCourseEditPermission(courseId.Value, callerId, isAdmin);
+            if (!permission.IsSuccess)
+                return MyResult<bool>.Failure(permission.FailureType, permission.Errors.Select(e => e.Message).ToArray());
+
+            var success = await coursesRepository.DeleteSectionAsync(sectionId);
+            if (!success)
+                return MyResult<bool>.Failure(ErrorType.Failure, "Failed to delete section.");
+
+            return MyResult<bool>.Success(true);
+        }
+
+        // Hard-delete is only allowed if no one has ever enrolled (any status, including
+        // dropped) — otherwise the instructor can only unpublish. Deletion is a soft-delete
+        // (deleted_at + removal_reason), never an actual row DELETE.
+        public async Task<MyResult<bool>> DeleteCourse(int courseId, int callerId, bool isAdmin, string? removalReason)
+        {
+            if (courseId <= 0)
+                return MyResult<bool>.Failure(ErrorType.BadRequest, "Invalid course ID.");
+
+            var permission = await CheckCourseEditPermission(courseId, callerId, isAdmin);
+            if (!permission.IsSuccess)
+                return MyResult<bool>.Failure(permission.FailureType, permission.Errors.Select(e => e.Message).ToArray());
+
+            var hasEnrollments = await enrollmentRepository.HasAnyEnrollmentAsync(courseId);
+            if (hasEnrollments)
+                return MyResult<bool>.Failure(ErrorType.Conflict, "Cannot delete a course that has enrollment history; unpublish it instead.");
+
+            var success = await coursesRepository.SoftDeleteCourseAsync(courseId, removalReason);
+            if (!success)
+                return MyResult<bool>.Failure(ErrorType.Failure, "Failed to delete course.");
+
+            return MyResult<bool>.Success(true);
+        }
     }
 }
