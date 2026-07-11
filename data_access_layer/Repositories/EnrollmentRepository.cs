@@ -42,7 +42,8 @@ namespace DataAccess.Repositories
 
         // True if the caller may view a course's curriculum/lesson content:
         // an admin, the owning instructor (even for a draft), or an active/completed
-        // enrollment in a published, non-deleted course. A missing course is false.
+        // enrollment in a non-deleted course — regardless of current publish status, so
+        // unpublishing doesn't cut off students already enrolled. A missing course is false.
         public async Task<bool> CanViewCourseContentAsync(int courseId, int callerId, bool isAdmin)
         {
             var info = await GetCourseEnrollmentInfoAsync(courseId);

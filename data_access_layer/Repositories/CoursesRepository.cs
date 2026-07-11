@@ -366,30 +366,37 @@ namespace DataAccess.Repositories
             }
         }
 
-        public async Task<SectionDto?> UpdateSectionAsync(int sectionId, string? title, int? sortOrder)
+        // Conflict = true means the update hit uq_section_order_per_course (another section
+        // in the same course already has that sort_order) — distinguished from a generic
+        // failure so the service can return 409 instead of 500.
+        public async Task<(SectionDto? Result, bool Conflict)> UpdateSectionAsync(int sectionId, string? title, int? sortOrder)
         {
             try
             {
                 var section = await context.Sections.FirstOrDefaultAsync(s => s.section_id == sectionId);
-                if (section == null) return null;
+                if (section == null) return (null, false);
 
                 if (!string.IsNullOrWhiteSpace(title)) section.title = title;
                 if (sortOrder.HasValue) section.sort_order = sortOrder.Value;
 
                 await context.SaveChangesAsync();
 
-                return new SectionDto
+                return (new SectionDto
                 {
                     SectionId = section.section_id,
                     CourseId = section.course_id,
                     Title = section.title,
                     SortOrder = section.sort_order
-                };
+                }, false);
+            }
+            catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505" })
+            {
+                return (null, true);
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex.ToString());
-                return null;
+                return (null, false);
             }
         }
 

@@ -392,7 +392,9 @@ namespace Business.Services
             if (request.SortOrder.HasValue && request.SortOrder.Value <= 0)
                 return MyResult<SectionResponse>.Failure(ErrorType.BadRequest, "Sort order must be positive.");
 
-            var result = await coursesRepository.UpdateSectionAsync(sectionId, request.Title, request.SortOrder);
+            var (result, conflict) = await coursesRepository.UpdateSectionAsync(sectionId, request.Title, request.SortOrder);
+            if (conflict)
+                return MyResult<SectionResponse>.Failure(ErrorType.Conflict, "Another section in this course already has that sort order.");
             if (result == null)
                 return MyResult<SectionResponse>.Failure(ErrorType.Failure, "Failed to update section.");
 
