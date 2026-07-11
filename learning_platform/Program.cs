@@ -39,8 +39,15 @@ namespace CheapUdemy
                     }, options: null, contentType: "application/problem+json", cancellationToken);
                 };
 
-                // Global limiter: applies to every request (20/min per IP)
-                options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+                // No GlobalLimiter: a GlobalLimiter always stacks (AND's) with any endpoint-specific
+                // policy, and [DisableRateLimiting] turns out to disable it too when combined with
+                // [EnableRateLimiting] on the same endpoint (verified empirically) — neither gives a
+                // policy that's actually independent. Instead, every endpoint gets exactly ONE policy:
+                // "standard" by default (applied via a class-level [EnableRateLimiting] on
+                // ApiControllerBase, inherited by every controller), overridden per-method to "auth"
+                // on login/signUp/refresh. Method-level metadata wins over class-level, so these two
+                // budgets never stack.
+                options.AddPolicy("standard", httpContext =>
                 {
                     var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
@@ -48,7 +55,24 @@ namespace CheapUdemy
                         partitionKey: ip,
                         factory: _ => new FixedWindowRateLimiterOptions
                         {
-                            PermitLimit = 20,
+                            PermitLimit = 67,
+                            Window = TimeSpan.FromMinutes(1),
+                            QueueLimit = 0
+                        });
+                });
+
+                // Dedicated auth limiter: shared 10/min-per-IP budget across login/signUp/refresh
+                // (one counter for all three, not one each). Attempt-based (counts successes too),
+                // not failure-only — a deliberate, simpler tradeoff for this project.
+                options.AddPolicy("auth", httpContext =>
+                {
+                    var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+                    return RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: ip,
+                        factory: _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 10,
                             Window = TimeSpan.FromMinutes(1),
                             QueueLimit = 0
                         });

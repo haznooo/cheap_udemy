@@ -1,12 +1,16 @@
 using System.Security.Claims;
 using Business.Common;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Api.Controllers
 {
     // Shared plumbing for all API controllers: caller identity from the JWT and the
     // single MyResult-failure → ProblemDetails (RFC 7807) mapping. Every error body
     // on the wire is a ProblemDetails; the frontend reads its `detail` field.
+    // "standard" rate-limit policy applies to every controller by default (inherited);
+    // overridden per-method where a stricter/independent policy is needed (e.g. auth endpoints).
+    [EnableRateLimiting("standard")]
     public abstract class ApiControllerBase : ControllerBase
     {
         // The caller's own id, taken from the access token (never from the URL).

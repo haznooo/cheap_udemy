@@ -8,6 +8,7 @@ using Business.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -25,6 +26,7 @@ namespace CheapUdemy.Controllers
 
    
         //works fine
+        [EnableRateLimiting("auth")]
         [HttpPost("signUp")]
         public async Task<ActionResult<LoginResponse>> SignUp([FromBody] SignUpRequest request)
         {
@@ -60,6 +62,7 @@ namespace CheapUdemy.Controllers
             return result.Value;
         }
        
+        [EnableRateLimiting("auth")]
         [HttpPost("login")] // Use route parameters for IDs
         public async Task<ActionResult<LoginResponse>> login([FromBody] LoginRequest request)
         {
@@ -99,6 +102,7 @@ namespace CheapUdemy.Controllers
         // Exchanges a valid refresh token for a new access token (and a rotated refresh token).
         // Body carries RefreshToken + (possibly expired) AccessToken; the user id is recovered from
         // the access token's signed claims, never trusted from the client. Device/IP come from the request.
+        [EnableRateLimiting("auth")]
         [HttpPost("refresh")]
         public async Task<ActionResult<LoginResponse>> Refresh([FromBody] RefreshTokenRequest request)
         {
