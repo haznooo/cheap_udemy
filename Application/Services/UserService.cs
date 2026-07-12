@@ -65,6 +65,46 @@ namespace Business.Services
 			return MyResult<string?>.Success(avatarFileName);
 		}
 
+		// Admin-initiated ban/suspend/unban: sets users.status to "banned", "suspended"
+		// or "active". On success the value is the target's OLD status so the controller
+		// can write an accurate audit row (e.g. unban vs unsuspend). Authority is the
+		// caller's admin role (enforced at the controller) + the audit-log entry.
+		public async Task<MyResult<string>> AdminSetUserStatus(int adminId, int targetUserId, string newStatus)
+		{
+			if (targetUserId <= 0) return MyResult<string>.Failure(ErrorType.BadRequest, "user id can not be zero or negative");
+
+			// An admin locking themselves out (or "unbanning" themselves) makes no sense.
+			if (adminId == targetUserId) return MyResult<string>.Failure(ErrorType.BadRequest, "you cannot change your own account status");
+
+			var target = await userRepository.GetUserStatusAndRoleAsync(targetUserId);
+
+			// Deleted accounts are anonymized and can't come back — treat like missing.
+			if (target == null || target.Status == "deleted")
+				return MyResult<string>.Failure(ErrorType.NotFound, "user not found");
+
+			// Admins can't ban/suspend each other — demote via the DB first if ever needed.
+			if (target.Role == "admin")
+				return MyResult<string>.Failure(ErrorType.BadRequest, "cannot change the status of an admin account");
+
+			if (target.Status == newStatus)
+				return MyResult<string>.Failure(ErrorType.Conflict, $"user is already {newStatus}");
+
+			var updated = await userRepository.UpdateUserStatusAsync(targetUserId, newStatus);
+
+			if (!updated) return MyResult<string>.Failure(ErrorType.Failure, "failed to update user status");
+
+			// Ban/suspend must kill existing sessions, same as a password change: the
+			// refresh chain dies now, access tokens die within their 20-min lifetime
+			// (same accepted stale-token window as account deletion). /refresh is
+			// already closed for non-active users (active-only user fetch).
+			if (newStatus != "active")
+			{
+				await refreshTokenService.RevokeAllForUser(targetUserId);
+			}
+
+			return MyResult<string>.Success(target.Status);
+		}
+
 		public async Task<bool> IsUserActive(int userId)
 		{
             return await userRepository.IsUserActiveAsync(userId);

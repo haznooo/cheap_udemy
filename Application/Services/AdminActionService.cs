@@ -6,7 +6,7 @@ namespace Business.Services
     public class AdminActionService(IAdminActionRepository adminActionRepository) : IAdminActionService
     {
         // Writes an immutable audit row to admin_actions.
-        // action_type must be one of: 'create', 'update', 'delete', 'ban', 'unban'.
+        // action_type must be one of: 'create', 'update', 'delete', 'ban', 'unban', 'suspend', 'unsuspend'.
         // Keep oldValue/newValue to small, non-sensitive snapshots (never passwords/tokens).
         public async Task LogAsync(
             int adminId,

@@ -7,7 +7,7 @@ namespace DataAccess.Repositories
 {
     public class AdminActionRepository(AppDbContext context) : IAdminActionRepository
     {
-        // action_type must be one of: 'create', 'update', 'delete', 'ban', 'unban'
+        // action_type must be one of: 'create', 'update', 'delete', 'ban', 'unban', 'suspend', 'unsuspend'
         // NOTE: the DB trigger trg_verify_admin_action rejects the insert if adminId is not an admin.
         public async Task<bool> AddAdminActionAsync(
             int adminId,

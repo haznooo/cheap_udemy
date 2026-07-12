@@ -50,5 +50,49 @@ namespace Api.Controllers
 
             return NoContent();
         }
+
+        // Ban a user: blocks login, revokes their refresh tokens (access tokens die
+        // within their 20-min lifetime — same accepted window as delete). Reversible
+        // via unban, unlike delete which anonymizes.
+        [HttpPost("users/{userId:int}/ban")]
+        public async Task<ActionResult> BanUser(int userId)
+            => await SetUserStatus(userId, "banned", auditActionType: "ban");
+
+        // Suspend a user: same enforcement as ban (login blocked, sessions revoked),
+        // just a softer label for a temporary measure.
+        [HttpPost("users/{userId:int}/suspend")]
+        public async Task<ActionResult> SuspendUser(int userId)
+            => await SetUserStatus(userId, "suspended", auditActionType: "suspend");
+
+        // Reactivate a banned or suspended user. Audited as 'unban' or 'unsuspend'
+        // depending on which state the account was actually in.
+        [HttpPost("users/{userId:int}/unban")]
+        public async Task<ActionResult> UnbanUser(int userId)
+            => await SetUserStatus(userId, "active", auditActionType: null);
+
+        // Shared flow for the three status endpoints: service call, audit row, log, 204.
+        // auditActionType == null means "derive from the old status" (the unban path).
+        private async Task<ActionResult> SetUserStatus(int userId, string newStatus, string? auditActionType)
+        {
+            if (CallerId is not int adminId) return MissingIdentity();
+
+            var result = await userService.AdminSetUserStatus(adminId, userId, newStatus);
+            if (!result.IsSuccess) return MapFailure(result);
+
+            string oldStatus = result.Value!;
+            string actionType = auditActionType ?? (oldStatus == "suspended" ? "unsuspend" : "unban");
+
+            await adminActionService.LogAsync(
+                adminId,
+                actionType: actionType,
+                targetTable: "users",
+                targetId: userId,
+                oldValue: new { status = oldStatus },
+                newValue: new { status = newStatus });
+
+            logger.LogInformation("Admin {AdminId} set user {TargetId} status to {Status}", adminId, userId, newStatus);
+
+            return NoContent();
+        }
     }
 }

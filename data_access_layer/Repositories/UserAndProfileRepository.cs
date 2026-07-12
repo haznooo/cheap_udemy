@@ -506,6 +506,43 @@ namespace DataAccess.Repositories
                 .Select(u => u.role)
                 .FirstOrDefaultAsync();
         }
+        // Status + role in one query, deliberately NOT filtered by status — the
+        // ban/suspend/unban flow needs to see banned/suspended targets (GetUserRoleAsync
+        // is active-only, so it can't be used here). Returns null if the user doesn't exist.
+        public async Task<UserStatusRoleDto?> GetUserStatusAndRoleAsync(int userId)
+        {
+            try
+            {
+                return await context.Users
+                    .Where(u => u.user_id == userId)
+                    .Select(u => new UserStatusRoleDto { Status = u.status, Role = u.role })
+                    .FirstOrDefaultAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                return null;
+            }
+        }
+
+        public async Task<bool> UpdateUserStatusAsync(int userId, string status)
+        {
+            try
+            {
+                var user = await context.Users.FirstOrDefaultAsync(u => u.user_id == userId);
+                if (user == null) return false;
+
+                user.status = status;
+                await context.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                return false;
+            }
+        }
+
         public async Task<string?> GetHashedPasswordByIdAsync(int userId)
         {
             string? hashedPassword = await context.Users.Where(u => u.user_id == userId).Select(u => u.hashed_password).FirstOrDefaultAsync();

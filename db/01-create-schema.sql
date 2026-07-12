@@ -210,7 +210,7 @@ CREATE TABLE admin_actions (
     performed_at TIMESTAMP with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
     action_type VARCHAR(50) NOT NULL,
 
-    CONSTRAINT valid_action_type CHECK (action_type IN ('create', 'update', 'delete', 'ban', 'unban')),
+    CONSTRAINT valid_action_type CHECK (action_type IN ('create', 'update', 'delete', 'ban', 'unban', 'suspend', 'unsuspend')),
     CONSTRAINT fk_admin_actions_users FOREIGN KEY (admin_id) REFERENCES users(user_id)
 );
 CREATE INDEX ix_admin_actions_admin_id ON admin_actions (admin_id);
