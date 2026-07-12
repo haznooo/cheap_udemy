@@ -1,8 +1,10 @@
 using Business.Dto.Rsponse;
 using Business.Interfaces;
 using Business.Services;
+using DataAccess.Dto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using static DataAccess.Common.clsPageResult;
 
 namespace Api.Controllers
 {
@@ -14,6 +16,16 @@ namespace Api.Controllers
     [Authorize(Roles = "admin")]
     public class AdminController(IUserService userService, IAdminActionService adminActionService, ILogger<AdminController> logger, IMediaService mediaService) : ApiControllerBase
     {
+        // Read the audit log (newest first, paged). Rows are immutable at the DB level.
+        [HttpGet("actions")]
+        public async Task<ActionResult<PageResult<AdminActionDto>>> GetAdminActions(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10)
+        {
+            var result = await adminActionService.GetAdminActions(pageNumber, pageSize);
+            return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
+        }
+
         // Read any user's profile.
         [HttpGet("users/{userId:int}")]
         public async Task<ActionResult<UserProfileResponse>> GetUser(int userId)

@@ -1,3 +1,7 @@
+using Business.Common;
+using DataAccess.Dto;
+using static DataAccess.Common.clsPageResult;
+
 namespace Business.Interfaces
 {
     public interface IAdminActionService
@@ -9,5 +13,7 @@ namespace Business.Interfaces
             int targetId,
             object? oldValue = null,
             object? newValue = null);
+
+        Task<MyResult<PageResult<AdminActionDto>>> GetAdminActions(int pageNumber, int pageSize);
     }
 }

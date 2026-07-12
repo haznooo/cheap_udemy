@@ -1,7 +1,10 @@
 using System.Text.Json;
 using DataAccess.Data;
+using DataAccess.Dto;
 using DataAccess.Entities;
 using DataAccess.Interfaces;
+using Microsoft.EntityFrameworkCore;
+using static DataAccess.Common.clsPageResult;
 
 namespace DataAccess.Repositories
 {
@@ -39,6 +42,50 @@ namespace DataAccess.Repositories
             {
                 Console.WriteLine(ex);
                 return false;
+            }
+        }
+
+        // Newest-first paged read of the audit log (ix_admin_actions_performed_at
+        // covers the ordering). Read-only view — rows are immutable at the DB level.
+        public async Task<PageResult<AdminActionDto>?> GetAdminActionsAsync(int pageNumber, int pageSize)
+        {
+            try
+            {
+                var query = context.AdminActions.AsNoTracking();
+
+                var totalCount = await query.CountAsync();
+
+                var items = await query
+                    .OrderByDescending(a => a.performed_at)
+                    .ThenByDescending(a => a.id)
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .Select(a => new AdminActionDto
+                    {
+                        Id = a.id,
+                        AdminId = a.admin_id,
+                        AdminUsername = a.admin.username,
+                        ActionType = a.action_type,
+                        TargetTable = a.target_table,
+                        TargetId = a.target_id,
+                        OldValue = a.old_value,
+                        NewValue = a.new_value,
+                        PerformedAt = a.performed_at
+                    })
+                    .ToListAsync();
+
+                return new PageResult<AdminActionDto>
+                {
+                    Items = items,
+                    TotalCount = totalCount,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                return null;
             }
         }
     }

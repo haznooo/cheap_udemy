@@ -1,5 +1,8 @@
+using Business.Common;
 using Business.Interfaces;
+using DataAccess.Dto;
 using DataAccess.Interfaces;
+using static DataAccess.Common.clsPageResult;
 
 namespace Business.Services
 {
@@ -17,6 +20,20 @@ namespace Business.Services
             object? newValue = null)
         {
             await adminActionRepository.AddAdminActionAsync(adminId, actionType, targetTable, targetId, oldValue, newValue);
+        }
+
+        // Newest-first paged read of the audit log for admins.
+        public async Task<MyResult<PageResult<AdminActionDto>>> GetAdminActions(int pageNumber, int pageSize)
+        {
+            if (pageNumber <= 0 || pageSize <= 0)
+                return MyResult<PageResult<AdminActionDto>>.Failure(ErrorType.BadRequest, "Invalid page number or page size.");
+
+            var actions = await adminActionRepository.GetAdminActionsAsync(pageNumber, pageSize);
+
+            if (actions == null)
+                return MyResult<PageResult<AdminActionDto>>.Failure(ErrorType.Failure, "Failed to retrieve admin actions.");
+
+            return MyResult<PageResult<AdminActionDto>>.Success(actions);
         }
     }
 }
