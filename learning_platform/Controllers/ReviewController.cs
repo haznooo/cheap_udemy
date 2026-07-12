@@ -38,7 +38,9 @@ namespace Api.Controllers
             return Ok(result.Value);
         }
 
-        [HttpPut("update/{id}")]
+        // No id in the route on purpose: a user has at most one review per course
+        // (uq_user_course_review), so the review is resolved by caller + courseId.
+        [HttpPut("update")]
         public async Task<ActionResult<ReviewDto>> UpdateReview(int courseId, [FromBody] UpdateReviewRequest request)
         {
             if (CallerId is not int callerId) return MissingIdentity();
