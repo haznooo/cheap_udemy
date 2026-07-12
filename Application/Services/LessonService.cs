@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Supabase;
 
 namespace Business.Services
@@ -356,9 +357,238 @@ namespace Business.Services
                 {
                     errors.Add("Image blocks must contain a valid URL.");
                 }
+                else if (block.Data is TextBlockData text)
+                {
+                    var richTextError = ValidateTextBlockContent(text.Content);
+                    if (richTextError != null)
+                        errors.Add(richTextError);
+                }
             }
 
             return errors;
+        }
+
+        // --- Rich-text (ProseMirror/TipTap subset) validation for text blocks ---------
+        //
+        // A text block's Content is still a plain `string`. It now holds one of two things:
+        //   1. Legacy content: a genuine plain-text string (every lesson written before the
+        //      rich-text feature). This MUST keep working untouched.
+        //   2. New content: JSON.stringify(doc) of a constrained ProseMirror-style document
+        //      { "type": "doc", "content": [...] } produced by the frontend editor.
+        //
+        // We only strictly validate content we can positively identify as case (2) — a JSON
+        // object whose root `type` is "doc". Anything else (plain prose, JSON that isn't a
+        // doc, or a string that merely starts with '{' but doesn't parse) is accepted as
+        // legacy plain text. Trade-off: a *malformed* doc that fails JSON parsing is accepted
+        // rather than rejected, because it's indistinguishable from a legacy plain string that
+        // happens to start with '{' — and the hard requirement is that old plain strings never
+        // break. Storing it is harmless (it's just a string). Residual gap: a doc nested deeper
+        // than System.Text.Json's default 64-level parser limit throws on parse and is treated
+        // as legacy; our own depth cap (20) is far shallower, so any *recognized* doc is fully
+        // bounded — same category of accepted gap as the missing request-size limit.
+
+        private const int MaxRichTextDepth = 20;      // nesting depth of the doc tree
+        private const int MaxRichTextNodeCount = 5000;  // total nodes (blocks + text leaves)
+        private const int MaxRichTextTextLength = 50000; // total leaf-text characters
+
+        // Text color / highlight color: a plain hex value like #7048e8 or #fff.
+        private static readonly Regex HexColorRegex =
+            new("^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$", RegexOptions.Compiled);
+
+        private sealed class RichTextState
+        {
+            public int NodeCount;
+            public int TextLength;
+        }
+
+        /// <summary>
+        /// Returns an error message if <paramref name="content"/> is a recognized rich-text
+        /// document that violates the allowed subset or the size caps; otherwise null (valid
+        /// doc, or legacy plain text that is passed through untouched).
+        /// </summary>
+        private static string? ValidateTextBlockContent(string? content)
+        {
+            if (string.IsNullOrWhiteSpace(content))
+                return null;
+
+            // Fast path: real prose almost never starts with '{'. Only brace-leading content
+            // is a candidate for being our serialized doc; everything else is legacy plain text.
+            var trimmed = content.TrimStart();
+            if (trimmed.Length == 0 || trimmed[0] != '{')
+                return null;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(content);
+                var root = doc.RootElement;
+
+                // Not the doc shape we own -> treat as legacy plain text, accept as-is.
+                if (root.ValueKind != JsonValueKind.Object)
+                    return null;
+                if (!root.TryGetProperty("type", out var typeEl)
+                    || typeEl.ValueKind != JsonValueKind.String
+                    || typeEl.GetString() != "doc")
+                    return null;
+
+                return ValidateRichTextDocument(root);
+            }
+            catch (JsonException)
+            {
+                // Starts with '{' but isn't valid JSON -> legacy plain text, keep it.
+                return null;
+            }
+        }
+
+        private static string? ValidateRichTextDocument(JsonElement docRoot)
+        {
+            var state = new RichTextState();
+
+            if (!docRoot.TryGetProperty("content", out var content))
+                return null; // an empty doc with no content is harmless.
+            if (content.ValueKind != JsonValueKind.Array)
+                return "Rich text document 'content' must be an array.";
+
+            foreach (var node in content.EnumerateArray())
+            {
+                var error = ValidateRichTextNode(node, parentType: "doc", depth: 1, state);
+                if (error != null)
+                    return error;
+            }
+
+            return null;
+        }
+
+        private static string? ValidateRichTextNode(JsonElement node, string parentType, int depth, RichTextState state)
+        {
+            if (depth > MaxRichTextDepth)
+                return "Rich text content is nested too deeply.";
+            if (++state.NodeCount > MaxRichTextNodeCount)
+                return "Rich text content has too many nodes.";
+
+            if (node.ValueKind != JsonValueKind.Object)
+                return "Rich text node must be a JSON object.";
+            if (!node.TryGetProperty("type", out var typeEl) || typeEl.ValueKind != JsonValueKind.String)
+                return "Rich text node is missing a string 'type'.";
+            var type = typeEl.GetString()!;
+
+            // Allowlist which node types may appear inside which parent.
+            bool allowed = parentType switch
+            {
+                "doc" => type is "paragraph" or "codeBlock",
+                "paragraph" => type is "text",
+                "codeBlock" => type is "text",
+                _ => false
+            };
+            if (!allowed)
+                return $"Rich text node '{type}' is not allowed inside '{parentType}'.";
+
+            if (type == "text")
+                return ValidateRichTextLeaf(node, state);
+
+            if (type == "codeBlock")
+            {
+                var attrError = ValidateCodeBlockAttrs(node);
+                if (attrError != null)
+                    return attrError;
+            }
+
+            if (node.TryGetProperty("content", out var childContent))
+            {
+                if (childContent.ValueKind != JsonValueKind.Array)
+                    return $"Rich text '{type}' content must be an array.";
+                foreach (var child in childContent.EnumerateArray())
+                {
+                    var error = ValidateRichTextNode(child, type, depth + 1, state);
+                    if (error != null)
+                        return error;
+                }
+            }
+
+            return null;
+        }
+
+        private static string? ValidateRichTextLeaf(JsonElement node, RichTextState state)
+        {
+            if (!node.TryGetProperty("text", out var textEl) || textEl.ValueKind != JsonValueKind.String)
+                return "Rich text 'text' node must have a string 'text' value.";
+
+            var text = textEl.GetString() ?? string.Empty;
+            if (text.Length == 0)
+                return "Rich text 'text' node must not be empty.";
+
+            state.TextLength += text.Length;
+            if (state.TextLength > MaxRichTextTextLength)
+                return "Rich text content is too long.";
+
+            if (node.TryGetProperty("marks", out var marks))
+            {
+                if (marks.ValueKind != JsonValueKind.Array)
+                    return "Rich text 'marks' must be an array.";
+                foreach (var mark in marks.EnumerateArray())
+                {
+                    var error = ValidateRichTextMark(mark);
+                    if (error != null)
+                        return error;
+                }
+            }
+
+            return null;
+        }
+
+        private static string? ValidateRichTextMark(JsonElement mark)
+        {
+            if (mark.ValueKind != JsonValueKind.Object)
+                return "Rich text mark must be a JSON object.";
+            if (!mark.TryGetProperty("type", out var typeEl) || typeEl.ValueKind != JsonValueKind.String)
+                return "Rich text mark is missing a string 'type'.";
+
+            var type = typeEl.GetString()!;
+            return type switch
+            {
+                "bold" or "italic" => null,
+                "textStyle" => ValidateColorMark(mark, "textStyle", colorRequired: true),
+                "highlight" => ValidateColorMark(mark, "highlight", colorRequired: false),
+                _ => $"Rich text mark '{type}' is not allowed."
+            };
+        }
+
+        private static string? ValidateColorMark(JsonElement mark, string markType, bool colorRequired)
+        {
+            if (!mark.TryGetProperty("attrs", out var attrs) || attrs.ValueKind != JsonValueKind.Object)
+                return colorRequired ? $"Rich text '{markType}' mark requires a color." : null;
+
+            if (!attrs.TryGetProperty("color", out var color) || color.ValueKind == JsonValueKind.Null)
+                return colorRequired ? $"Rich text '{markType}' mark requires a color." : null;
+
+            if (color.ValueKind != JsonValueKind.String || !HexColorRegex.IsMatch(color.GetString()!))
+                return $"Rich text '{markType}' color must be a hex value like #7048e8.";
+
+            return null;
+        }
+
+        private static string? ValidateCodeBlockAttrs(JsonElement node)
+        {
+            if (!node.TryGetProperty("attrs", out var attrs) || attrs.ValueKind == JsonValueKind.Null)
+                return null;
+            if (attrs.ValueKind != JsonValueKind.Object)
+                return "Rich text 'codeBlock' attrs must be a JSON object.";
+
+            if (!attrs.TryGetProperty("language", out var lang) || lang.ValueKind == JsonValueKind.Null)
+                return null;
+            if (lang.ValueKind != JsonValueKind.String)
+                return "Rich text 'codeBlock' language must be a string.";
+
+            var language = lang.GetString()!;
+            if (language.Length > 50)
+                return "Rich text 'codeBlock' language name is too long.";
+            foreach (var c in language)
+            {
+                // Enough for real language slugs: c++, c#, f#, objective-c, plaintext, etc.
+                if (!char.IsLetterOrDigit(c) && c is not ('-' or '+' or '#' or '.'))
+                    return "Rich text 'codeBlock' language contains invalid characters.";
+            }
+
+            return null;
         }
     }
 }
