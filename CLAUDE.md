@@ -62,7 +62,7 @@ Api (learning_platform/Api.csproj)
 | `api/admin`                      | Admin-only cross-user actions (`GET/DELETE users/{userId}`). Whole controller is `[Authorize(Roles="admin")]`. |
 | `api/Courses`                    | Courses (+ owner-only `{courseId}/media` upload)                   |
 | `api/Courses/{courseId}/reviews` | Reviews                                                            |
-| `api/Lessons`                    | Lessons (`POST add`, `PUT update/{id}`, `GET get/{id}`, `DELETE {id}` — delete is hard-delete, owner/admin via section→course→instructor, cleans up the lesson's bucket media) |
+| `api/Lessons`                    | Lessons (`POST add`, `PUT update/{id}`, `GET get/{id}`, `DELETE {id}` — delete is hard-delete, owner/admin via section→course→instructor, cleans up the lesson's bucket media). `UpdateLessonRequest` takes optional `Title`/`EstimatedDurationMinutes`/`ContentBlocks`/`SortOrder` — **`SortOrder` = lesson reorder within its section** (added 2026-07-12; must be positive → 400, unique per section via `uq_lesson_order_per_section` → `409` on collision, same contract as section reorder; create still auto-assigns `max+1`). |
 | `api/Enrollments`                | Enrollments                                                        |
 | `api/categories`                 | Lookup list (authenticated — `[Authorize]`, no anonymous access)   |
 
