@@ -191,6 +191,11 @@ namespace Business.Services
             if (!permission.IsSuccess)
                 return MyResult<LessonDto>.Failure(permission.FailureType, permission.Errors.Select(e => e.Message).ToArray());
 
+            // Same rule as section reorder: positive only, uniqueness enforced per
+            // section by the DB (uq_lesson_order_per_section).
+            if (request.SortOrder.HasValue && request.SortOrder.Value <= 0)
+                return MyResult<LessonDto>.Failure(ErrorType.BadRequest, "Sort order must be positive.");
+
             List<ContentBlock>? newBlocks = null;
             if (request.ContentBlocks != null)
             {
@@ -206,7 +211,9 @@ namespace Business.Services
                 }).ToList();
             }
 
-            var updated = await lessonsRepository.UpdateLessonAsync(lessonId, request.Title, request.EstimatedDurationMinutes, newBlocks);
+            var (updated, conflict) = await lessonsRepository.UpdateLessonAsync(lessonId, request.Title, request.EstimatedDurationMinutes, newBlocks, request.SortOrder);
+            if (conflict)
+                return MyResult<LessonDto>.Failure(ErrorType.Conflict, "Another lesson in this section already has that sort order.");
             if (updated == null)
                 return MyResult<LessonDto>.Failure(ErrorType.Failure, "Failed to update lesson.");
 

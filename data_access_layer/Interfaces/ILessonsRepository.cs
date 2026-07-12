@@ -7,7 +7,7 @@ namespace DataAccess.Interfaces
     {
         Task<LessonEntity> AddLessonAsync(LessonEntity lesson);
         Task<LessonEntity?> GetAnyLessonByIdAsync(int lessonId);
-        Task<LessonEntity?> UpdateLessonAsync(int lessonId, string? title, int? estimatedDurationMinutes, List<ContentBlock>? contentBlocks);
+        Task<(LessonEntity? Result, bool Conflict)> UpdateLessonAsync(int lessonId, string? title, int? estimatedDurationMinutes, List<ContentBlock>? contentBlocks, int? sortOrder);
         Task<bool> DeleteLessonAsync(int lessonId);
         Task<bool> IsMediaReferencedByOtherLessonsAsync(int lessonId, string fileName);
         Task<int> GetMaxSortOrderForSectionAsync(int sectionId);

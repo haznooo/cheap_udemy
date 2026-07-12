@@ -28,25 +28,33 @@ namespace DataAccess.Repositories
                 .FirstOrDefaultAsync(l => l.lesson_id == lessonId);
         }
 
-        public async Task<LessonEntity?> UpdateLessonAsync(int lessonId, string? title, int? estimatedDurationMinutes, List<ContentBlock>? contentBlocks)
+        // Conflict = true means the sort order collided with another lesson in the same
+        // section (uq_lesson_order_per_section, unique violation 23505) — same contract
+        // as CoursesRepository.UpdateSectionAsync.
+        public async Task<(LessonEntity? Result, bool Conflict)> UpdateLessonAsync(int lessonId, string? title, int? estimatedDurationMinutes, List<ContentBlock>? contentBlocks, int? sortOrder)
         {
             try
             {
                 var lesson = await context.Lessons.FirstOrDefaultAsync(l => l.lesson_id == lessonId);
-                if (lesson == null) return null;
+                if (lesson == null) return (null, false);
 
                 if (!string.IsNullOrWhiteSpace(title)) lesson.title = title;
                 if (estimatedDurationMinutes.HasValue) lesson.estimated_duration_minutes = estimatedDurationMinutes.Value;
                 if (contentBlocks != null) lesson.content_blocks = contentBlocks;
+                if (sortOrder.HasValue) lesson.sort_order = sortOrder.Value;
                 lesson.updated_at = DateTime.UtcNow;
 
                 await context.SaveChangesAsync();
-                return lesson;
+                return (lesson, false);
+            }
+            catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505" })
+            {
+                return (null, true);
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex.ToString());
-                return null;
+                return (null, false);
             }
         }
 
