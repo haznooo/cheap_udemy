@@ -204,7 +204,7 @@ namespace CheapUdemy
             app.UseStatusCodePages();
 
             // Forwarded headers middleware: if the app is behind a reverse proxy (e.g., Nginx),
-    //we need to forward the original request's scheme and IP address so that the JWT middleware can validate the token correctly.
+           //we need to forward the original request's scheme and IP address so that the JWT middleware can validate the token correctly.
             app.UseForwardedHeaders(new ForwardedHeadersOptions
             {
                 ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
@@ -216,7 +216,11 @@ namespace CheapUdemy
      
             if (app.Environment.IsDevelopment())
             {
-                // allow anonymous access to the OpenAPI docs in development, so we can test the endpoints without a JWT
+                // MapOpenApi/MapScalarApiReference are themselves endpoints, so without this the global
+                // FallbackPolicy (RequireAuthenticatedUser) would 401 anyone opening the docs page/JSON
+                // before they ever get a chance to call login and obtain a token. AllowAnonymous here
+                // only unlocks the docs UI itself — it has no effect on the actual API endpoints, which
+                // still enforce their own [Authorize]/[AllowAnonymous] as configured per controller.
                 app.MapOpenApi().AllowAnonymous();
                 app.MapScalarApiReference(options =>
                 {
