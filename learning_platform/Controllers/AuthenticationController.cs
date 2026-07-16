@@ -14,8 +14,6 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 
-
-
 namespace CheapUdemy.Controllers
 {
     [ApiController]
@@ -100,11 +98,13 @@ namespace CheapUdemy.Controllers
         }
 
         // Exchanges a valid refresh token for a new access token (and a rotated refresh token).
-        // Body carries RefreshToken + (possibly expired) AccessToken; the user id is recovered from
-        // the access token's signed claims, never trusted from the client. Device/IP come from the request.
+        // The refresh token travels in the body; the (possibly expired) access token comes from the
+        // standard "Authorization: Bearer <token>" header, exactly like every other endpoint. The user
+        // id is recovered from the access token's signed claims, never trusted from the client.
+        // Returns tokens ONLY — no user/profile info.
         [EnableRateLimiting("auth")]
         [HttpPost("refresh")]
-        public async Task<ActionResult<LoginResponse>> Refresh([FromBody] RefreshTokenRequest request)
+        public async Task<ActionResult<RefreshResponse>> Refresh([FromBody] RefreshTokenRequest request)
         {
             var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
             string userAgent = Request.Headers.UserAgent.ToString();
@@ -117,12 +117,14 @@ namespace CheapUdemy.Controllers
             // device_info is VARCHAR(255); cap the client-controlled UA header before it reaches the insert.
             if (userAgent.Length > 255) userAgent = userAgent.Substring(0, 255);
 
-            if (string.IsNullOrWhiteSpace(request.AccessToken) || string.IsNullOrWhiteSpace(request.RefreshToken))
-                return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "access token and refresh token are required");
+            var accessToken = GetBearerToken();
+
+            if (string.IsNullOrWhiteSpace(accessToken) || string.IsNullOrWhiteSpace(request.RefreshToken))
+                return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "access token (Authorization header) and refresh token are required");
 
             // Recover the user id from the (possibly expired) access token. Signature is verified;
             // only the lifetime check is skipped. A tampered/garbage token yields null → 401.
-            var userId = GetUserIdFromExpiredToken(request.AccessToken);
+            var userId = GetUserIdFromExpiredToken(accessToken);
             if (userId == null)
             {
                 logger.LogWarning("Failed refresh-token attempt (invalid access token) from IP {Ip}", ipAddress);
@@ -138,19 +140,26 @@ namespace CheapUdemy.Controllers
                 return MapFailure(result, StatusCodes.Status401Unauthorized);
             }
 
-            result.Value.AccessToken = GenerateAccessToken(result.Value);
-
-            return Ok(result.Value);
+            // Mint the new access token from the identity, but return tokens only — never echo user info.
+            return Ok(new RefreshResponse
+            {
+                AccessToken = GenerateAccessToken(result.Value),
+                RefreshToken = result.Value.RefreshToken,
+                RefreshTokenExpiresAt = result.Value.RefreshTokenExpiresAt
+            });
         }
 
         // Revokes the presented refresh token. Always returns 200 so it never reveals
-        // whether the token (or user) actually existed. User id is recovered from the access token.
+        // whether the token (or user) actually existed. User id is recovered from the access token
+        // in the "Authorization: Bearer <token>" header.
         [HttpPost("logout")]
         public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
         {
-            var userId = string.IsNullOrWhiteSpace(request.AccessToken)
+            var accessToken = GetBearerToken();
+
+            var userId = string.IsNullOrWhiteSpace(accessToken)
                 ? null
-                : GetUserIdFromExpiredToken(request.AccessToken);
+                : GetUserIdFromExpiredToken(accessToken);
 
             if (userId != null)
             {
@@ -158,6 +167,19 @@ namespace CheapUdemy.Controllers
             }
 
             return Ok("Logged out successfully");
+        }
+
+        // Pulls the raw bearer token out of the "Authorization: Bearer <token>" header, or null if absent.
+        private string? GetBearerToken()
+        {
+            var header = Request.Headers.Authorization.ToString();
+
+            if (string.IsNullOrWhiteSpace(header) ||
+                !header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            var token = header["Bearer ".Length..].Trim();
+            return string.IsNullOrWhiteSpace(token) ? null : token;
         }
 
         // Validates an access token's signature/issuer/audience but IGNORES expiry, then pulls the

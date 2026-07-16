@@ -156,11 +156,11 @@ Api (learning_platform/Api.csproj)
 
 ## Refresh-token rotation (implemented)
 
-The `/refresh` flow (`api/User/refresh` → `RefreshTokenService.RefreshAccessToken`) hardens a *stolen* refresh token so it's actually containable, not just time-limited. `/refresh` and `/logout` both take a `RefreshTokenRequest` of **`{ RefreshToken, AccessToken }`** — no client-supplied user id.
+The `/refresh` flow (`api/User/refresh` → `RefreshTokenService.RefreshAccessToken`) hardens a *stolen* refresh token so it's actually containable, not just time-limited. `/refresh` and `/logout` both take a `RefreshTokenRequest` of just **`{ RefreshToken }`** in the body; the (possibly expired) access token is sent in the standard **`Authorization: Bearer <token>`** header, exactly like every other endpoint (no client-supplied user id, no token in the body). `/refresh` returns a slim **`RefreshResponse` = `{ AccessToken, RefreshToken, RefreshTokenExpiresAt }`** — **tokens only, no user/profile info** (refresh is a token exchange; the client already knows who it is, so echoing identity back is needless exposure).
 
 ### User id comes from the access token, never the body
 
-The controller (`AuthenticationController.GetUserIdFromExpiredToken`) validates the access token's **signature/issuer/audience** but sets `ValidateLifetime = false`, so an *expired* access token still works as the trustworthy source of the user id (`NameIdentifier`). A tampered/garbage token → `null` → `401`. The client therefore sends **both** tokens; the user id scopes the refresh-token lookup.
+The controller reads the bearer token via `AuthenticationController.GetBearerToken` (raw `Authorization` header — the auth middleware can't be used since it rejects expired tokens, and refresh deliberately accepts them), then `GetUserIdFromExpiredToken` validates its **signature/issuer/audience** but sets `ValidateLifetime = false`, so an *expired* access token still works as the trustworthy source of the user id (`NameIdentifier`). A tampered/garbage token → `null` → `401`. The header token scopes the refresh-token lookup.
 
 ### Lookup & state branching
 

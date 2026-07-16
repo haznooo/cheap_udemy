@@ -1,13 +1,12 @@
 namespace Business.Dto.Request
 {
     // Sent to api/User/refresh and api/User/logout.
-    // The user id is NOT taken from the client anymore — it is read from the (possibly expired)
-    // access token's signed claims. The client therefore sends BOTH tokens:
-    //   - RefreshToken: the token being exchanged / revoked.
-    //   - AccessToken:  the last access token (may be expired); used ONLY to recover the user id.
+    // Only the refresh token travels in the body. The user id is NOT taken from the client —
+    // it is read from the (possibly expired) access token supplied in the standard
+    // "Authorization: Bearer <token>" header, exactly like every other endpoint. The header
+    // token may be expired; it is used ONLY to recover the user id (signature still verified).
     public record RefreshTokenRequest
     (
-        string RefreshToken,
-        string AccessToken
+        string RefreshToken
     );
 }
