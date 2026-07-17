@@ -97,13 +97,15 @@ namespace DataAccess.Repositories
         }
 
         // Returns the maximum sort_order for lessons in a given section so we can append a new lesson at the end of the list.
+        // Empty section => 0, so the first lesson gets sort_order 1 (the update path rejects
+        // SortOrder <= 0, so lessons must never be created at 0).
         public async Task<int> GetMaxSortOrderForSectionAsync(int sectionId)
         {
             var max = await context.Lessons
                 .Where(l => l.section_id == sectionId)
                 .MaxAsync(l => (int?)l.sort_order);
 
-            return max ?? -1;
+            return max ?? 0;
         }
     }
 }

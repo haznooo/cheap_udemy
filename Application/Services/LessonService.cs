@@ -30,6 +30,10 @@ namespace Business.Services
             {
                 return MyResult<LessonDto>.Failure(ErrorType.BadRequest, "Invalid section ID.");
             }
+            if (string.IsNullOrWhiteSpace(request.Title))
+            {
+                return MyResult<LessonDto>.Failure(ErrorType.BadRequest, "Lesson title is required.");
+            }
             // A null body element would NRE the validation/mapping loops below.
             request.ContentBlocks ??= new();
 

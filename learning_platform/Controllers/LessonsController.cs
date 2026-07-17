@@ -18,11 +18,6 @@ namespace Api.Controllers
             // through the section's course in the service layer.
             if (CallerId is not int callerId) return MissingIdentity();
 
-            if (string.IsNullOrWhiteSpace(request.Title))
-            {
-                return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Lesson title is required.");
-            }
-
             bool isAdmin = User.IsInRole("admin");
             var result = await lessonService.CreateLessonAsync(request, callerId, isAdmin);
 
