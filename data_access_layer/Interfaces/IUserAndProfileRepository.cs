@@ -16,6 +16,7 @@ namespace DataAccess.Interfaces
         Task<UserAndProfileDto> GetUserByEmailAsync(string email);
         Task<LoginLookupDto?> GetUserForLoginAsync(string email);
         Task<UserAndProfileDto> GetUserByIdAsync(int userId);
+        Task<UserAndProfileDto?> GetUserWithProfileForAdminAsync(int userId);
 
         // profile
         Task<UserProfileDto?> GetUserProfileByIdAsync(int userId);

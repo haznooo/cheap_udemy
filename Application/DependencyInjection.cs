@@ -11,6 +11,7 @@ namespace Business.DependencyInjection
             // Scoped to match AppDbContext's lifetime (these services hold the
             // request-scoped context, directly or via their repositories).
             service.AddScoped<IUserService, UserService>();
+            service.AddScoped<IAdminService, AdminService>();
             service.AddScoped<IRefreshTokenService, RefreshTokenService>();
             service.AddScoped<IAdminActionService, AdminActionService>();
             service.AddScoped<ILoginLogService, LoginLogService>();

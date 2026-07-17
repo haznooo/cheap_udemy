@@ -41,69 +41,8 @@ namespace Business.Services
 			return MyResult<string?>.Success(avatarFileName);
 		}
 
-		// Admin-initiated delete. Authority is the caller's admin role + the audit-log
-		// entry — NOT the target's credentials (an admin never knows another user's
-		// password), so there is NO password confirmation. Returns the target's avatar
-		// file name (captured before the anonymize trigger wipes the profile row) for
-		// best-effort storage cleanup by the caller.
-		public async Task<MyResult<string?>> AdminDeleteUser(int userId)
-		{
-			if (userId <= 0) { return MyResult<string?>.Failure(ErrorType.BadRequest, "user id can not be zero or negative"); }
-
-			// Reject a missing / already-deleted target with a clean 404 instead of
-			// silently "succeeding" on a no-op anonymize.
-			if (!await userRepository.DoesUserExistByIdAsync(userId))
-				return MyResult<string?>.Failure(ErrorType.NotFound, "user not found");
-
-			// Capture the avatar name BEFORE the delete wipes the profile row.
-			string? avatarFileName = (await userRepository.GetUserProfileByIdAsync(userId))?.ImageUrl;
-
-			var result = await userRepository.DeleteUserAsync_Anonymize(userId);
-
-			if (!result) return MyResult<string?>.Failure(ErrorType.Failure, "failed to delete user");
-
-			return MyResult<string?>.Success(avatarFileName);
-		}
-
-		// Admin-initiated ban/suspend/unban: sets users.status to "banned", "suspended"
-		// or "active". On success the value is the target's OLD status so the controller
-		// can write an accurate audit row (e.g. unban vs unsuspend). Authority is the
-		// caller's admin role (enforced at the controller) + the audit-log entry.
-		public async Task<MyResult<string>> AdminSetUserStatus(int adminId, int targetUserId, string newStatus)
-		{
-			if (targetUserId <= 0) return MyResult<string>.Failure(ErrorType.BadRequest, "user id can not be zero or negative");
-
-			// An admin locking themselves out (or "unbanning" themselves) makes no sense.
-			if (adminId == targetUserId) return MyResult<string>.Failure(ErrorType.BadRequest, "you cannot change your own account status");
-
-			var target = await userRepository.GetUserStatusAndRoleAsync(targetUserId);
-
-			// Deleted accounts are anonymized and can't come back — treat like missing.
-			if (target == null || target.Status == "deleted")
-				return MyResult<string>.Failure(ErrorType.NotFound, "user not found");
-
-			// Admins can't ban/suspend each other — demote via the DB first if ever needed.
-			if (target.Role == "admin")
-				return MyResult<string>.Failure(ErrorType.BadRequest, "cannot change the status of an admin account");
-
-			if (target.Status == newStatus)
-				return MyResult<string>.Failure(ErrorType.Conflict, $"user is already {newStatus}");
-
-			var updated = await userRepository.UpdateUserStatusAsync(targetUserId, newStatus);
-
-			if (!updated) return MyResult<string>.Failure(ErrorType.Failure, "failed to update user status");
-
-			// Ban/suspend must kill existing sessions, same as a password change: the
-			// refresh chain dies now, access tokens die within their 20-min lifetime
-			// (same accepted stale-token window as account deletion). /refresh is
-			// already closed for non-active users (active-only user fetch).
-			if (newStatus != "active")
-			{
-				await refreshTokenService.RevokeAllForUser(targetUserId);
-			}
-
-			return MyResult<string>.Success(target.Status);
-		}
+		// Admin-initiated cross-user actions (delete, ban/suspend/unban, admin read)
+		// live in AdminService — this service is self-service ("me/*") only.
 
 		public async Task<bool> IsUserActive(int userId)
 		{

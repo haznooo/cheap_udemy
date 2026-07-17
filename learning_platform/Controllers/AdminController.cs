@@ -1,6 +1,5 @@
-using Business.Dto.Rsponse;
 using Business.Interfaces;
-using Business.Services;
+using Business.Services; // IMediaService lives in this namespace
 using DataAccess.Dto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,11 +9,13 @@ namespace Api.Controllers
 {
     // Admin-only cross-user actions. The authorization boundary is the whole
     // controller: one class-level role gate instead of per-action attributes.
+    // The audit rows are written inside AdminService, next to each mutation;
+    // this controller only adds the security-event ILogger lines.
     // CallerId + MapFailure come from ApiControllerBase.
     [ApiController]
     [Route("api/admin")]
     [Authorize(Roles = "admin")]
-    public class AdminController(IUserService userService, IAdminActionService adminActionService, ILogger<AdminController> logger, IMediaService mediaService) : ApiControllerBase
+    public class AdminController(IAdminService adminService, IAdminActionService adminActionService, ILogger<AdminController> logger, IMediaService mediaService) : ApiControllerBase
     {
         // Read the audit log (newest first, paged). Rows are immutable at the DB level.
         [HttpGet("actions")]
@@ -26,11 +27,12 @@ namespace Api.Controllers
             return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
         }
 
-        // Read any user's profile.
+        // Read any user's account + profile (Profile is null if they never created
+        // one). Shows banned/suspended accounts; deleted (anonymized) → 404.
         [HttpGet("users/{userId:int}")]
-        public async Task<ActionResult<UserProfileResponse>> GetUser(int userId)
+        public async Task<ActionResult<UserAndProfileDto>> GetUser(int userId)
         {
-            var result = await userService.GetUserProfile(userId);
+            var result = await adminService.GetUser(userId);
             return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
         }
 
@@ -39,7 +41,11 @@ namespace Api.Controllers
         [HttpDelete("users/{userId:int}")]
         public async Task<ActionResult> DeleteUser(int userId)
         {
-            var result = await userService.AdminDeleteUser(userId);
+            // Identity guard BEFORE the destructive call: the audit row needs the
+            // admin id, so no id must mean no delete.
+            if (CallerId is not int adminId) return MissingIdentity();
+
+            var result = await adminService.DeleteUser(adminId, userId);
             if (!result.IsSuccess) return MapFailure(result);
 
             // Account is gone; remove its now-orphaned avatar file (best-effort).
@@ -48,17 +54,7 @@ namespace Api.Controllers
                 await mediaService.DeleteAvatarAsync(result.Value);
             }
 
-            if (CallerId is int adminId)
-            {
-                await adminActionService.LogAsync(
-                    adminId,
-                    actionType: "delete",
-                    targetTable: "users",
-                    targetId: userId,
-                    oldValue: new { user_id = userId });
-
-                logger.LogInformation("Admin {AdminId} deleted user {TargetId}", adminId, userId);
-            }
+            logger.LogInformation("Admin {AdminId} deleted user {TargetId}", adminId, userId);
 
             return NoContent();
         }
@@ -68,39 +64,27 @@ namespace Api.Controllers
         // via unban, unlike delete which anonymizes.
         [HttpPost("users/{userId:int}/ban")]
         public async Task<ActionResult> BanUser(int userId)
-            => await SetUserStatus(userId, "banned", auditActionType: "ban");
+            => await SetUserStatus(userId, "banned");
 
         // Suspend a user: same enforcement as ban (login blocked, sessions revoked),
         // just a softer label for a temporary measure.
         [HttpPost("users/{userId:int}/suspend")]
         public async Task<ActionResult> SuspendUser(int userId)
-            => await SetUserStatus(userId, "suspended", auditActionType: "suspend");
+            => await SetUserStatus(userId, "suspended");
 
-        // Reactivate a banned or suspended user. Audited as 'unban' or 'unsuspend'
-        // depending on which state the account was actually in.
+        // Reactivate a banned or suspended user. Audited (by AdminService) as
+        // 'unban' or 'unsuspend' depending on which state the account was in.
         [HttpPost("users/{userId:int}/unban")]
         public async Task<ActionResult> UnbanUser(int userId)
-            => await SetUserStatus(userId, "active", auditActionType: null);
+            => await SetUserStatus(userId, "active");
 
-        // Shared flow for the three status endpoints: service call, audit row, log, 204.
-        // auditActionType == null means "derive from the old status" (the unban path).
-        private async Task<ActionResult> SetUserStatus(int userId, string newStatus, string? auditActionType)
+        // Shared flow for the three status endpoints: service call (which audits), log, 204.
+        private async Task<ActionResult> SetUserStatus(int userId, string newStatus)
         {
             if (CallerId is not int adminId) return MissingIdentity();
 
-            var result = await userService.AdminSetUserStatus(adminId, userId, newStatus);
+            var result = await adminService.SetUserStatus(adminId, userId, newStatus);
             if (!result.IsSuccess) return MapFailure(result);
-
-            string oldStatus = result.Value!;
-            string actionType = auditActionType ?? (oldStatus == "suspended" ? "unsuspend" : "unban");
-
-            await adminActionService.LogAsync(
-                adminId,
-                actionType: actionType,
-                targetTable: "users",
-                targetId: userId,
-                oldValue: new { status = oldStatus },
-                newValue: new { status = newStatus });
 
             logger.LogInformation("Admin {AdminId} set user {TargetId} status to {Status}", adminId, userId, newStatus);
 

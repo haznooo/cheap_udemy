@@ -361,6 +361,47 @@ namespace DataAccess.Repositories
 
         }
 
+        // Admin read: deliberately NOT filtered to active — an admin must see
+        // banned/suspended accounts too (the service maps deleted → 404). Unlike
+        // GetUserByIdAsync above, Profile is null when the user has no profile row
+        // (signup no longer creates one).
+        public async Task<UserAndProfileDto?> GetUserWithProfileForAdminAsync(int userId)
+        {
+            var R = await context.Users.Where(u => u.user_id == userId)
+             .Select(u => new
+             {
+                 UserId = u.user_id,
+                 u.username,
+                 u.email,
+                 u.role,
+                 u.status,
+
+                 HasProfile = u.UserProfile != null,
+                 u.UserProfile.bio,
+                 u.UserProfile.image_url,
+                 u.UserProfile.display_name
+             }).FirstOrDefaultAsync();
+
+            if (R == null) return null;
+
+            return new UserAndProfileDto
+            {
+                UserId = R.UserId,
+                Username = R.username,
+                Email = R.email,
+                Role = R.role,
+                Status = R.status,
+                Profile = R.HasProfile
+                    ? new UserProfileDto
+                    {
+                        DisplayName = R.display_name,
+                        Bio = R.bio,
+                        ImageUrl = R.image_url
+                    }
+                    : null
+            };
+        }
+
         // profile
         public async Task<UserProfileDto?> GetUserProfileByIdAsync(int userId)
         {
