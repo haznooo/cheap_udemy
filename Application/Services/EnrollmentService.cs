@@ -161,23 +161,5 @@ namespace Business.Services
 
             return MyResult<PageResult<LessonProgressDto>>.Success(progress);
         }
-        public async Task<MyResult<bool>> DropEnrollment(int callerId, DropEnrollmentRequest request)
-        {
-            if (callerId <= 0)
-                return MyResult<bool>.Failure(ErrorType.BadRequest, "Invalid user ID.");
-
-            if (request.CourseId <= 0)
-                return MyResult<bool>.Failure(ErrorType.BadRequest, "Invalid course ID.");
-
-            bool alreadyEnrolled = await enrollmentRepository.IsAlreadyEnrolledAsync(callerId, request.CourseId);
-            if (!alreadyEnrolled)
-                return MyResult<bool>.Failure(ErrorType.NotFound, "Enrollment not found.");
-
-            var result = await enrollmentRepository.DropEnrollmentAsync(callerId, request.CourseId);
-            if (!result)
-                return MyResult<bool>.Failure(ErrorType.Failure, "Failed to drop enrollment.");
-
-            return MyResult<bool>.Success(true);
-        }
     }
 }

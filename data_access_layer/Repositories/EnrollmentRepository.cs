@@ -9,12 +9,6 @@ namespace DataAccess.Repositories
 {
     public class EnrollmentRepository(AppDbContext context) : IEnrollmentRepository
     {
-        public async Task<bool> IsAlreadyEnrolledAsync(int userId, int courseId)
-        {
-            return await context.Enrollments
-                .AnyAsync(e => e.user_id == userId && e.course_id == courseId);
-        }
-
         // Owning instructor of a course (null if the course doesn't exist). Used to authorize
         // who may read a course's enrollment roster.
         public async Task<int?> GetCourseInstructorIdAsync(int courseId)
@@ -265,26 +259,6 @@ namespace DataAccess.Repositories
             {
                 Console.WriteLine(ex.ToString());
                 return null;
-            }
-        }
-
-        public async Task<bool> DropEnrollmentAsync(int userId, int courseId)
-        {
-            try
-            {
-                var enrollment = await context.Enrollments
-                    .FirstOrDefaultAsync(e => e.user_id == userId && e.course_id == courseId);
-
-                if (enrollment == null) return false;
-
-                enrollment.status = "dropped";
-                await context.SaveChangesAsync();
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.ToString());
-                return false;
             }
         }
 

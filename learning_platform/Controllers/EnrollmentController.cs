@@ -99,16 +99,7 @@ namespace Api.Controllers
             return Ok(result.Value);
         }
 
-        [HttpPost("drop")]
-        public async Task<ActionResult<bool>> DropEnrollment(DropEnrollmentRequest request)
-        {
-            if (CallerId is not int callerId) return MissingIdentity();
-
-            var result = await enrollmentService.DropEnrollment(callerId, request);
-
-            if (!result.IsSuccess) return MapFailure(result);
-
-            return Ok(result.Value);
-        }
+        // There is deliberately NO drop/unenroll endpoint — owner's decision: once
+        // enrolled, you stay enrolled (legacy 'dropped' rows can still re-enroll).
     }
 }

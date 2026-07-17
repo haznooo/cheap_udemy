@@ -12,6 +12,5 @@ namespace Business.Interfaces
         Task<MyResult<PageResult<EnrollmentDto>>> GetCourseEnrollments(int callerId, string callerRole, int courseId, int pageNumber, int pageSize);
         Task<MyResult<EnrollmentDto>> MarkLessonProgress(int callerId, MarkLessonProgressRequest request);
         Task<MyResult<PageResult<LessonProgressDto>>> GetCourseProgress(int callerId, int courseId, int pageNumber, int pageSize);
-        Task<MyResult<bool>> DropEnrollment(int callerId, DropEnrollmentRequest request);
     }
 }
