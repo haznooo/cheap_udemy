@@ -340,7 +340,7 @@ namespace Business.Services
             return MyResult<CourseDto>.Success(result);
         }
 
-        public async Task<MyResult<SectionResponse>> AddNewSection(AddSectionRequest request)
+        public async Task<MyResult<SectionResponse>> AddNewSection(AddSectionRequest request, int callerId, bool isAdmin)
         {
             if (request.CourseId <= 0)
             {
@@ -350,6 +350,16 @@ namespace Business.Services
             {
                 return MyResult<SectionResponse>.Failure(ErrorType.BadRequest, "Section title is required.");
             }
+            if (request.SortOrder <= 0)
+            {
+                return MyResult<SectionResponse>.Failure(ErrorType.BadRequest, "Sort order must be positive.");
+            }
+
+            // Same as UpdateSection/DeleteSection: owner/admin only, checked here rather
+            // than trusting the controller to have done it.
+            var permission = await CheckCourseEditPermission(request.CourseId, callerId, isAdmin);
+            if (!permission.IsSuccess)
+                return MyResult<SectionResponse>.Failure(permission.FailureType, permission.Errors.Select(e => e.Message).ToArray());
 
             SectionEntitiy sectionEntity = new SectionEntitiy
             {
@@ -358,8 +368,12 @@ namespace Business.Services
                 course_id = request.CourseId
             };
 
-            var result = await coursesRepository.AddNewSection(sectionEntity);
+            var (result, conflict) = await coursesRepository.AddNewSection(sectionEntity);
 
+            if (conflict)
+            {
+                return MyResult<SectionResponse>.Failure(ErrorType.Conflict, "Another section in this course already has that sort order.");
+            }
             if (result == null)
             {
                 return MyResult<SectionResponse>.Failure(ErrorType.Failure, "Failed to add new section.");

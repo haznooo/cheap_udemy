@@ -254,11 +254,9 @@ namespace Api.Controllers
 
             bool isAdmin = User.IsInRole("admin");
 
-            // Only the owning instructor (or an admin) may add sections to a course.
-            var permission = await courseService.CheckCourseEditPermission(request.CourseId, callerId, isAdmin);
-            if (!permission.IsSuccess) return MapFailure(permission);
-
-            var Result = await courseService.AddNewSection(request);
+            // Ownership (owning instructor or admin) is checked inside the service,
+            // same as UpdateSection/DeleteSection.
+            var Result = await courseService.AddNewSection(request, callerId, isAdmin);
 
             if (!Result.IsSuccess) return MapFailure(Result);
 

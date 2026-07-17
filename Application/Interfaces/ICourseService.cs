@@ -19,7 +19,7 @@ namespace Business.Interfaces
         Task<MyResult<CourseDto>> UpdateCourse(int courseId, UpdateCourseRequest request, int callerId, bool isAdmin);
         Task<MyResult<CourseDto>> PublishCourse(int courseId, int callerId, bool isAdmin);
         Task<MyResult<CourseDto>> UnpublishCourse(int courseId, int callerId, bool isAdmin);
-        Task<MyResult<SectionResponse>> AddNewSection(AddSectionRequest request);
+        Task<MyResult<SectionResponse>> AddNewSection(AddSectionRequest request, int callerId, bool isAdmin);
         Task<MyResult<SectionResponse>> UpdateSection(int sectionId, UpdateSectionRequest request, int callerId, bool isAdmin);
         Task<MyResult<bool>> DeleteSection(int sectionId, int callerId, bool isAdmin);
         Task<MyResult<bool>> DeleteCourse(int courseId, int callerId, bool isAdmin, string? removalReason);

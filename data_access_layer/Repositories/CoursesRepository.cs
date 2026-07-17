@@ -344,7 +344,9 @@ namespace DataAccess.Repositories
             }
         }
 
-        public async Task<SectionEntitiy> AddNewSection(SectionEntitiy section)
+        // Conflict = true means the insert hit uq_section_order_per_course (another section
+        // in the same course already has that sort_order) — same contract as UpdateSectionAsync.
+        public async Task<(SectionEntitiy? Result, bool Conflict)> AddNewSection(SectionEntitiy section)
         {
             context.Sections.Add(section);
 
@@ -353,16 +355,20 @@ namespace DataAccess.Repositories
                 var results = await context.SaveChangesAsync();
                 if (results <= 0)
                 {
-                    return null;
+                    return (null, false);
                 }
 
-                return section;
+                return (section, false);
+            }
+            catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505" })
+            {
+                return (null, true);
             }
             catch (Exception ex)
             {
                 // Consider logging via ILogger instead of Console.WriteLine in production!
                 Console.WriteLine(ex.ToString());
-                return null;
+                return (null, false);
             }
         }
 
