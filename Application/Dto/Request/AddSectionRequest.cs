@@ -8,6 +8,5 @@ namespace Business.Dto.Request
     {
        public int CourseId { get; set; }
         public string Title { get; set; } = string.Empty;
-        public int SortOrder { get; set; }
     }
 }

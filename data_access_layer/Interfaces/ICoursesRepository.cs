@@ -17,6 +17,7 @@ namespace DataAccess.Interfaces
         Task<CourseDto> AddNewCourse(CourseEntitiy CourseE);
         Task<PageResult<LessonDto>> GetCourseLessons(int courseId, int pageNumber, int pageSize);
         Task<PageResult<SectionDto>> GetCourseSections(int courseId, int pageNumber, int pageSize);
+        Task<int> GetMaxSortOrderForCourseAsync(int courseId);
         Task<(SectionEntitiy? Result, bool Conflict)> AddNewSection(SectionEntitiy section);
         Task<(SectionDto? Result, bool Conflict)> UpdateSectionAsync(int sectionId, string? title, int? sortOrder);
         Task<bool> DeleteSectionAsync(int sectionId);

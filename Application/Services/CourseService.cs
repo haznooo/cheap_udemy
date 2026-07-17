@@ -350,10 +350,6 @@ namespace Business.Services
             {
                 return MyResult<SectionResponse>.Failure(ErrorType.BadRequest, "Section title is required.");
             }
-            if (request.SortOrder <= 0)
-            {
-                return MyResult<SectionResponse>.Failure(ErrorType.BadRequest, "Sort order must be positive.");
-            }
 
             // Same as UpdateSection/DeleteSection: owner/admin only, checked here rather
             // than trusting the controller to have done it.
@@ -361,10 +357,14 @@ namespace Business.Services
             if (!permission.IsSuccess)
                 return MyResult<SectionResponse>.Failure(permission.FailureType, permission.Errors.Select(e => e.Message).ToArray());
 
+            // Auto-assigned, same convention as lesson creation — the client never picks a
+            // position; it always appends to the end. Reordering happens via UpdateSection.
+            var nextSortOrder = (await coursesRepository.GetMaxSortOrderForCourseAsync(request.CourseId)) + 1;
+
             SectionEntitiy sectionEntity = new SectionEntitiy
             {
                 title = request.Title,
-                sort_order = request.SortOrder,
+                sort_order = nextSortOrder,
                 course_id = request.CourseId
             };
 

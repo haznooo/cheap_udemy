@@ -344,6 +344,18 @@ namespace DataAccess.Repositories
             }
         }
 
+        // Returns the maximum sort_order for sections in a given course so a new section can be
+        // appended at the end. Empty course => 0, so the first section gets sort_order 1 — same
+        // convention as LessonsRepository.GetMaxSortOrderForSectionAsync.
+        public async Task<int> GetMaxSortOrderForCourseAsync(int courseId)
+        {
+            var max = await context.Sections
+                .Where(s => s.course_id == courseId)
+                .MaxAsync(s => (int?)s.sort_order);
+
+            return max ?? 0;
+        }
+
         // Conflict = true means the insert hit uq_section_order_per_course (another section
         // in the same course already has that sort_order) — same contract as UpdateSectionAsync.
         public async Task<(SectionEntitiy? Result, bool Conflict)> AddNewSection(SectionEntitiy section)
