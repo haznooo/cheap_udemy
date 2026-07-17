@@ -53,9 +53,11 @@ namespace Business.Services
 	   public async Task<MyResult<bool>> UpdatePassword(int userId,UpdatePasswordRequest request)
 	   {
 
-            if (request.NewPassword == null || request.NewPassword.Length < 5)
+            // Same 5-20 bounds as signup (BCrypt truncates at 72 bytes, so an arbitrarily
+            // long password is misleading — cap it low and explicit).
+            if (request.NewPassword == null || request.NewPassword.Length < 5 || request.NewPassword.Length > 20)
             {
-                return MyResult<bool>.Failure(ErrorType.BadRequest, "Password must be at least 5 characters long.");
+                return MyResult<bool>.Failure(ErrorType.BadRequest, "Password must be between 5 and 20 characters long.");
             }
 
             if (string.IsNullOrEmpty(request.OldPassword))
@@ -143,9 +145,11 @@ namespace Business.Services
 
         public async Task<MyResult<UserProfileResponse>> AddUserProfile(int userid, UserProfileRequest request)
         {
-            bool userExists = await userRepository.DoesUserExistByIdAsync(userid);
-
-            if (!userExists) return MyResult<UserProfileResponse>.Failure(ErrorType.NotFound, "user not found");
+            // Same stale-token guard as SetAvatar/RemoveAvatar/UpdatePassword: a JWT can
+            // outlive the account by up to 20 min — a deleted/banned caller must not be
+            // able to (re)create a profile row.
+            if (!await userRepository.IsUserActiveAsync(userid))
+                return MyResult<UserProfileResponse>.Failure(ErrorType.NotFound, "user not found");
 
             bool profileExists = await userRepository.DoesUserProfileExistAsync(userid);
 
@@ -165,6 +169,10 @@ namespace Business.Services
 
         public async Task<MyResult<UserProfileResponse>> UpdateUserProfile(int userid, UserProfileRequest request)
         {
+            // Same stale-token guard as AddUserProfile above.
+            if (!await userRepository.IsUserActiveAsync(userid))
+                return MyResult<UserProfileResponse>.Failure(ErrorType.NotFound, "user not found");
+
             bool profileExists = await userRepository.DoesUserProfileExistAsync(userid);
 
             if (!profileExists) return MyResult<UserProfileResponse>.Failure(ErrorType.NotFound, "user profile not found");
