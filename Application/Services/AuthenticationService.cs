@@ -86,6 +86,11 @@ namespace Business.Services
             //generate refresh token and save it to database
 			var NewToken = await refreshTokenService.AddNewRefreshTokenFirstTime(userE.UserId, deviceInfo, ipAddress);
 
+			// The account exists but no session could be started — fail loudly instead of
+			// returning a 200 with a null RefreshToken (the client can simply log in).
+			if (!NewToken.IsSuccess || NewToken.Value == null)
+				return MyResult<LoginResponse>.Failure(ErrorType.Failure, "Account was created but the session could not be started. Please log in.");
+
             await loginLogService.LogAsync(userE.UserId, "success", ipAddress, deviceInfo);
 
 			//make the response
@@ -150,6 +155,11 @@ namespace Business.Services
 
 
             var NewRefreshToken = await refreshTokenService.AddNewRefreshTokenFirstTime(user.UserId, deviceInfo, ipAddress);
+
+            // Same as signup: a login without a refresh token is a broken session — fail
+            // loudly rather than 200 with RefreshToken = null.
+            if (!NewRefreshToken.IsSuccess || NewRefreshToken.Value == null)
+                return MyResult<LoginResponse>.Failure(ErrorType.Failure, "Failed to start the session. Please try again.");
 
             await loginLogService.LogAsync(user.UserId, "success", ipAddress, deviceInfo);
 
