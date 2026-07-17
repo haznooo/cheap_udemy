@@ -119,12 +119,14 @@ namespace Business.Services
             if (courseId == null)
                 return MyResult<EnrollmentDto>.Failure(ErrorType.NotFound, "Lesson not found.");
 
+            // Same codes as GetCourseProgress: not enrolled -> 404 (hidden), enrollment
+            // exists but isn't active -> 403.
             string? enrollmentStatus = await enrollmentRepository.GetEnrollmentStatusAsync(callerId, courseId.Value);
             if (enrollmentStatus == null)
-                return MyResult<EnrollmentDto>.Failure(ErrorType.BadRequest, "User is not enrolled in this course.");
+                return MyResult<EnrollmentDto>.Failure(ErrorType.NotFound, "You are not enrolled in this course.");
 
             if (enrollmentStatus is "dropped" or "suspended")
-                return MyResult<EnrollmentDto>.Failure(ErrorType.BadRequest, "Enrollment is not active.");
+                return MyResult<EnrollmentDto>.Failure(ErrorType.Unauthorized, "Enrollment is not active.");
 
             if (enrollmentStatus == "completed")
                 return MyResult<EnrollmentDto>.Failure(ErrorType.Conflict, "Course is already completed.");
@@ -147,6 +149,13 @@ namespace Business.Services
 
             if (pageNumber <= 0 || pageSize <= 0)
                 return MyResult<PageResult<LessonProgressDto>>.Failure(ErrorType.BadRequest, "Invalid page number or page size.");
+
+            // A deleted course must 404 outright — without this, an active enrollee
+            // would pass the status check below and get a silently empty page (the
+            // repo query filters deleted courses out of the rows).
+            var course = await enrollmentRepository.GetCourseEnrollmentInfoAsync(courseId);
+            if (course == null || course.IsDeleted)
+                return MyResult<PageResult<LessonProgressDto>>.Failure(ErrorType.NotFound, "Course not found.");
 
             string? enrollmentStatus = await enrollmentRepository.GetEnrollmentStatusAsync(callerId, courseId);
             if (enrollmentStatus == null)

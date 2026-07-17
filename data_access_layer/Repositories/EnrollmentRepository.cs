@@ -62,10 +62,12 @@ namespace DataAccess.Repositories
             return await context.Enrollments.AnyAsync(e => e.course_id == courseId);
         }
 
+        // Lessons of soft-deleted courses count as missing — a deleted course must be
+        // fully invisible, including its progress writes.
         public async Task<int?> GetCourseIdByLessonAsync(int lessonId)
         {
             return await context.Lessons
-                .Where(l => l.lesson_id == lessonId)
+                .Where(l => l.lesson_id == lessonId && l.section.course.deleted_at == null)
                 .Select(l => (int?)l.section.course_id)
                 .FirstOrDefaultAsync();
         }
