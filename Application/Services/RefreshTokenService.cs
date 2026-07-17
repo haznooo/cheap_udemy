@@ -127,7 +127,6 @@ namespace Business.Services
                 Email = user.Email,
                 Role = user.Role,
                 Status = user.Status,
-                IsRefreshTokenRevoked = false,
                 RefreshToken = newTokenResult.Value.RefreshToken,
                 RefreshTokenExpiresAt = newTokenResult.Value.ExpiresAt
             });

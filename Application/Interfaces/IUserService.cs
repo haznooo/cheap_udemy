@@ -7,7 +7,6 @@ namespace Business.Interfaces
     public interface IUserService
     {
         Task<MyResult<string?>> DeleteUser(int userid, DeleteUserRequest request);
-        Task<bool> IsUserActive(int userId);
         Task<MyResult<bool>> UpdatePassword(int userId, UpdatePasswordRequest request);
         Task<MyResult<UserProfileResponse>> GetUserProfile(int userId);
         Task<MyResult<string?>> SetAvatar(int userId, string fileName);

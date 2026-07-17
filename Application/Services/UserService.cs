@@ -44,12 +44,6 @@ namespace Business.Services
 		// Admin-initiated cross-user actions (delete, ban/suspend/unban, admin read)
 		// live in AdminService — this service is self-service ("me/*") only.
 
-		public async Task<bool> IsUserActive(int userId)
-		{
-            return await userRepository.IsUserActiveAsync(userId);
-
-        }
-
 	   public async Task<MyResult<bool>> UpdatePassword(int userId,UpdatePasswordRequest request)
 	   {
 

@@ -108,7 +108,6 @@ namespace Business.Services
 
 				RefreshToken = NewToken.Value?.RefreshToken,
 				Email = userE.Email,
-				IsRefreshTokenRevoked = false,
 
 				RefreshTokenExpiresAt = NewToken.Value?.ExpiresAt
 
@@ -178,7 +177,6 @@ namespace Business.Services
                 Email = user.Email,
                 Role = user.Role,
                 Status = user.Status,
-				IsRefreshTokenRevoked = false,
                 RefreshToken = NewRefreshToken.Value?.RefreshToken,
                 RefreshTokenExpiresAt = NewRefreshToken.Value?.ExpiresAt,
                 Profile = new UserProfileResponse

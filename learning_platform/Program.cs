@@ -1,6 +1,5 @@
 
 using Api;
-using Api.Authorization;
 using Business.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -168,13 +167,7 @@ namespace CheapUdemy
                 options.FallbackPolicy = new AuthorizationPolicyBuilder()
                     .RequireAuthenticatedUser()
                     .Build();
-
-                options.AddPolicy("UserOwnerOrAdmin", policy =>
-                    policy.Requirements.Add(new UserOwnerOrAdminRequirement()));
             });
-
-            // if im not wrong but right now we are not using this handler
-            builder.Services.AddSingleton<IAuthorizationHandler,UserOwnerOrAdminHandler>();
 
             // 1. supabase client configuration
             var supabaseUrl = builder.Configuration["Supabase:Url"];
