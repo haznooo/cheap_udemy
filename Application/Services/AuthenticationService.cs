@@ -48,12 +48,16 @@ namespace Business.Services
             {
                 return MyResult<LoginResponse>.Failure(ErrorType.BadRequest, "Invalid email format. Email must be at most 50 characters.");
             }
+            // Emails are case-insensitive in practice: normalize to lowercase (same treatment
+            // as the username above) so 'John@x.com' and 'john@x.com' can't both register,
+            // and login doesn't depend on the exact case used at signup.
+            string normalizedEmail = request.Email.ToLowerInvariant();
             if (await userRepository.IsUsernameUsedAsync(normalizedUsername))
             {
 
                 return MyResult<LoginResponse>.Failure(ErrorType.Conflict, "Username is already in use.");
             }
-            if (await userRepository.IsEmailUsedAsync(request.Email))
+            if (await userRepository.IsEmailUsedAsync(normalizedEmail))
             {
 
                 return MyResult<LoginResponse>.Failure(ErrorType.Conflict, "Email is already in use.");
@@ -69,7 +73,7 @@ namespace Business.Services
             {
                 user_id = 0,
                 username = normalizedUsername,
-                email = request.Email,
+                email = normalizedEmail,
                 hashed_password = hashedPassword,
                 role = "student",
                 status = "active",
@@ -125,8 +129,12 @@ namespace Business.Services
                 return MyResult<LoginResponse>.Failure(ErrorType.BadRequest, "Invalid email format.");
             }
 
+            // Stored emails are lowercase (normalized at signup + one-time DB update), so
+            // normalize the lookup too — login is case-insensitive on the email.
+            string normalizedEmail = request.Email.ToLowerInvariant();
+
             // One query fetches everything the login needs — id, account fields, hash, profile.
-            var user = await userRepository.GetUserForLoginAsync(request.Email);
+            var user = await userRepository.GetUserForLoginAsync(normalizedEmail);
 
             // Unknown email OR an anonymized/deleted user (NULL hash): still auditable (record the
             // attempted identifier, never the password). Spend the same BCrypt time as a real login
