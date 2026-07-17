@@ -79,6 +79,23 @@ namespace Business.Services
             return MyResult<PageResult<ReviewDto>>.Success(reviews);
         }
 
+        // The caller's own review of a course (for pre-filling the edit form).
+        public async Task<MyResult<ReviewDto>> GetMyReview(int callerId, int courseId)
+        {
+            if (courseId <= 0)
+                return MyResult<ReviewDto>.Failure(ErrorType.BadRequest, "Invalid course ID.");
+
+            int? instructorId = await reviewRepository.GetCourseInstructorIdAsync(courseId);
+            if (instructorId == null)
+                return MyResult<ReviewDto>.Failure(ErrorType.NotFound, "Course not found.");
+
+            var review = await reviewRepository.GetReviewByUserAndCourseAsync(callerId, courseId);
+            if (review == null)
+                return MyResult<ReviewDto>.Failure(ErrorType.NotFound, "You have no review on this course.");
+
+            return MyResult<ReviewDto>.Success(review);
+        }
+
         // Only the review author can update their own review.
         public async Task<MyResult<ReviewDto>> UpdateReview(int callerId, int courseId, UpdateReviewRequest request)
         {
@@ -87,6 +104,12 @@ namespace Business.Services
 
             if (request.Rating < 1 || request.Rating > 5)
                 return MyResult<ReviewDto>.Failure(ErrorType.BadRequest, "Rating must be between 1 and 5.");
+
+            // A deleted course is invisible everywhere — its reviews become read-only.
+            // (Unpublished is still fine: enrolled students keep access to the course.)
+            var course = await enrollmentRepository.GetCourseEnrollmentInfoAsync(courseId);
+            if (course == null || course.IsDeleted)
+                return MyResult<ReviewDto>.Failure(ErrorType.NotFound, "Course not found.");
 
             bool hasReview = await reviewRepository.HasAlreadyReviewedAsync(callerId, courseId);
             if (!hasReview)

@@ -11,6 +11,7 @@ namespace DataAccess.Interfaces
         Task<bool> HasAlreadyReviewedAsync(int userId, int courseId);
         Task<ReviewDto?> AddReviewAsync(ReviewEntitiy review);
         Task<PageResult<ReviewDto>> GetReviewsByCourseIdAsync(int courseId, int pageNumber, int pageSize);
+        Task<ReviewDto?> GetReviewByUserAndCourseAsync(int userId, int courseId);
         Task<ReviewDto?> UpdateReviewAsync(int userId, int courseId, short rating, string? comment);
         Task<ReviewEntitiy?> GetReviewByIdAsync(int reviewId);
         Task<bool> DeleteReviewAsync(int reviewId);

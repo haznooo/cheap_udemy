@@ -85,6 +85,35 @@ namespace DataAccess.Repositories
             }
         }
 
+        // The caller's own review of a course (null if they never reviewed it). One review
+        // per user per course (uq_user_course_review), so this is a unique lookup.
+        public async Task<ReviewDto?> GetReviewByUserAndCourseAsync(int userId, int courseId)
+        {
+            try
+            {
+                return await context.Reviews
+                    .Where(r => r.user_id == userId && r.course_id == courseId)
+                    .AsNoTracking()
+                    .Select(r => new ReviewDto
+                    {
+                        ReviewId = r.review_id,
+                        CourseId = r.course_id,
+                        UserId = r.user_id,
+                        ReviewerName = r.user.username,
+                        Rating = r.rating,
+                        Comment = r.comment,
+                        CreatedAt = r.created_at,
+                        UpdatedAt = r.updated_at
+                    })
+                    .FirstOrDefaultAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                return null;
+            }
+        }
+
         public async Task<ReviewDto?> UpdateReviewAsync(int userId, int courseId, short rating, string? comment)
         {
             try

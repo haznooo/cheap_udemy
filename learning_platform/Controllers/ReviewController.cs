@@ -38,6 +38,20 @@ namespace Api.Controllers
             return Ok(result.Value);
         }
 
+        // The caller's own review of this course (e.g. to pre-fill an edit form).
+        // Resolved by caller + courseId — one review per user per course.
+        [HttpGet("me")]
+        public async Task<ActionResult<ReviewDto>> GetMyReview(int courseId)
+        {
+            if (CallerId is not int callerId) return MissingIdentity();
+
+            var result = await reviewService.GetMyReview(callerId, courseId);
+
+            if (!result.IsSuccess) return MapFailure(result);
+
+            return Ok(result.Value);
+        }
+
         // No id in the route on purpose: a user has at most one review per course
         // (uq_user_course_review), so the review is resolved by caller + courseId.
         [HttpPut("update")]
