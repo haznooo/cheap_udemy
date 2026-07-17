@@ -85,8 +85,10 @@ namespace Business.Services
             if (courseId <= 0)
                 return MyResult<ReviewDto>.Failure(ErrorType.BadRequest, "Invalid course ID.");
 
-            int? instructorId = await reviewRepository.GetCourseInstructorIdAsync(courseId);
-            if (instructorId == null)
+            // Same deleted-course rule as UpdateReview below: a soft-deleted course is
+            // invisible, including the caller's own review of it.
+            var course = await enrollmentRepository.GetCourseEnrollmentInfoAsync(courseId);
+            if (course == null || course.IsDeleted)
                 return MyResult<ReviewDto>.Failure(ErrorType.NotFound, "Course not found.");
 
             var review = await reviewRepository.GetReviewByUserAndCourseAsync(callerId, courseId);
