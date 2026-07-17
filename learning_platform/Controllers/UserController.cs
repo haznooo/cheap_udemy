@@ -35,7 +35,7 @@ namespace Api.Controllers
 
         // Upload + attach an avatar to the caller's own profile.
         [HttpPost("me/avatar")]
-        public async Task<ActionResult> SetMyAvatar(IFormFile file)
+        public async Task<ActionResult<AvatarUploadResponse>> SetMyAvatar(IFormFile file)
         {
             if (CallerId is not int callerId) return MissingIdentity();
 
@@ -75,7 +75,7 @@ namespace Api.Controllers
                 await mediaService.DeleteAvatarAsync(result.Value);
             }
 
-            return Ok(new { avatar = fileName });
+            return Ok(new AvatarUploadResponse(fileName));
         }
 
         [HttpDelete("me/avatar")]

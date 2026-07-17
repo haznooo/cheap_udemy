@@ -35,7 +35,7 @@ namespace Api.Controllers
 
         [Authorize]
         [HttpPost("add")]
-        public async Task<ActionResult<clsPageResult.PageResult<CourseDto>>> AddCourse(AddCourseRequest request)
+        public async Task<ActionResult<CourseDto>> AddCourse(AddCourseRequest request)
         {
             // Instructor id is taken from the authenticated caller, never from the body.
             if (CallerId is not int instructorId) return MissingIdentity();
@@ -64,7 +64,7 @@ namespace Api.Controllers
         // Upload + attach a thumbnail to a course. Owner instructor or admin only.
         [Authorize]
         [HttpPut("{courseId}/thumbnail")]
-        public async Task<ActionResult<CourseDto>> SetThumbnail(int courseId, IFormFile file)
+        public async Task<ActionResult<ThumbnailUploadResponse>> SetThumbnail(int courseId, IFormFile file)
         {
             if (CallerId is not int callerId) return MissingIdentity();
 
@@ -102,7 +102,7 @@ namespace Api.Controllers
                 await mediaService.DeleteCourseThumbnailAsync(Result.Value);
             }
 
-            return Ok(new { thumbnail = fileName });
+            return Ok(new ThumbnailUploadResponse(fileName));
         }
 
         // Upload a media file (image/video) to be referenced from a lesson's content blocks.
@@ -110,7 +110,7 @@ namespace Api.Controllers
         // BEFORE touching storage so non-owners can't write to the shared bucket.
         [Authorize]
         [HttpPost("{courseId}/media")]
-        public async Task<ActionResult> UploadCourseMedia(int courseId, IFormFile file)
+        public async Task<ActionResult<MediaUploadResponse>> UploadCourseMedia(int courseId, IFormFile file)
         {
             if (CallerId is not int callerId) return MissingIdentity();
 
@@ -134,7 +134,7 @@ namespace Api.Controllers
             if (!permission.IsSuccess) return MapFailure(permission);
 
             var fileName = await mediaService.UploadCourseMediaAsync(file);
-            return Ok(new { url = fileName });
+            return Ok(new MediaUploadResponse(fileName));
         }
 
         [Authorize]
