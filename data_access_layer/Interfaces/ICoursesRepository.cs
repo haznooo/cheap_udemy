@@ -15,7 +15,7 @@ namespace DataAccess.Interfaces
         Task<int?> GetCourseIdBySection(int sectionId);
         Task<(bool Success, string? OldFileName)> UpdateThumbnail(int courseId, string fileName);
         Task<CourseDto> AddNewCourse(CourseEntitiy CourseE);
-        Task<PageResult<LessonDto>> GetCourseLessons(int courseId, int pageNumber, int pageSize, int? callerId = null, bool isAdmin = false);
+        Task<PageResult<LessonDto>> GetCourseLessons(int courseId, int pageNumber, int pageSize);
         Task<PageResult<SectionDto>> GetCourseSections(int courseId, int pageNumber, int pageSize);
         Task<SectionEntitiy> AddNewSection(SectionEntitiy section);
         Task<(SectionDto? Result, bool Conflict)> UpdateSectionAsync(int sectionId, string? title, int? sortOrder);

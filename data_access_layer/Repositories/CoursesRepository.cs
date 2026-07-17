@@ -260,16 +260,16 @@ namespace DataAccess.Repositories
             
         }
 
-        public async Task<PageResult<LessonDto>> GetCourseLessons(int courseId, int pageNumber, int pageSize, int? callerId = null, bool isAdmin = false)
+        // No published/status filter here — the caller (service layer) must authorize via
+        // CanViewCourseContentAsync first, which deliberately admits enrolled students of
+        // unpublished courses (same contract as GetCourseSections below). Only deletion gates.
+        public async Task<PageResult<LessonDto>> GetCourseLessons(int courseId, int pageNumber, int pageSize)
         {
             try
             {
-                // Non-deleted courses only; published-only unless the caller is the
-                // owning instructor or an admin (matches GetCourseById's owner bypass).
                 var query = context.Lessons
                     .Where(l => l.section.course_id == courseId
-                        && l.section.course.deleted_at == null
-                        && (l.section.course.status == "published" || isAdmin || l.section.course.instructor_id == callerId))
+                        && l.section.course.deleted_at == null)
                     .AsNoTracking();
 
                 var totalCount = await query.CountAsync();

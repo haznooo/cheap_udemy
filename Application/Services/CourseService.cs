@@ -192,7 +192,7 @@ namespace Business.Services
                 return MyResult<PageResult<LessonDto>>.Failure(ErrorType.NotFound, "Course not found.");
             }
 
-            var lessons = await coursesRepository.GetCourseLessons(courseId, pageNumber, pageSize, callerId, isAdmin);
+            var lessons = await coursesRepository.GetCourseLessons(courseId, pageNumber, pageSize);
 
             if (lessons == null)
             {
