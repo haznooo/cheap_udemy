@@ -22,15 +22,23 @@ namespace Api.Controllers
 
         // take the failed MyResult and map it to a ProblemDetails response, with the correct HTTP status code.
         protected ActionResult MapFailure<T>(MyResult<T> result,
-            int unauthorizedStatusCode = StatusCodes.Status403Forbidden) =>
-            result.FailureType switch
+            int unauthorizedStatusCode = StatusCodes.Status403Forbidden)
+        {
+            string detail = ErrorDetail(result);
+            return result.FailureType switch
             {
-                ErrorType.NotFound => Problem(statusCode: StatusCodes.Status404NotFound, detail: ErrorDetail(result)),
-                ErrorType.BadRequest => Problem(statusCode: StatusCodes.Status400BadRequest, detail: ErrorDetail(result)),
-                ErrorType.Conflict => Problem(statusCode: StatusCodes.Status409Conflict, detail: ErrorDetail(result)),
-                ErrorType.Unauthorized => Problem(statusCode: unauthorizedStatusCode, detail: ErrorDetail(result)),
-                _ => Problem(statusCode: StatusCodes.Status500InternalServerError, detail: "An unexpected error occurred.")
+                ErrorType.NotFound => Problem(statusCode: StatusCodes.Status404NotFound, detail: detail),
+                ErrorType.BadRequest => Problem(statusCode: StatusCodes.Status400BadRequest, detail: detail),
+                ErrorType.Conflict => Problem(statusCode: StatusCodes.Status409Conflict, detail: detail),
+                ErrorType.Unauthorized => Problem(statusCode: unauthorizedStatusCode, detail: detail),
+                // ErrorType.Failure messages are service-authored strings (repos swallow
+                // exceptions, so raw exception text never lands here — the exception
+                // middleware handles those with a generic body). Safe to surface, and the
+                // frontend reads `detail` (e.g. "Account was created... Please log in.").
+                _ => Problem(statusCode: StatusCodes.Status500InternalServerError,
+                        detail: string.IsNullOrWhiteSpace(detail) ? "An unexpected error occurred." : detail)
             };
+        }
 
         // Guard response for a JWT that somehow lacks a usable NameIdentifier claim.
         protected ActionResult MissingIdentity() =>

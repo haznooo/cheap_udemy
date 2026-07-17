@@ -85,7 +85,10 @@ namespace CheapUdemy.Controllers
             if (!result.IsSuccess)
             {
                 // Security event only — never log the submitted password or credentials.
-                logger.LogWarning("Failed login attempt from IP {Ip}", ipAddress);
+                // Only credential failures (Unauthorized) count as failed login attempts;
+                // a server-side failure (e.g. refresh-token mint) must not pollute that signal.
+                if (result.FailureType == ErrorType.Unauthorized)
+                    logger.LogWarning("Failed login attempt from IP {Ip}", ipAddress);
 
                 return MapFailure(result, StatusCodes.Status401Unauthorized);
             }
