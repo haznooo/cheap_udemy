@@ -82,7 +82,7 @@ psql "<your-connection-string>" -f db/02-seed.sql            # seed data
 
 ```bash
 dotnet restore
-dotnet run --project learning_platform
+dotnet run --project Api
 ```
 
 Dev URLs:
