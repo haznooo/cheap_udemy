@@ -78,6 +78,31 @@ namespace Api.Controllers
         public async Task<ActionResult> UnbanUser(int userId)
             => await SetUserStatus(userId, "active");
 
+        // Suspend a course: hides it from everyone including enrolled students
+        // (unlike an instructor unpublish). The instructor cannot re-publish while
+        // suspended. Audited (by AdminService) as 'suspend' on target_table 'courses'.
+        [HttpPost("courses/{courseId:int}/suspend")]
+        public async Task<ActionResult> SuspendCourse(int courseId)
+            => await SetCourseSuspension(courseId, suspend: true);
+
+        // Lift a suspension: the course goes straight back to published.
+        [HttpPost("courses/{courseId:int}/unsuspend")]
+        public async Task<ActionResult> UnsuspendCourse(int courseId)
+            => await SetCourseSuspension(courseId, suspend: false);
+
+        // Shared flow for the two course-suspension endpoints, mirroring SetUserStatus.
+        private async Task<ActionResult> SetCourseSuspension(int courseId, bool suspend)
+        {
+            if (CallerId is not int adminId) return MissingIdentity();
+
+            var result = await adminService.SetCourseSuspension(adminId, courseId, suspend);
+            if (!result.IsSuccess) return MapFailure(result);
+
+            logger.LogInformation("Admin {AdminId} {Action} course {CourseId}", adminId, suspend ? "suspended" : "unsuspended", courseId);
+
+            return NoContent();
+        }
+
         // Shared flow for the three status endpoints: service call (which audits), log, 204.
         private async Task<ActionResult> SetUserStatus(int userId, string newStatus)
         {

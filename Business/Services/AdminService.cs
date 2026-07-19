@@ -9,7 +9,7 @@ namespace Business.Services
     // user repository as UserService/AuthenticationService — repos stay per-table,
     // services per-use-case. The audit row is written HERE, right next to the
     // mutation, so no caller can perform an admin action and skip the audit.
-    public class AdminService(IUserAndProfileRepository userRepository, IRefreshTokenService refreshTokenService, IAdminActionService adminActionService) : IAdminService
+    public class AdminService(IUserAndProfileRepository userRepository, IRefreshTokenService refreshTokenService, IAdminActionService adminActionService, ICoursesRepository coursesRepository) : IAdminService
     {
         // Account + optional profile view of any user. Unlike the self read
         // (UserService.GetUserProfile), this works for accounts with no profile row
@@ -107,6 +107,44 @@ namespace Business.Services
                 targetTable: "users",
                 targetId: targetUserId,
                 oldValue: new { status = target.Status },
+                newValue: new { status = newStatus });
+
+            return MyResult<bool>.Success(true);
+        }
+
+        // Course moderation: suspend hides a course from EVERYONE (even enrolled
+        // students — unlike an instructor unpublish, which preserves their access);
+        // unsuspend puts it back to published. Only a published course can be
+        // suspended (a draft/retired one is invisible anyway), so unsuspend always
+        // restores exactly "published" — no need to remember a previous status.
+        // The instructor can't lift it: CourseService.PublishCourse rejects suspended.
+        public async Task<MyResult<bool>> SetCourseSuspension(int adminId, int courseId, bool suspend)
+        {
+            if (courseId <= 0) return MyResult<bool>.Failure(ErrorType.BadRequest, "course id can not be zero or negative");
+
+            // Soft-deleted courses are invisible everywhere — treat like missing.
+            var course = await coursesRepository.GetRawCourseAsync(courseId);
+            if (course == null)
+                return MyResult<bool>.Failure(ErrorType.NotFound, "course not found");
+
+            if (suspend && course.status == "suspended")
+                return MyResult<bool>.Failure(ErrorType.Conflict, "course is already suspended");
+            if (suspend && course.status != "published")
+                return MyResult<bool>.Failure(ErrorType.Conflict, "only a published course can be suspended");
+            if (!suspend && course.status != "suspended")
+                return MyResult<bool>.Failure(ErrorType.Conflict, "course is not suspended");
+
+            string newStatus = suspend ? "suspended" : "published";
+
+            var updated = await coursesRepository.UpdateCourseStatusAsync(courseId, newStatus);
+            if (updated == null) return MyResult<bool>.Failure(ErrorType.Failure, "failed to update course status");
+
+            await adminActionService.LogAsync(
+                adminId,
+                actionType: suspend ? "suspend" : "unsuspend",
+                targetTable: "courses",
+                targetId: courseId,
+                oldValue: new { status = course.status },
                 newValue: new { status = newStatus });
 
             return MyResult<bool>.Success(true);

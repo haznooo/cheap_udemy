@@ -45,11 +45,12 @@ namespace DataAccess.Repositories
 
             if (isAdmin || info.InstructorId == callerId) return true;
 
-            // Deliberately NOT gated on info.Status: an existing active/completed enrollment
-            // keeps content access even after the instructor unpublishes the course — only a
-            // hard-deleted course cuts off access. New-enrollment eligibility (which does
-            // require "published") is a separate check, in EnrollmentService.EnrollStudent.
-            if (info.IsDeleted) return false;
+            // Deliberately NOT gated on info.Status == "published": an existing active/completed
+            // enrollment keeps content access even after the instructor unpublishes the course.
+            // The two exceptions that DO cut off enrolled students: a hard-deleted course, and
+            // an admin-suspended one (suspension is the moderation hammer — unlike unpublish,
+            // it blocks everyone but the owner/admin, who bypassed above).
+            if (info.IsDeleted || info.Status == "suspended") return false;
 
             string? status = await GetEnrollmentStatusAsync(callerId, courseId);
             return status is "active" or "completed";

@@ -125,6 +125,12 @@ namespace Business.Services
             if (lessonStatus != "published")
                 return MyResult<EnrollmentDto>.Failure(ErrorType.NotFound, "Lesson not found.");
 
+            // An admin-suspended course is invisible to its students (unlike unpublished),
+            // so progress writes must 404 the same way content reads do.
+            var course = await enrollmentRepository.GetCourseEnrollmentInfoAsync(courseId.Value);
+            if (course == null || course.IsDeleted || course.Status == "suspended")
+                return MyResult<EnrollmentDto>.Failure(ErrorType.NotFound, "Course not found.");
+
             // Same codes as GetCourseProgress: not enrolled -> 404 (hidden), enrollment
             // exists but isn't active -> 403.
             string? enrollmentStatus = await enrollmentRepository.GetEnrollmentStatusAsync(callerId, courseId.Value);
@@ -158,9 +164,10 @@ namespace Business.Services
 
             // A deleted course must 404 outright — without this, an active enrollee
             // would pass the status check below and get a silently empty page (the
-            // repo query filters deleted courses out of the rows).
+            // repo query filters deleted courses out of the rows). Suspended is the
+            // same story: content is blocked, so progress reads hide too.
             var course = await enrollmentRepository.GetCourseEnrollmentInfoAsync(courseId);
-            if (course == null || course.IsDeleted)
+            if (course == null || course.IsDeleted || course.Status == "suspended")
                 return MyResult<PageResult<LessonProgressDto>>.Failure(ErrorType.NotFound, "Course not found.");
 
             string? enrollmentStatus = await enrollmentRepository.GetEnrollmentStatusAsync(callerId, courseId);

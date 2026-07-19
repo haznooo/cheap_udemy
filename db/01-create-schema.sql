@@ -87,7 +87,9 @@ CREATE TABLE courses (
     CONSTRAINT ck_courses_duration CHECK (estimated_duration_minutes >= 0),
     CONSTRAINT ck_courses_rating CHECK (avg_rating >= 0 AND avg_rating <= 5),
     CONSTRAINT ck_courses_review_count CHECK (reviews_count >= 0),
-    CONSTRAINT valid_course_status CHECK (status IN ('draft', 'published', 'retired')),
+    -- 'suspended' = admin moderation state: hidden from everyone (even enrolled
+    -- students), only an admin can lift it (unsuspend -> back to 'published').
+    CONSTRAINT valid_course_status CHECK (status IN ('draft', 'published', 'retired', 'suspended')),
     CONSTRAINT valid_course_level CHECK (level IN ('beginner', 'intermediate', 'advanced')),
     CONSTRAINT fk_courses_instructors FOREIGN KEY (instructor_id) REFERENCES users(user_id),
     CONSTRAINT fk_courses_categories FOREIGN KEY (category_id) REFERENCES categories(category_id)

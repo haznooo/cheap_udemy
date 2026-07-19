@@ -68,8 +68,11 @@ namespace Business.Services
             if (pageNumber <= 0 || pageSize <= 0)
                 return MyResult<PageResult<ReviewDto>>.Failure(ErrorType.BadRequest, "Invalid page number or page size.");
 
-            int? instructorId = await reviewRepository.GetCourseInstructorIdAsync(courseId);
-            if (instructorId == null)
+            // A suspended course must be invisible to everyone (moderation — stricter
+            // than unpublish, whose reviews stay readable); deleted likewise. Without
+            // this, the reviews endpoint would leak that a suspended course exists.
+            var course = await enrollmentRepository.GetCourseEnrollmentInfoAsync(courseId);
+            if (course == null || course.IsDeleted || course.Status == "suspended")
                 return MyResult<PageResult<ReviewDto>>.Failure(ErrorType.NotFound, "Course not found.");
 
             var reviews = await reviewRepository.GetReviewsByCourseIdAsync(courseId, pageNumber, pageSize);
@@ -85,10 +88,10 @@ namespace Business.Services
             if (courseId <= 0)
                 return MyResult<ReviewDto>.Failure(ErrorType.BadRequest, "Invalid course ID.");
 
-            // Same deleted-course rule as UpdateReview below: a soft-deleted course is
-            // invisible, including the caller's own review of it.
+            // Same deleted/suspended-course rule as UpdateReview below: an invisible
+            // course hides the caller's own review of it too.
             var course = await enrollmentRepository.GetCourseEnrollmentInfoAsync(courseId);
-            if (course == null || course.IsDeleted)
+            if (course == null || course.IsDeleted || course.Status == "suspended")
                 return MyResult<ReviewDto>.Failure(ErrorType.NotFound, "Course not found.");
 
             var review = await reviewRepository.GetReviewByUserAndCourseAsync(callerId, courseId);
@@ -107,10 +110,11 @@ namespace Business.Services
             if (request.Rating < 1 || request.Rating > 5)
                 return MyResult<ReviewDto>.Failure(ErrorType.BadRequest, "Rating must be between 1 and 5.");
 
-            // A deleted course is invisible everywhere — its reviews become read-only.
-            // (Unpublished is still fine: enrolled students keep access to the course.)
+            // A deleted or admin-suspended course is invisible everywhere — its reviews
+            // become read-only (suspended) / gone (deleted). Unpublished is still fine:
+            // enrolled students keep access to the course.
             var course = await enrollmentRepository.GetCourseEnrollmentInfoAsync(courseId);
-            if (course == null || course.IsDeleted)
+            if (course == null || course.IsDeleted || course.Status == "suspended")
                 return MyResult<ReviewDto>.Failure(ErrorType.NotFound, "Course not found.");
 
             bool hasReview = await reviewRepository.HasAlreadyReviewedAsync(callerId, courseId);

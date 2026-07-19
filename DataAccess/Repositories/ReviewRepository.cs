@@ -12,12 +12,6 @@ namespace DataAccess.Repositories
         public async Task<bool> IsEnrolledAsync(int userId, int courseId)
             => await context.Enrollments.AnyAsync(e => e.user_id == userId && e.course_id == courseId);
 
-        public async Task<int?> GetCourseInstructorIdAsync(int courseId)
-            => await context.Courses
-                .Where(c => c.course_id == courseId)
-                .Select(c => (int?)c.instructor_id)
-                .FirstOrDefaultAsync();
-
         public async Task<bool> HasAlreadyReviewedAsync(int userId, int courseId)
             => await context.Reviews.AnyAsync(r => r.user_id == userId && r.course_id == courseId);
 

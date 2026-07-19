@@ -315,6 +315,11 @@ namespace Business.Services
             if (course.status == "published")
                 return MyResult<CourseDto>.Failure(ErrorType.Conflict, "Course is already published.");
 
+            // Suspension is an admin moderation lock — without this, the owning
+            // instructor could lift it themselves just by re-publishing.
+            if (course.status == "suspended")
+                return MyResult<CourseDto>.Failure(ErrorType.Conflict, "Course is suspended by an administrator.");
+
             var result = await coursesRepository.UpdateCourseStatusAsync(courseId, "published");
             if (result == null)
                 return MyResult<CourseDto>.Failure(ErrorType.Failure, "Failed to publish course.");
