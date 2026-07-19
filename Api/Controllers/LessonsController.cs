@@ -55,6 +55,36 @@ namespace Api.Controllers
             return NoContent();
         }
 
+        // Publish a lesson (draft or hidden -> published), making it visible to
+        // enrolled students. Owner/admin only, resolved lesson -> section -> course.
+        [HttpPost("{id}/publish")]
+        public async Task<ActionResult<LessonDto>> PublishLesson(int id)
+        {
+            if (CallerId is not int callerId) return MissingIdentity();
+
+            bool isAdmin = User.IsInRole("admin");
+            var result = await lessonService.PublishLessonAsync(id, callerId, isAdmin);
+
+            if (!result.IsSuccess) return MapFailure(result);
+
+            return Ok(result.Value);
+        }
+
+        // Unpublish a lesson (published -> hidden): invisible to everyone but the
+        // owner/admin, including already-enrolled students.
+        [HttpPost("{id}/unpublish")]
+        public async Task<ActionResult<LessonDto>> UnpublishLesson(int id)
+        {
+            if (CallerId is not int callerId) return MissingIdentity();
+
+            bool isAdmin = User.IsInRole("admin");
+            var result = await lessonService.UnpublishLessonAsync(id, callerId, isAdmin);
+
+            if (!result.IsSuccess) return MapFailure(result);
+
+            return Ok(result.Value);
+        }
+
         [HttpGet("get/{id}")]
         public async Task<ActionResult<LessonDto>> GetLesson(int id)
         {

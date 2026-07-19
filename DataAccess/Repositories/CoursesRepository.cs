@@ -260,10 +260,12 @@ namespace DataAccess.Repositories
             
         }
 
-        // No published/status filter here — the caller (service layer) must authorize via
+        // No course-status filter here — the caller (service layer) must authorize via
         // CanViewCourseContentAsync first, which deliberately admits enrolled students of
         // unpublished courses (same contract as GetCourseSections below). Only deletion gates.
-        public async Task<PageResult<LessonDto>> GetCourseLessons(int courseId, int pageNumber, int pageSize)
+        // includeUnpublished = owner/admin view: draft/hidden lessons are listed too;
+        // students only ever see published lessons.
+        public async Task<PageResult<LessonDto>> GetCourseLessons(int courseId, int pageNumber, int pageSize, bool includeUnpublished)
         {
             try
             {
@@ -271,6 +273,11 @@ namespace DataAccess.Repositories
                     .Where(l => l.section.course_id == courseId
                         && l.section.course.deleted_at == null)
                     .AsNoTracking();
+
+                if (!includeUnpublished)
+                {
+                    query = query.Where(l => l.status == "published");
+                }
 
                 var totalCount = await query.CountAsync();
 
@@ -285,6 +292,7 @@ namespace DataAccess.Repositories
                         SectionId = l.section_id,
                         Title = l.title,
                         SortOrder = l.sort_order,
+                        Status = l.status,
                         EstimatedDurationMinutes = l.estimated_duration_minutes,
                     })
                     .ToListAsync();

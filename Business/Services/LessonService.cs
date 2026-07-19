@@ -64,6 +64,9 @@ namespace Business.Services
                 section_id = request.SectionId,
                 title = request.Title,
                 sort_order = nextSortOrder,
+                // Always born as a draft (invisible to students); publishing is a
+                // separate explicit action — same workflow as courses.
+                status = "draft",
                 content_blocks = request.ContentBlocks.Select(b => new ContentBlock
                 {
                     BlockId = Guid.NewGuid().ToString("N")[..8],
@@ -103,7 +106,62 @@ namespace Business.Services
                 return MyResult<LessonDto>.Failure(ErrorType.NotFound, $"Lesson with ID {lessonId} not found.");
             }
 
+            // Course-level access passed, but a draft/hidden LESSON is still invisible
+            // to enrolled students — only the owning instructor or an admin may read it.
+            if (entity.status != "published")
+            {
+                var instructorId = await coursesRepository.GetCourseInstructorId(courseId.Value);
+                if (!isAdmin && instructorId != callerId)
+                {
+                    return MyResult<LessonDto>.Failure(ErrorType.NotFound, $"Lesson with ID {lessonId} not found.");
+                }
+            }
+
             var dto = await PrepareLessonResponseAsync(entity);
+            return MyResult<LessonDto>.Success(dto);
+        }
+
+        // Lesson publish/unpublish (owner/admin only, resolved lesson -> section -> course).
+        // Transitions: draft/hidden -> published (publish), published -> hidden (unpublish).
+        // 'hidden' rather than back to 'draft' so "was live once, pulled back" stays
+        // distinguishable from "never finished" in the instructor's lesson list.
+        public async Task<MyResult<LessonDto>> PublishLessonAsync(int lessonId, int callerId, bool isAdmin)
+        {
+            return await SetLessonStatusAsync(lessonId, callerId, isAdmin, publish: true);
+        }
+
+        public async Task<MyResult<LessonDto>> UnpublishLessonAsync(int lessonId, int callerId, bool isAdmin)
+        {
+            return await SetLessonStatusAsync(lessonId, callerId, isAdmin, publish: false);
+        }
+
+        private async Task<MyResult<LessonDto>> SetLessonStatusAsync(int lessonId, int callerId, bool isAdmin, bool publish)
+        {
+            if (lessonId <= 0)
+                return MyResult<LessonDto>.Failure(ErrorType.BadRequest, "Invalid lesson ID.");
+
+            var lesson = await lessonsRepository.GetAnyLessonByIdAsync(lessonId);
+            if (lesson == null)
+                return MyResult<LessonDto>.Failure(ErrorType.NotFound, $"Lesson with ID {lessonId} not found.");
+
+            var courseId = await coursesRepository.GetCourseIdBySection(lesson.section_id);
+            if (courseId == null)
+                return MyResult<LessonDto>.Failure(ErrorType.NotFound, "Section not found.");
+
+            var permission = await courseService.CheckCourseEditPermission(courseId.Value, callerId, isAdmin);
+            if (!permission.IsSuccess)
+                return MyResult<LessonDto>.Failure(permission.FailureType, permission.Errors.Select(e => e.Message).ToArray());
+
+            if (publish && lesson.status == "published")
+                return MyResult<LessonDto>.Failure(ErrorType.Conflict, "Lesson is already published.");
+            if (!publish && lesson.status != "published")
+                return MyResult<LessonDto>.Failure(ErrorType.Conflict, "Lesson is not published.");
+
+            var updated = await lessonsRepository.UpdateLessonStatusAsync(lessonId, publish ? "published" : "hidden");
+            if (updated == null)
+                return MyResult<LessonDto>.Failure(ErrorType.Failure, publish ? "Failed to publish lesson." : "Failed to unpublish lesson.");
+
+            var dto = await PrepareLessonResponseAsync(updated);
             return MyResult<LessonDto>.Success(dto);
         }
 
@@ -123,6 +181,7 @@ namespace Business.Services
                 SectionId = entity.section_id,
                 Title = entity.title,
                 SortOrder = entity.sort_order,
+                Status = entity.status,
                 ContentBlocks = new List<ContentBlockDto>()
             };
 

@@ -128,6 +128,9 @@ CREATE TABLE lessons (
     created_at TIMESTAMP with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP with time zone null DEFAULT CURRENT_TIMESTAMP,
 
+    -- Lesson lifecycle: 'draft' = never published (work in progress), 'published' =
+    -- visible to enrolled students, 'hidden' = was published, pulled back by the
+    -- instructor (unpublish). draft/hidden lessons are invisible to students.
     CONSTRAINT valid_lesson_status CHECK (status IN ('draft', 'published', 'hidden')),
     -- NEW: lessons had no ordering uniqueness at all while sections did — make
     --      them consistent (ordering unique within a section).
@@ -316,10 +319,15 @@ BEGIN
     JOIN sections s ON l.section_id = s.section_id
     WHERE l.lesson_id = NEW.lesson_id;
 
+    -- Progress is computed over PUBLISHED lessons only: draft/hidden lessons are
+    -- invisible to students, so counting them would make 100% unreachable.
+    -- (Percentages go stale if a lesson's status changes after progress exists —
+    -- accepted; they self-correct on the student's next progress write.)
     SELECT COUNT(*) INTO total_lessons
     FROM sections s
     JOIN lessons l ON s.section_id = l.section_id
-    WHERE s.course_id = v_course_id;
+    WHERE s.course_id = v_course_id
+    AND l.status = 'published';
 
     SELECT COUNT(*) INTO completed_lessons
     FROM user_lesson_progress ulp
@@ -327,6 +335,7 @@ BEGIN
     JOIN sections s ON l.section_id = s.section_id
     WHERE ulp.user_id = NEW.user_id
     AND s.course_id = v_course_id
+    AND l.status = 'published'
     AND ulp.is_completed = TRUE;
 
     IF total_lessons > 0 THEN

@@ -10,6 +10,7 @@ namespace DataAccess.Dto
         public int SectionId { get; set; } = 0;
         public string Title { get; set; } = string.Empty;
         public int SortOrder { get; set; } = 0;
+        public string Status { get; set; } = "draft";
         public int EstimatedDurationMinutes { get; set; } = 0;
         public List<ContentBlockDto> ContentBlocks { get; set; } = new();
 

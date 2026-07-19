@@ -192,7 +192,12 @@ namespace Business.Services
                 return MyResult<PageResult<LessonDto>>.Failure(ErrorType.NotFound, "Course not found.");
             }
 
-            var lessons = await coursesRepository.GetCourseLessons(courseId, pageNumber, pageSize);
+            // Owner/admin see the full curriculum incl. draft/hidden lessons;
+            // enrolled students only see published ones.
+            var instructorId = await coursesRepository.GetCourseInstructorId(courseId);
+            bool includeUnpublished = isAdmin || instructorId == callerId;
+
+            var lessons = await coursesRepository.GetCourseLessons(courseId, pageNumber, pageSize, includeUnpublished);
 
             if (lessons == null)
             {

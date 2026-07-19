@@ -119,6 +119,12 @@ namespace Business.Services
             if (courseId == null)
                 return MyResult<EnrollmentDto>.Failure(ErrorType.NotFound, "Lesson not found.");
 
+            // A draft/hidden lesson is invisible to students, so progress against it
+            // must look like the lesson doesn't exist.
+            string? lessonStatus = await enrollmentRepository.GetLessonStatusAsync(request.LessonId);
+            if (lessonStatus != "published")
+                return MyResult<EnrollmentDto>.Failure(ErrorType.NotFound, "Lesson not found.");
+
             // Same codes as GetCourseProgress: not enrolled -> 404 (hidden), enrollment
             // exists but isn't active -> 403.
             string? enrollmentStatus = await enrollmentRepository.GetEnrollmentStatusAsync(callerId, courseId.Value);

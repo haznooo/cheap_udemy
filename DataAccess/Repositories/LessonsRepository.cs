@@ -58,6 +58,27 @@ namespace DataAccess.Repositories
             }
         }
 
+        // Status-only update, used by lesson publish/unpublish. Same convention as
+        // CoursesRepository.UpdateCourseStatusAsync (transition rules live in the service).
+        public async Task<LessonEntity?> UpdateLessonStatusAsync(int lessonId, string newStatus)
+        {
+            try
+            {
+                var lesson = await context.Lessons.FirstOrDefaultAsync(l => l.lesson_id == lessonId);
+                if (lesson == null) return null;
+
+                lesson.status = newStatus;
+                lesson.updated_at = DateTime.UtcNow;
+                await context.SaveChangesAsync();
+                return lesson;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                return null;
+            }
+        }
+
         public async Task<bool> DeleteLessonAsync(int lessonId)
         {
             try

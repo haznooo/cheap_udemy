@@ -17,6 +17,11 @@ namespace DataAccess.Entities
         public LessonMetadata lesson_metadata { get; set; } = new();
 
         public int sort_order { get; set; }
+
+        // 'draft' (never published) | 'published' | 'hidden' (unpublished after being live).
+        // draft/hidden lessons are invisible to enrolled students; only owner/admin see them.
+        public string status { get; set; } = "draft";
+
         public int estimated_duration_minutes { get; set; } = 0;
 
         public DateTime created_at { get; set; } = DateTime.UtcNow;

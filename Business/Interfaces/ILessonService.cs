@@ -9,6 +9,8 @@ namespace Business.Interfaces
         Task<MyResult<LessonDto>> CreateLessonAsync(LessonRequest request, int callerId, bool isAdmin);
         Task<MyResult<LessonDto>> GetLessonAsync(int lessonId, int callerId, bool isAdmin);
         Task<MyResult<LessonDto>> UpdateLessonAsync(int lessonId, UpdateLessonRequest request, int callerId, bool isAdmin);
+        Task<MyResult<LessonDto>> PublishLessonAsync(int lessonId, int callerId, bool isAdmin);
+        Task<MyResult<LessonDto>> UnpublishLessonAsync(int lessonId, int callerId, bool isAdmin);
         Task<MyResult<bool>> DeleteLessonAsync(int lessonId, int callerId, bool isAdmin);
     }
 }

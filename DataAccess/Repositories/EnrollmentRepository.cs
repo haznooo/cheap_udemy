@@ -80,6 +80,16 @@ namespace DataAccess.Repositories
                 .FirstOrDefaultAsync();
         }
 
+        // Lesson's publish status ('draft'/'published'/'hidden'), or null if missing.
+        // Used to stop progress writes against lessons a student can't even see.
+        public async Task<string?> GetLessonStatusAsync(int lessonId)
+        {
+            return await context.Lessons
+                .Where(l => l.lesson_id == lessonId)
+                .Select(l => l.status)
+                .FirstOrDefaultAsync();
+        }
+
         public async Task<bool> IsLessonAlreadyCompletedAsync(int userId, int lessonId)
         {
             return await context.UserLessonProgress
@@ -268,8 +278,13 @@ namespace DataAccess.Repositories
         {
             try
             {
+                // Published lessons only — the student-facing curriculum. Mirrors the
+                // trg_sync_progress trigger, which computes percentages over published
+                // lessons for the same reason.
                 var query = context.Lessons
-                    .Where(l => l.section.course_id == courseId && l.section.course.deleted_at == null)
+                    .Where(l => l.section.course_id == courseId
+                        && l.section.course.deleted_at == null
+                        && l.status == "published")
                     .AsNoTracking();
 
                 var totalCount = await query.CountAsync();

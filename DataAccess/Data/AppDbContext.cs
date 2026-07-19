@@ -133,6 +133,7 @@ namespace DataAccess.Data
 
                 entity.Property(e => e.title).HasMaxLength(200).IsRequired();
                 entity.Property(e => e.sort_order).HasDefaultValue(0).IsRequired();
+                entity.Property(e => e.status).HasMaxLength(50).IsRequired();
 
                 // Ordering is unique within a section.
                 entity.HasIndex(e => new { e.section_id, e.sort_order }, "uq_lesson_order_per_section")
