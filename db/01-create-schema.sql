@@ -237,7 +237,7 @@ CREATE TABLE payments (
     status VARCHAR(20) NOT NULL DEFAULT 'pending',           -- NEW: simulate states
     provider VARCHAR(50) NOT NULL DEFAULT 'simulated',       -- NEW
     provider_reference VARCHAR(100) NULL,                    -- NEW: fake txn id
-    payment_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    payment_date TIMESTAMP with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT ck_payments_amount CHECK (amount >= 0),
     CONSTRAINT valid_payment_status CHECK (status IN ('pending', 'completed', 'failed', 'refunded')),

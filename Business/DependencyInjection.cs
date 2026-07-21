@@ -20,6 +20,7 @@ namespace Business.DependencyInjection
             service.AddScoped<IReviewService, ReviewService>();
             service.AddScoped<ICourseService, CourseService>();
             service.AddScoped<ILessonService, LessonService>();
+            service.AddScoped<IPaymentService, PaymentService>();
 
             return service;
         }

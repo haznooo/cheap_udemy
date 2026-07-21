@@ -28,9 +28,9 @@ namespace Business.Services
             if (course.InstructorId == callerId)
                 return MyResult<EnrollmentDto>.Failure(ErrorType.BadRequest, "Instructors cannot enroll in their own course.");
 
-            // No payment flow exists, so only free courses can be enrolled.
+            // Paid courses go through the (simulated) checkout flow, which enrolls on payment.
             if (course.Price > 0)
-                return MyResult<EnrollmentDto>.Failure(ErrorType.BadRequest, "This course requires payment, which is not supported yet.");
+                return MyResult<EnrollmentDto>.Failure(ErrorType.BadRequest, "This course requires payment — use the checkout endpoint.");
 
             string? existingStatus = await enrollmentRepository.GetEnrollmentStatusAsync(callerId, request.CourseId);
 

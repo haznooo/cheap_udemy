@@ -90,3 +90,14 @@ Dev URLs:
 * HTTP:  `http://localhost:5297`
 * HTTPS: `https://localhost:7038`
 * API explorer (Scalar UI): `/scalar/v1`
+
+## Tests
+
+```bash
+dotnet test
+```
+
+`tests/Business.Tests` is a small xUnit test project (Moq + FluentAssertions) covering the
+`Business` service layer, with repositories mocked via their `DataAccess.Interfaces`. It's a
+curated portfolio of unit-testing techniques rather than a coverage push — repositories and
+controllers aren't unit-tested (EF Core repos are integration-test territory, deferred for now).
