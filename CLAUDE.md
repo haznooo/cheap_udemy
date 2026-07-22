@@ -211,9 +211,10 @@ Tokens are stored as deterministic SHA-256 hashes, so `RefreshTokenRepository.Ge
 
 ## Database setup
 
-- `db/01-create-schema.sql` – full schema with tables, constraints, indexes, triggers, RLS
-- `db/02-seed.sql` – seed data
-- EF Core uses `Npgsql`. **No EF migrations** — schema is managed via the raw SQL scripts above.
+- `db/01-create-schema.sql` – full schema with tables, constraints, indexes, triggers (the **source of truth for local dev**; starts with `DROP SCHEMA public CASCADE`, so it wipes the DB). No RLS — a local Postgres isn't exposed to any untrusted role.
+- `db/01-create-schema.supabase.sql` – **Supabase-hosted variant** (the live demo DB runs on Supabase — see README "Deployment"). Differs from the local file in three ways: (1) drops the **tables** instead of the `public` schema (dropping the schema resets Supabase's managed role grants); (2) `SET search_path TO public, extensions` so the trigram index resolves wherever `pg_trgm` lives; (3) **enables deny-all RLS on all 13 tables** at the end, to hide the data from Supabase's public auto-generated PostgREST API (`anon`/`authenticated` roles) — the app connects as the `postgres` table owner, which **bypasses RLS**, so app behaviour is unchanged. Keep it in sync by hand when the schema changes; regenerate from `01-create-schema.sql` + these three deltas.
+- `db/02-seed.sql` – seed data (categories + one admin user; Supabase-compatible as-is).
+- EF Core uses `Npgsql`. **No EF migrations** — schema is managed via the raw SQL scripts above. Schema changes are applied to **both** the SQL file(s) **and** the live DB by hand (the long-standing "schema file + live-DB, both applied" habit); on the live Supabase DB, apply incremental `ALTER`/`CREATE` deltas via the SQL Editor — **never** re-run `01-create-schema.supabase.sql` against data you want to keep, and remember to `ENABLE ROW LEVEL SECURITY` on any **new** table.
 - **Naming**: no naming-convention package — entity **property names are written literally in snake_case** (e.g. `user_id`, `target_table`) so they match the DB columns 1:1 (`EFCore.NamingConventions` was referenced early on but never configured, and was removed as dead weight). **Gotcha:** a typo'd property name therefore maps to a non-existent column and fails at runtime (this happened with `admin_actions.trget_table` → fixed to `target_table` + explicit `HasColumnName`). When adding columns, match the SQL column name exactly or add `.HasColumnName(...)`.
 
 ## Tests / how to verify
