@@ -254,7 +254,9 @@ CREATE INDEX ix_payments_course_id ON payments (course_id);
 
 -- Course publish/update bookkeeping (unchanged)
 CREATE OR REPLACE FUNCTION handle_course_publication()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+SET search_path = public
+AS $$
 BEGIN
     IF NEW.status = 'published' AND OLD.status = 'draft' THEN
         NEW.published_date = NOW();
@@ -271,7 +273,9 @@ CREATE TRIGGER trg_course_publish_logic
 
 -- Verify Instructor (unchanged)
 CREATE OR REPLACE FUNCTION verify_instructor_role()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+SET search_path = public
+AS $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM users
@@ -291,7 +295,9 @@ CREATE TRIGGER trg_verify_instructor
 
 -- Verify Admin (unchanged)
 CREATE OR REPLACE FUNCTION verify_admin_privileges()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+SET search_path = public
+AS $$
 DECLARE
     u_role VARCHAR(50);
 BEGIN
@@ -310,7 +316,9 @@ CREATE TRIGGER trg_verify_admin_action
 
 --  Sync Progress (unchanged)
 CREATE OR REPLACE FUNCTION update_enrollment_progress()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+SET search_path = public
+AS $$
 DECLARE
     total_lessons INT;
     completed_lessons INT;
@@ -357,7 +365,9 @@ CREATE TRIGGER trg_sync_progress
 
 -- Immutable Audit Log (unchanged)
 CREATE OR REPLACE FUNCTION protect_audit_log()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+SET search_path = public
+AS $$
 BEGIN
     RAISE EXCEPTION 'Table % is immutable.', TG_TABLE_NAME;
 END;
@@ -370,7 +380,9 @@ CREATE TRIGGER trg_lock_admin_actions
 
 -- delete user TRIGGER (unchanged)
 CREATE OR REPLACE FUNCTION anonymize_user_on_delete()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+SET search_path = public
+AS $$
 BEGIN
     DELETE FROM users_profile WHERE user_id = OLD.user_id;
     DELETE FROM user_refresh_tokens WHERE user_id = OLD.user_id;
@@ -397,7 +409,9 @@ CREATE TRIGGER trg_anonymize_user
 --          aggregated on every read. Fires on any review insert/update/delete.
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION sync_course_rating()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+SET search_path = public
+AS $$
 DECLARE
     v_course_id INT;
 BEGIN
@@ -428,7 +442,9 @@ CREATE TRIGGER trg_sync_course_rating
 
 -- enrollments_count
 CREATE OR REPLACE FUNCTION sync_enrollments_count()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+SET search_path = public
+AS $$
 DECLARE
     v_course_id INT;
 BEGIN
@@ -453,7 +469,9 @@ CREATE TRIGGER trg_sync_enrollments_count
 
 -- lessons_count (lessons -> sections -> course)
 CREATE OR REPLACE FUNCTION sync_lessons_count()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+SET search_path = public
+AS $$
 DECLARE
     v_section_id INT;
     v_course_id INT;
@@ -490,6 +508,7 @@ CREATE TRIGGER trg_sync_lessons_count
 -- token in one statement, instead of the app fetching+updating one hop at a time.
 CREATE OR REPLACE PROCEDURE revoke_breached_chain(start_id integer)
 LANGUAGE plpgsql
+SET search_path = public
 AS $$
 BEGIN
     WITH RECURSIVE chain AS (
