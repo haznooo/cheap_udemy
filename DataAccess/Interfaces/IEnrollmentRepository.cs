@@ -16,7 +16,7 @@ namespace DataAccess.Interfaces
         Task<bool> IsLessonAlreadyCompletedAsync(int userId, int lessonId);
         Task<EnrollmentDto?> EnrollStudentAsync(EnrollmentEntitiy enrollment);
         Task<PageResult<EnrollmentDto>> GetEnrollmentsByUserIdAsync(int userId, int pageNumber, int pageSize);
-        Task<PageResult<EnrollmentDto>> GetEnrollmentsByCourseIdAsync(int courseId, int pageNumber, int pageSize);
+        Task<PageResult<CourseEnrollmentDto>> GetEnrollmentsByCourseIdAsync(int courseId, int pageNumber, int pageSize);
         Task<EnrollmentDto?> MarkLessonProgressAsync(int userId, int lessonId, int courseId);
         Task<PageResult<LessonProgressDto>> GetUserCourseProgressAsync(int userId, int courseId, int pageNumber, int pageSize);
         Task<EnrollmentDto?> ReactivateDroppedEnrollmentAsync(int userId, int courseId);

@@ -84,27 +84,27 @@ namespace Business.Services
         }
 
         // The course roster is readable only by the owning instructor or an admin.
-        public async Task<MyResult<PageResult<EnrollmentDto>>> GetCourseEnrollments(int callerId, string callerRole, int courseId, int pageNumber, int pageSize)
+        public async Task<MyResult<PageResult<CourseEnrollmentDto>>> GetCourseEnrollments(int callerId, string callerRole, int courseId, int pageNumber, int pageSize)
         {
             if (courseId <= 0)
-                return MyResult<PageResult<EnrollmentDto>>.Failure(ErrorType.BadRequest, "Invalid course ID.");
+                return MyResult<PageResult<CourseEnrollmentDto>>.Failure(ErrorType.BadRequest, "Invalid course ID.");
 
             if (pageNumber <= 0 || pageSize <= 0)
-                return MyResult<PageResult<EnrollmentDto>>.Failure(ErrorType.BadRequest, "Invalid page number or page size.");
+                return MyResult<PageResult<CourseEnrollmentDto>>.Failure(ErrorType.BadRequest, "Invalid page number or page size.");
 
             int? instructorId = await enrollmentRepository.GetCourseInstructorIdAsync(courseId);
             if (instructorId == null)
-                return MyResult<PageResult<EnrollmentDto>>.Failure(ErrorType.NotFound, "Course not found.");
+                return MyResult<PageResult<CourseEnrollmentDto>>.Failure(ErrorType.NotFound, "Course not found.");
 
             if (callerRole != "admin" && callerId != instructorId)
-                return MyResult<PageResult<EnrollmentDto>>.Failure(ErrorType.Unauthorized, "Access denied.");
+                return MyResult<PageResult<CourseEnrollmentDto>>.Failure(ErrorType.Unauthorized, "Access denied.");
 
             var r = await enrollmentRepository.GetEnrollmentsByCourseIdAsync(courseId, pageNumber, pageSize);
 
             if (r == null)
-                return MyResult<PageResult<EnrollmentDto>>.Failure(ErrorType.Failure, "Failed to retrieve enrollments.");
+                return MyResult<PageResult<CourseEnrollmentDto>>.Failure(ErrorType.Failure, "Failed to retrieve enrollments.");
 
-            return MyResult<PageResult<EnrollmentDto>>.Success(r);
+            return MyResult<PageResult<CourseEnrollmentDto>>.Success(r);
         }
 
         public async Task<MyResult<EnrollmentDto>> MarkLessonProgress(int callerId, MarkLessonProgressRequest request)

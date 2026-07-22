@@ -57,8 +57,11 @@ namespace Api.Controllers
             return Ok(result.Value);
         }
 
+        // The course's student roster — instructor (owner) or admin only. Returns each
+        // student's identity (username/display name/avatar) alongside their progress,
+        // so the instructor can see *who* is enrolled, not just user ids.
         [HttpGet("course/{courseId}")]
-        public async Task<ActionResult<PageResult<EnrollmentDto>>> GetCourseEnrollments(
+        public async Task<ActionResult<PageResult<CourseEnrollmentDto>>> GetCourseEnrollments(
             int courseId,
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10)

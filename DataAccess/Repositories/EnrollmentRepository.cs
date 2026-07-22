@@ -171,7 +171,7 @@ namespace DataAccess.Repositories
             }
         }
 
-        public async Task<PageResult<EnrollmentDto>> GetEnrollmentsByCourseIdAsync(int courseId, int pageNumber, int pageSize)
+        public async Task<PageResult<CourseEnrollmentDto>> GetEnrollmentsByCourseIdAsync(int courseId, int pageNumber, int pageSize)
         {
             try
             {
@@ -182,14 +182,18 @@ namespace DataAccess.Repositories
                 var totalCount = await query.CountAsync();
 
                 var items = await query
+                    .OrderByDescending(e => e.enrollment_date)
                     .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
-                    .Select(e => new EnrollmentDto
+                    .Select(e => new CourseEnrollmentDto
                     {
                         EnrollmentId = e.enrollment_id,
                         UserId = e.user_id,
-                        CourseId = e.course_id,
-                        CourseTitle = e.course.title,
+                        Username = e.user.username,
+                        // LEFT JOIN via the optional profile navigation — null when the
+                        // student never created a profile (both are nullable on the DTO).
+                        DisplayName = e.user.UserProfile.display_name,
+                        ImageUrl = e.user.UserProfile.image_url,
                         EnrollmentDate = e.enrollment_date,
                         CompletionDate = e.completion_date,
                         Status = e.status,
@@ -197,7 +201,7 @@ namespace DataAccess.Repositories
                     })
                     .ToListAsync();
 
-                return new PageResult<EnrollmentDto>
+                return new PageResult<CourseEnrollmentDto>
                 {
                     Items = items,
                     TotalCount = totalCount,
