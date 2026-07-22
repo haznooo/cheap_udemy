@@ -3,6 +3,10 @@
 A backend API for a Udemy-style e-learning platform. It manages user authentication,
 user course libraries, and the process of posting, reviewing, and enrolling in courses.
 
+**🌐 Live demo:** [cheap-udemy-client.vercel.app](https://cheap-udemy-client.vercel.app) ·
+API docs: [cheap-udemy.onrender.com/scalar/v1](https://cheap-udemy.onrender.com/scalar/v1)
+*(free-tier hosting — first request after idle takes ~30 s to wake the backend)*
+
 > Learning / CV project — not production-ready. The goal is practice and something to
 > show, so it favours simple solutions over heavy "correct" ones.
 
@@ -87,11 +91,18 @@ controllers aren't unit-tested (EF Core repos are integration-test territory, de
 The live demo is split across three layers, each on its own free host — the standard
 "data / API / UI" split, since each layer wants a different kind of hosting:
 
-| Layer                       | Hosted on                          | Status         |
-| --------------------------- | ---------------------------------- | -------------- |
-| **Database** + media storage | Supabase                           | ✅ see below    |
-| **App** (backend API)        | TBD — Render / Azure / Fly (Docker) | ⬜ planned      |
-| **Client** (frontend SPA)    | TBD — Vercel / Netlify             | ⬜ planned      |
+| Layer                        | Hosted on         | Status      |
+| ---------------------------- | ----------------- | ----------- |
+| **Database** + media storage | Supabase          | ✅ see below |
+| **App** (backend API)        | Render (Docker)   | ✅ see below |
+| **Client** (frontend SPA)    | Vercel            | ✅ see below |
+
+**Live demo:** [cheap-udemy-client.vercel.app](https://cheap-udemy-client.vercel.app) (frontend) →
+[cheap-udemy.onrender.com](https://cheap-udemy.onrender.com) (API, explorable at
+[`/scalar/v1`](https://cheap-udemy.onrender.com/scalar/v1)).
+
+> **Free-tier note:** the backend sleeps after ~15 min of no traffic, so the **first** request
+> after idle takes ~30–50 s while Render cold-starts the container. After that it's normal speed.
 
 > Pick your **own** project names, region, passwords, and secrets everywhere below —
 > nothing here is shared or fixed.
@@ -145,13 +156,52 @@ for the connection-pooler details.
 > - **Session pooler** = a direct connection over IPv4 with full features — the right fit for a
 >   persistent .NET server.
 
-### App (backend API) — planned ⬜
+### App (backend API) — Render ✅
 
-To be documented. Plan: containerize the API (`Dockerfile`) and deploy to Render / Azure App
-Service / Fly.io. Set `ConnectionString` (the Supabase string above), `JWT_SECRET_KEY`, and
-`StupidKey` as env vars on the host, and add the deployed frontend origin to the CORS policy.
+The API is containerized (multi-stage [`Dockerfile`](Dockerfile) at the repo root: SDK image
+builds/publishes, slim `aspnet` runtime image runs `Api.dll` on port 8080) and deployed to
+[Render](https://render.com) as a Docker **Web Service** on the free tier.
 
-### Client (frontend SPA) — planned ⬜
+**Setup:** New Web Service → connect this GitHub repo → Render auto-detects the `Dockerfile`
+(no build/start command needed) → pick the free instance type. Every `git push` to `master`
+then auto-builds and redeploys.
 
-To be documented. Plan: deploy the separate `cheap-udemy-client` repo to Vercel / Netlify /
-Cloudflare Pages (static build), pointing its API base URL at the deployed backend.
+**Env vars** (set in the Render dashboard, *Environment* tab):
+
+| Variable                 | Value                                                        |
+| ------------------------ | ------------------------------------------------------------ |
+| `ConnectionString`       | the Supabase pooler string from above                        |
+| `JWT_SECRET_KEY`         | same as local                                                |
+| `StupidKey`              | Supabase service role key                                    |
+| `ASPNETCORE_ENVIRONMENT` | `Development` — exposes the Scalar docs UI (delete to hide)  |
+| `AllowedOrigins`         | the deployed frontend origin (see CORS note below)           |
+
+> **Dockerfile gotcha (already handled):** `Microsoft.Extensions.ApiDescription.Server` boots
+> the app at build time to emit the OpenAPI spec — and the app throws on startup without its
+> secret env vars, which a clean container build doesn't have. The publish step therefore passes
+> `-p:OpenApiGenerateDocumentsOnBuild=false`; Scalar/OpenAPI still work at runtime.
+
+> **CORS is env-driven:** allowed origins are read from the `AllowedOrigins` config value
+> (comma-separated). `appsettings.json` holds the localhost defaults for local dev; the Render
+> env var overrides them with the live frontend origin. An origin is scheme + host only —
+> **no trailing slash**.
+
+### Client (frontend SPA) — Vercel ✅
+
+The separate `cheap-udemy-client` repo (React/Vite) is deployed to
+[Vercel](https://vercel.com): Add New → Project → import the client repo → Vercel auto-detects
+Vite (default build command / output dir) → set one env var → Deploy. Every push to `main`
+auto-redeploys.
+
+| Variable            | Value                                                  |
+| ------------------- | ------------------------------------------------------ |
+| `VITE_API_BASE_URL` | the deployed API origin, e.g. `https://<app>.onrender.com` (no trailing slash) |
+
+> **Vite gotcha:** `VITE_*` env vars are baked into the JS bundle at **build** time, not read at
+> run time. Changing the value only takes effect after a redeploy — and redeploy **without**
+> the build cache, or the old baked-in value survives.
+
+> **Debugging tip (learned the hard way):** if the browser reports a CORS error, first check
+> the *hostname* the frontend is actually calling. A wrong/dead API URL produces the exact same
+> `No 'Access-Control-Allow-Origin' header` message as a real CORS misconfiguration, because a
+> non-existent server returns no headers at all.
