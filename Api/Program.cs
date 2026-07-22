@@ -117,16 +117,20 @@ namespace CheapUdemy
 
             //this line will add all the dependencies from the Api project to the DI container
             builder.Services.AddApiDI(builder.Configuration);
-            //adding cors policy for development
+            // Allowed CORS origins are env-driven (comma-separated), not hardcoded: local dev
+            // reads the localhost defaults from appsettings.json, and the live host (Render)
+            // overrides "AllowedOrigins" with the deployed frontend URL via an env var — no
+            // recompile/redeploy needed when the frontend URL changes. Env vars outrank
+            // appsettings, so setting it on Render fully replaces the localhost defaults.
+            var allowedOrigins = (builder.Configuration["AllowedOrigins"] ?? "")
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("CheapUdemyApiCorsPolicy", policy =>
                 {
                     policy
-                        .WithOrigins(
-                            "https://localhost:7038",
-                            "http://localhost:5297"
-                        )
+                        .WithOrigins(allowedOrigins)
                         .AllowAnyHeader()
                         .AllowAnyMethod();
                 });
