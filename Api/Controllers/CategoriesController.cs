@@ -12,7 +12,7 @@ namespace Api.Controllers
     // rate-limit policy and the shared paging conventions like every other controller.
     [ApiController]
     [Route("api/categories")]
-    [Authorize]
+    [AllowAnonymous]
     public class CategoriesController(AppDbContext context) : ApiControllerBase
     {
         [HttpGet]

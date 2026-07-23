@@ -25,6 +25,7 @@ namespace Api.Controllers
             return Ok(result.Value);
         }
 
+        [AllowAnonymous]
         [HttpGet("get")]
         public async Task<ActionResult<PageResult<ReviewDto>>> GetReviews(
             int courseId,
