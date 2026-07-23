@@ -204,6 +204,19 @@ namespace Api.Controllers
             return Ok(result.Value);
         }
 
+        // Public info about an instructor (username + display name + avatar) — any
+        // authenticated user, e.g. to show who published a course. No email/role/status.
+        [Authorize]
+        [HttpGet("instructor/{instructorId:int}/info")]
+        public async Task<ActionResult<PublicInstructorResponse>> GetInstructorInfo(int instructorId)
+        {
+            var result = await courseService.GetInstructorInfo(instructorId);
+
+            if (!result.IsSuccess) return MapFailure(result);
+
+            return Ok(result.Value);
+        }
+
         [Authorize]
         [HttpPatch("{courseId}")]
         public async Task<ActionResult<CourseDto>> UpdateCourse(int courseId, [FromBody] UpdateCourseRequest request)

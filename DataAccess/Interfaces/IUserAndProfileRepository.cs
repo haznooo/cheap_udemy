@@ -18,6 +18,8 @@ namespace DataAccess.Interfaces
         Task<UserAndProfileDto> GetUserByIdAsync(int userId);
         Task<UserAndProfileDto?> GetUserWithProfileForAdminAsync(int userId);
 
+        Task<PublicUserDto?> GetPublicUserInfoAsync(int userId);
+
         // profile
         Task<UserProfileDto?> GetUserProfileByIdAsync(int userId);
         Task<string?> UpdateUserAvatarAsync(int userId, string fileName);

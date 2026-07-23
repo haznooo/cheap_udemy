@@ -269,6 +269,21 @@ namespace Business.Services
             return MyResult<PageResult<CourseDto>>.Success(r);
         }
 
+        // Public info about a course's instructor (username + display name + avatar).
+        // Any authenticated caller; returns 404 for a missing/deleted/inactive user.
+        public async Task<MyResult<PublicInstructorResponse>> GetInstructorInfo(int instructorId)
+        {
+            if (instructorId <= 0)
+                return MyResult<PublicInstructorResponse>.Failure(ErrorType.BadRequest, "Invalid instructor ID.");
+
+            var u = await userAndProfileRepository.GetPublicUserInfoAsync(instructorId);
+            if (u == null)
+                return MyResult<PublicInstructorResponse>.Failure(ErrorType.NotFound, "Instructor not found.");
+
+            return MyResult<PublicInstructorResponse>.Success(
+                new PublicInstructorResponse(u.UserId, u.Username, u.DisplayName, u.ImageUrl));
+        }
+
         public async Task<MyResult<CourseDto>> UpdateCourse(int courseId, UpdateCourseRequest request, int callerId, bool isAdmin)
         {
             if (courseId <= 0)

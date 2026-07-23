@@ -402,6 +402,25 @@ namespace DataAccess.Repositories
             };
         }
 
+        // Public-facing read: username + profile display name/avatar for any ACTIVE
+        // user (used to show the instructor who published a course). Active-only so a
+        // deleted/anonymized or banned account doesn't surface; profile fields are
+        // null when the user has no profile row. LEFT join via the nav property.
+        public async Task<PublicUserDto?> GetPublicUserInfoAsync(int userId)
+        {
+            return await context.Users
+                .Where(u => u.user_id == userId && u.status == "active")
+                .AsNoTracking()
+                .Select(u => new PublicUserDto
+                {
+                    UserId = u.user_id,
+                    Username = u.username,
+                    DisplayName = u.UserProfile.display_name,
+                    ImageUrl = u.UserProfile.image_url
+                })
+                .FirstOrDefaultAsync();
+        }
+
         // profile
         public async Task<UserProfileDto?> GetUserProfileByIdAsync(int userId)
         {
