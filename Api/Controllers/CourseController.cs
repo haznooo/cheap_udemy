@@ -201,17 +201,16 @@ namespace Api.Controllers
             return Ok(result.Value);
         }
 
-        // Read another instructor's courses — any authenticated user; non-owner/non-admin see published only.
-        [Authorize]
+        // Read another instructor's courses — anonymous (published only). An owner/admin
+        // caller sees drafts too; anonymous/other callers (callerId 0) see published only.
+        [AllowAnonymous]
         [HttpGet("instructor/{instructorId:int}")]
         public async Task<ActionResult<clsPageResult.PageResult<CourseDto>>> GetInstructorCourses(
             int instructorId,
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10)
         {
-            if (CallerId is not int callerId) return MissingIdentity();
-
-            var result = await courseService.GetInstructorCourses(instructorId, callerId, CallerRole, pageNumber, pageSize);
+            var result = await courseService.GetInstructorCourses(instructorId, CallerId ?? 0, CallerRole, pageNumber, pageSize);
 
             if (!result.IsSuccess) return MapFailure(result);
 
