@@ -18,9 +18,14 @@ namespace Api.Controllers
         private const long MaxThumbnailSize = 5 * 1024 * 1024;
         private readonly string[] _allowedImageExtensions = { ".jpg", ".jpeg", ".png" };
 
-        // Lesson media (images + short video) for a course's content blocks.
-        private const long MaxMediaSize = 5 * 1024 * 1024;
-        private readonly string[] _allowedMediaExtensions = { ".jpg", ".jpeg", ".png", ".mp4", ".mov" };
+        // Lesson media (images + short video) for a course's content blocks. Video gets a
+        // much larger cap than images: a 30 MiB image is almost always an unoptimized upload,
+        // while real short videos need the room. Video cap matches the course-media bucket's
+        // file_size_limit exactly (30 MiB), so a file that passes won't be rejected by Supabase.
+        private const long MaxMediaImageSize = 5 * 1024 * 1024;
+        private const long MaxMediaVideoSize = 30 * 1024 * 1024;
+        private readonly string[] _allowedMediaImageExtensions = { ".jpg", ".jpeg", ".png" };
+        private readonly string[] _allowedMediaVideoExtensions = { ".mp4", ".mov" };
 
         [AllowAnonymous]
         [HttpPost("get")]
@@ -110,6 +115,10 @@ namespace Api.Controllers
         // BEFORE touching storage so non-owners can't write to the shared bucket.
         [Authorize]
         [HttpPost("{courseId}/media")]
+        // Kestrel's default request-body cap (~28.6 MB) is below our 30 MiB media limit,
+        // so raise it for just this endpoint (with a little headroom for multipart overhead)
+        // — otherwise a legitimate ~30 MiB upload is rejected before reaching this action.
+        [RequestSizeLimit(32 * 1024 * 1024)]
         public async Task<ActionResult<MediaUploadResponse>> UploadCourseMedia(int courseId, IFormFile file)
         {
             if (CallerId is not int callerId) return MissingIdentity();
@@ -118,14 +127,19 @@ namespace Api.Controllers
             {
                 return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "No file was uploaded.");
             }
-            if (file.Length > MaxMediaSize)
-            {
-                return Problem(statusCode: StatusCodes.Status400BadRequest, detail: $"File exceeds the maximum limit of {MaxMediaSize / (1024 * 1024)}MB.");
-            }
             var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            if (string.IsNullOrEmpty(extension) || !_allowedMediaExtensions.Contains(extension))
+            bool isVideo = _allowedMediaVideoExtensions.Contains(extension);
+            bool isImage = _allowedMediaImageExtensions.Contains(extension);
+            if (string.IsNullOrEmpty(extension) || (!isVideo && !isImage))
             {
                 return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Invalid file type. Only JPG, PNG, MP4, and MOV are allowed.");
+            }
+
+            // Per-type size cap: video up to 30 MiB, images held to 5 MB.
+            long maxSize = isVideo ? MaxMediaVideoSize : MaxMediaImageSize;
+            if (file.Length > maxSize)
+            {
+                return Problem(statusCode: StatusCodes.Status400BadRequest, detail: $"File exceeds the maximum limit of {maxSize / (1024 * 1024)}MB for {(isVideo ? "video" : "image")} files.");
             }
 
             bool isAdmin = User.IsInRole("admin");
