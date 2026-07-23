@@ -157,6 +157,22 @@ namespace DataAccess.Repositories
             }
         }
 
+        // Wipes every review for a course — used by the admin takedown, where the course
+        // is gone for good (unlike suspend, which keeps reviews for a possible restore).
+        public async Task<bool> DeleteAllReviewsForCourseAsync(int courseId)
+        {
+            try
+            {
+                await context.Reviews.Where(r => r.course_id == courseId).ExecuteDeleteAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                return false;
+            }
+        }
+
         private static ReviewDto MapToDto(ReviewEntitiy r, string reviewerName) => new ReviewDto
         {
             ReviewId = r.review_id,

@@ -1,5 +1,6 @@
 using DataAccess.Dto;
 using DataAccess.Entities;
+using DataAccess.Entities.json;
 using static DataAccess.Common.clsPageResult;
 
 namespace DataAccess.Interfaces
@@ -26,6 +27,8 @@ namespace DataAccess.Interfaces
         Task<CourseEntitiy?> GetRawCourseAsync(int courseId);
         Task<CourseDto?> UpdateCourseStatusAsync(int courseId, string newStatus);
         Task<bool> SoftDeleteCourseAsync(int courseId, string? removalReason);
+        Task<List<List<ContentBlock>>> GetCourseLessonContentBlocksAsync(int courseId);
+        Task<bool> PurgeCourseContentAsync(int courseId, string? removalReason);
         Task<bool> DoesCategoryExistAsync(int categoryId);
     }
 }

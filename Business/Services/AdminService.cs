@@ -9,7 +9,7 @@ namespace Business.Services
     // user repository as UserService/AuthenticationService — repos stay per-table,
     // services per-use-case. The audit row is written HERE, right next to the
     // mutation, so no caller can perform an admin action and skip the audit.
-    public class AdminService(IUserAndProfileRepository userRepository, IRefreshTokenService refreshTokenService, IAdminActionService adminActionService, ICoursesRepository coursesRepository) : IAdminService
+    public class AdminService(IUserAndProfileRepository userRepository, IRefreshTokenService refreshTokenService, IAdminActionService adminActionService, ICoursesRepository coursesRepository, IReviewRepository reviewRepository, IMediaService mediaService) : IAdminService
     {
         // Account + optional profile view of any user. Unlike the self read
         // (UserService.GetUserProfile), this works for accounts with no profile row
@@ -146,6 +146,55 @@ namespace Business.Services
                 targetId: courseId,
                 oldValue: new { status = course.status },
                 newValue: new { status = newStatus });
+
+            return MyResult<bool>.Success(true);
+        }
+
+        // Course takedown: a PERMANENT content purge, unlike suspend (a reversible flag).
+        // Destroys the course's content (sections/lessons/content_blocks via DB cascade),
+        // its reviews, and its bucket media, then tombstones the course row (deleted_at)
+        // so it 404s everywhere. The FK-protected payment/enrollment records are KEPT
+        // (refunds/disputes/accounting) — a student's history still resolves the historical
+        // title off the tombstone. Any live status is purgeable; only a missing or
+        // already-tombstoned course is rejected.
+        public async Task<MyResult<bool>> TakedownCourse(int adminId, int courseId, string? removalReason)
+        {
+            if (courseId <= 0) return MyResult<bool>.Failure(ErrorType.BadRequest, "course id can not be zero or negative");
+
+            var course = await coursesRepository.GetRawCourseAsync(courseId);
+            if (course == null)
+                return MyResult<bool>.Failure(ErrorType.NotFound, "course not found");
+
+            // Capture what must be cleaned from storage BEFORE the rows (and the block
+            // data pointing at those files) are gone — same pattern as the avatar name
+            // captured before the anonymize trigger in DeleteUser.
+            string? thumbnail = course.thumbnail_url;
+            var lessonBlocks = await coursesRepository.GetCourseLessonContentBlocksAsync(courseId);
+            var mediaNames = new HashSet<string>();
+            foreach (var blocks in lessonBlocks)
+                mediaNames.UnionWith(ContentBlockMedia.ExtractFileNames(blocks));
+
+            // Reviews are destroyed too. Best-effort: a stray review would 404 with the
+            // tombstoned course anyway, so a failure here must not block the takedown.
+            await reviewRepository.DeleteAllReviewsForCourseAsync(courseId);
+
+            if (!await coursesRepository.PurgeCourseContentAsync(courseId, removalReason))
+                return MyResult<bool>.Failure(ErrorType.Failure, "failed to take down course");
+
+            await adminActionService.LogAsync(
+                adminId,
+                actionType: "delete",
+                targetTable: "courses",
+                targetId: courseId,
+                oldValue: new { status = course.status, title = course.title },
+                newValue: new { deleted = true, removal_reason = removalReason, purged = true });
+
+            // Storage cleanup AFTER the DB commit, best-effort (a leaked file is harmless,
+            // a broken DB reference is not) — same media-cleanup policy as everywhere else.
+            foreach (var name in mediaNames)
+                await mediaService.DeleteCourseMediaAsync(name);
+            if (!string.IsNullOrEmpty(thumbnail))
+                await mediaService.DeleteCourseThumbnailAsync(thumbnail);
 
             return MyResult<bool>.Success(true);
         }

@@ -9,5 +9,6 @@ namespace Business.Interfaces
         Task<MyResult<string?>> DeleteUser(int adminId, int targetUserId);
         Task<MyResult<bool>> SetUserStatus(int adminId, int targetUserId, string newStatus);
         Task<MyResult<bool>> SetCourseSuspension(int adminId, int courseId, bool suspend);
+        Task<MyResult<bool>> TakedownCourse(int adminId, int courseId, string? removalReason);
     }
 }

@@ -284,7 +284,7 @@ namespace Business.Services
             // orphaned in the bucket — remove them (after the save, best-effort).
             if (newBlocks != null)
             {
-                var removedFiles = ExtractMediaFileNames(lesson.content_blocks);
+                var removedFiles = ContentBlockMedia.ExtractFileNames(lesson.content_blocks);
                 var keptNames = ExtractMediaFileNames(request.ContentBlocks);
                 // Match by substring, not equality: a client that echoes back the
                 // signed URL of an unchanged block (instead of the raw stored file
@@ -319,7 +319,7 @@ namespace Business.Services
                 return MyResult<bool>.Failure(permission.FailureType, permission.Errors.Select(e => e.Message).ToArray());
 
             // Collect the file names BEFORE the row (and with it the block data) is gone.
-            var mediaFiles = ExtractMediaFileNames(lesson.content_blocks);
+            var mediaFiles = ContentBlockMedia.ExtractFileNames(lesson.content_blocks);
 
             var deleted = await lessonsRepository.DeleteLessonAsync(lessonId);
             if (!deleted)
@@ -344,52 +344,18 @@ namespace Business.Services
             }
         }
 
-        // File names of supabase-hosted media referenced by a lesson's stored blocks.
-        private static HashSet<string> ExtractMediaFileNames(List<ContentBlock>? blocks)
-        {
-            var names = new HashSet<string>();
-            if (blocks == null) return names;
-
-            var jsonOptions = new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true,
-                AllowOutOfOrderMetadataProperties = true
-            };
-
-            foreach (var b in blocks)
-            {
-                try
-                {
-                    if (b.Data.ValueKind == JsonValueKind.Undefined || b.Data.ValueKind == JsonValueKind.Null) continue;
-                    AddMediaFileName(names, b.Data.Deserialize<BlockData>(jsonOptions));
-                }
-                catch (JsonException)
-                {
-                    // Unreadable block — nothing to clean up for it.
-                }
-            }
-
-            return names;
-        }
-
+        // Request-side counterpart of ContentBlockMedia.ExtractFileNames: the incoming
+        // blocks already carry a typed BlockData, so no JsonElement deserialization is
+        // needed. The stored-block extraction + the shared image/video logic live in
+        // Business.Common.ContentBlockMedia.
         private static HashSet<string> ExtractMediaFileNames(List<ContentBlockRequest>? blocks)
         {
             var names = new HashSet<string>();
             if (blocks == null) return names;
 
-            foreach (var b in blocks) AddMediaFileName(names, b.Data);
+            foreach (var b in blocks) ContentBlockMedia.AddFileName(names, b.Data);
 
             return names;
-        }
-
-        private static void AddMediaFileName(HashSet<string> names, BlockData? data)
-        {
-            // Only supabase-hosted media maps to a bucket object; external providers
-            // (e.g. a youtube video id) are not ours to delete.
-            if (data is ImageBlockData img && !string.IsNullOrWhiteSpace(img.Url))
-                names.Add(img.Url);
-            else if (data is VideoBlockData vid && vid.Provider == "supabase" && !string.IsNullOrWhiteSpace(vid.VideoId))
-                names.Add(vid.VideoId);
         }
 
         private List<string> ValidateBlockData(LessonRequest request)

@@ -29,7 +29,7 @@ namespace Business.Tests.Services
                 .Setup(r => r.UpdateUserStatusAsync(7, newStatus))
                 .ReturnsAsync(true);
 
-            return new AdminService(userRepository.Object, refreshTokenService.Object, adminActionService.Object, new Mock<ICoursesRepository>().Object);
+            return new AdminService(userRepository.Object, refreshTokenService.Object, adminActionService.Object, new Mock<ICoursesRepository>().Object, new Mock<IReviewRepository>().Object, new Mock<IMediaService>().Object);
         }
 
         [Fact]

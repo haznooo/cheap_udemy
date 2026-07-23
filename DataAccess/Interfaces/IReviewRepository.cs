@@ -14,5 +14,6 @@ namespace DataAccess.Interfaces
         Task<ReviewDto?> UpdateReviewAsync(int userId, int courseId, short rating, string? comment);
         Task<ReviewEntitiy?> GetReviewByIdAsync(int reviewId);
         Task<bool> DeleteReviewAsync(int reviewId);
+        Task<bool> DeleteAllReviewsForCourseAsync(int courseId);
     }
 }

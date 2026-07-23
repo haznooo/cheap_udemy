@@ -1,3 +1,4 @@
+using Business.Dto.Request;
 using Business.Interfaces;
 using Business.Services; // IMediaService lives in this namespace
 using DataAccess.Dto;
@@ -89,6 +90,24 @@ namespace Api.Controllers
         [HttpPost("courses/{courseId:int}/unsuspend")]
         public async Task<ActionResult> UnsuspendCourse(int courseId)
             => await SetCourseSuspension(courseId, suspend: false);
+
+        // Course takedown: PERMANENTLY purges the course's content (sections, lessons,
+        // content_blocks, reviews) and its bucket media, then tombstones the course row.
+        // Irreversible — unlike suspend. Payment/enrollment records are deliberately kept.
+        // Audited (by AdminService) as 'delete' on target_table 'courses'. Optional body
+        // carries a removal reason.
+        [HttpPost("courses/{courseId:int}/takedown")]
+        public async Task<ActionResult> TakedownCourse(int courseId, [FromBody] DeleteCourseRequest? request)
+        {
+            if (CallerId is not int adminId) return MissingIdentity();
+
+            var result = await adminService.TakedownCourse(adminId, courseId, request?.RemovalReason);
+            if (!result.IsSuccess) return MapFailure(result);
+
+            logger.LogInformation("Admin {AdminId} took down course {CourseId}", adminId, courseId);
+
+            return NoContent();
+        }
 
         // Shared flow for the two course-suspension endpoints, mirroring SetUserStatus.
         private async Task<ActionResult> SetCourseSuspension(int courseId, bool suspend)
