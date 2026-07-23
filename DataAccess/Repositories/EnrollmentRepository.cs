@@ -130,12 +130,16 @@ namespace DataAccess.Repositories
             }
         }
 
-        public async Task<PageResult<EnrollmentDto>> GetEnrollmentsByUserIdAsync(int userId, int pageNumber, int pageSize)
+        public async Task<PageResult<EnrollmentDto>> GetEnrollmentsByUserIdAsync(int userId, int pageNumber, int pageSize, bool excludeDeletedCourses)
         {
             try
             {
+                // The "My Learning" library passes excludeDeletedCourses so a taken-down /
+                // soft-deleted course drops out (its row stays for payments/admin — the
+                // FK from payments.enrollment_id means we must never delete it). The admin
+                // per-user view passes false and sees the full history, deleted or not.
                 var query = context.Enrollments
-                    .Where(e => e.user_id == userId)
+                    .Where(e => e.user_id == userId && (!excludeDeletedCourses || e.course.deleted_at == null))
                     .AsNoTracking();
 
                 var totalCount = await query.CountAsync();

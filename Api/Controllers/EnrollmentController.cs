@@ -33,7 +33,8 @@ namespace Api.Controllers
         {
             if (CallerId is not int callerId) return MissingIdentity();
 
-            var result = await enrollmentService.GetUserEnrollments(callerId, CallerRole, callerId, pageNumber, pageSize);
+            // Library view: hide enrollments whose course has been taken down / deleted.
+            var result = await enrollmentService.GetUserEnrollments(callerId, CallerRole, callerId, pageNumber, pageSize, excludeDeletedCourses: true);
 
             if (!result.IsSuccess) return MapFailure(result);
 
@@ -50,7 +51,8 @@ namespace Api.Controllers
         {
             if (CallerId is not int callerId) return MissingIdentity();
 
-            var result = await enrollmentService.GetUserEnrollments(callerId, CallerRole, userId, pageNumber, pageSize);
+            // Admin audit view: full history, including enrollments in deleted courses.
+            var result = await enrollmentService.GetUserEnrollments(callerId, CallerRole, userId, pageNumber, pageSize, excludeDeletedCourses: false);
 
             if (!result.IsSuccess) return MapFailure(result);
 

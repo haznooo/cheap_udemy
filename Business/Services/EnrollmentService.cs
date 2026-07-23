@@ -64,7 +64,9 @@ namespace Business.Services
         }
 
         // A user may only read their own enrollments; admins may read anyone's.
-        public async Task<MyResult<PageResult<EnrollmentDto>>> GetUserEnrollments(int callerId, string callerRole, int userId, int pageNumber, int pageSize)
+        // excludeDeletedCourses is set by the library (me) route so tombstoned/soft-deleted
+        // courses drop out; the admin per-user view leaves it false to see the full history.
+        public async Task<MyResult<PageResult<EnrollmentDto>>> GetUserEnrollments(int callerId, string callerRole, int userId, int pageNumber, int pageSize, bool excludeDeletedCourses)
         {
             if (userId <= 0)
                 return MyResult<PageResult<EnrollmentDto>>.Failure(ErrorType.BadRequest, "Invalid user ID.");
@@ -75,7 +77,7 @@ namespace Business.Services
             if (pageNumber <= 0 || pageSize <= 0)
                 return MyResult<PageResult<EnrollmentDto>>.Failure(ErrorType.BadRequest, "Invalid page number or page size.");
 
-            var r = await enrollmentRepository.GetEnrollmentsByUserIdAsync(userId, pageNumber, pageSize);
+            var r = await enrollmentRepository.GetEnrollmentsByUserIdAsync(userId, pageNumber, pageSize, excludeDeletedCourses);
 
             if (r == null)
                 return MyResult<PageResult<EnrollmentDto>>.Failure(ErrorType.Failure, "Failed to retrieve enrollments.");
