@@ -22,7 +22,7 @@ namespace DataAccess.Interfaces
         Task<(SectionDto? Result, bool Conflict)> UpdateSectionAsync(int sectionId, string? title, int? sortOrder);
         Task<bool> DeleteSectionAsync(int sectionId);
         Task<CourseDto?> UpdateCourseAsync(int courseId, string? title, string? description, string? code, decimal? price, string? level, int? categoryId);
-        Task<PageResult<CourseDto>> GetCoursesByInstructorIdAsync(int instructorId, int pageNumber, int pageSize);
+        Task<PageResult<CourseDto>> GetCoursesByInstructorIdAsync(int instructorId, bool publishedOnly, int pageNumber, int pageSize);
         Task<CourseEntitiy?> GetRawCourseAsync(int courseId);
         Task<CourseDto?> UpdateCourseStatusAsync(int courseId, string newStatus);
         Task<bool> SoftDeleteCourseAsync(int courseId, string? removalReason);

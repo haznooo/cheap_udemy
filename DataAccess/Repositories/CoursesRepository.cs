@@ -528,13 +528,16 @@ namespace DataAccess.Repositories
             }
         }
 
-        public async Task<PageResult<CourseDto>> GetCoursesByInstructorIdAsync(int instructorId, int pageNumber, int pageSize)
+        public async Task<PageResult<CourseDto>> GetCoursesByInstructorIdAsync(int instructorId, bool publishedOnly, int pageNumber, int pageSize)
         {
             try
             {
                 var query = context.Courses
                     .Where(c => c.instructor_id == instructorId && c.deleted_at == null)
                     .AsNoTracking();
+
+                if (publishedOnly)
+                    query = query.Where(c => c.status == "published");
 
                 var totalCount = await query.CountAsync();
 

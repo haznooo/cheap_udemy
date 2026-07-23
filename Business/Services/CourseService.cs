@@ -258,11 +258,11 @@ namespace Business.Services
             if (pageNumber <= 0 || pageSize <= 0)
                 return MyResult<PageResult<CourseDto>>.Failure(ErrorType.BadRequest, "Invalid page number or page size.");
 
+            // Owner/admin see every non-deleted course (drafts included); everyone else only published.
             bool isAdmin = callerRole == "admin";
-            if (!isAdmin && callerId != instructorId)
-                return MyResult<PageResult<CourseDto>>.Failure(ErrorType.Unauthorized, "Access denied.");
+            bool publishedOnly = !isAdmin && callerId != instructorId;
 
-            var r = await coursesRepository.GetCoursesByInstructorIdAsync(instructorId, pageNumber, pageSize);
+            var r = await coursesRepository.GetCoursesByInstructorIdAsync(instructorId, publishedOnly, pageNumber, pageSize);
             if (r == null)
                 return MyResult<PageResult<CourseDto>>.Failure(ErrorType.Failure, "Failed to retrieve courses.");
 

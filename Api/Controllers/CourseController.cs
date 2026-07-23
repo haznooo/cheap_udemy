@@ -187,8 +187,8 @@ namespace Api.Controllers
             return Ok(result.Value);
         }
 
-        // Read another instructor's courses — admin only.
-        [Authorize(Roles = "admin")]
+        // Read another instructor's courses — any authenticated user; non-owner/non-admin see published only.
+        [Authorize]
         [HttpGet("instructor/{instructorId:int}")]
         public async Task<ActionResult<clsPageResult.PageResult<CourseDto>>> GetInstructorCourses(
             int instructorId,
