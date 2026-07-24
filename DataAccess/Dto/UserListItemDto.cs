@@ -12,5 +12,10 @@ namespace DataAccess.Dto
         public string Role { get; set; }
         public string Status { get; set; }
         public DateTime CreateDate { get; set; }
+        // From the optional users_profile row (LEFT-joined) — null when the user never
+        // made a profile, or when it was wiped by the anonymize-on-delete trigger.
+        // ImageUrl is the raw avatar file name; the client builds the public URL.
+        public string? DisplayName { get; set; }
+        public string? ImageUrl { get; set; }
     }
 }

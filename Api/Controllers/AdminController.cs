@@ -29,13 +29,16 @@ namespace Api.Controllers
         }
 
         // List all users (newest first, paged) for the admin user-management view.
-        // Slim rows — full account + profile detail is on GET users/{userId}.
+        // Slim rows (incl. display name + avatar) — full account detail is on
+        // GET users/{userId}. Optional status filter (active/banned/suspended/deleted);
+        // omit for all.
         [HttpGet("users")]
         public async Task<ActionResult<PageResult<UserListItemDto>>> GetUsers(
             [FromQuery] int pageNumber = 1,
-            [FromQuery] int pageSize = 10)
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? status = null)
         {
-            var result = await adminService.GetUsers(pageNumber, pageSize);
+            var result = await adminService.GetUsers(pageNumber, pageSize, status);
             return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
         }
 

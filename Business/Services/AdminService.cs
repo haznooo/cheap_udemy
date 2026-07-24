@@ -12,16 +12,22 @@ namespace Business.Services
     // mutation, so no caller can perform an admin action and skip the audit.
     public class AdminService(IUserAndProfileRepository userRepository, IRefreshTokenService refreshTokenService, IAdminActionService adminActionService, ICoursesRepository coursesRepository, IReviewRepository reviewRepository, IMediaService mediaService) : IAdminService
     {
-        // Paged list of every account (newest-first) for the admin user-management view.
-        // Slim rows (id/username/email/role/status/create_date) — includes deleted
-        // (anonymized) accounts, since those still occupy a row; full detail per user is
-        // on GetUser below.
-        public async Task<MyResult<PageResult<UserListItemDto>>> GetUsers(int pageNumber, int pageSize)
+        // The account states an admin can filter by (matches the users.status CHECK).
+        private static readonly HashSet<string> ValidUserStatuses = new() { "active", "banned", "suspended", "deleted" };
+
+        // Paged list of accounts (newest-first) for the admin user-management view. Slim
+        // rows (id/username/email/role/status/create_date + display name/avatar) — includes
+        // deleted (anonymized) accounts, since those still occupy a row; full detail per
+        // user is on GetUser below. Optional status filter; null/empty = all statuses.
+        public async Task<MyResult<PageResult<UserListItemDto>>> GetUsers(int pageNumber, int pageSize, string? status = null)
         {
             if (pageNumber <= 0 || pageSize <= 0)
                 return MyResult<PageResult<UserListItemDto>>.Failure(ErrorType.BadRequest, "Invalid page number or page size.");
 
-            var users = await userRepository.GetUsersAsync(pageNumber, pageSize);
+            if (!string.IsNullOrWhiteSpace(status) && !ValidUserStatuses.Contains(status))
+                return MyResult<PageResult<UserListItemDto>>.Failure(ErrorType.BadRequest, "Invalid status filter.");
+
+            var users = await userRepository.GetUsersAsync(pageNumber, pageSize, status);
 
             if (users == null)
                 return MyResult<PageResult<UserListItemDto>>.Failure(ErrorType.Failure, "Failed to retrieve users.");

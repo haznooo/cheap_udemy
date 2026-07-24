@@ -161,13 +161,18 @@ namespace DataAccess.Repositories
             return true;
         }
 
-        // Paged list of every account for the admin user-management view. Ordered
-        // newest-first (create_date desc, user_id desc as a stable tiebreak so pages
-        // don't shift/repeat rows created in the same instant). Projects to a slim DTO
-        // (no password hash, no profile) — full detail is on GetUserWithProfileForAdminAsync.
-        public async Task<PageResult<UserListItemDto>> GetUsersAsync(int pageNumber, int pageSize)
+        // Paged list of accounts for the admin user-management view. Ordered newest-first
+        // (create_date desc, user_id desc as a stable tiebreak so pages don't shift/repeat
+        // rows created in the same instant). Optional status filter (active/banned/
+        // suspended/deleted); null/empty = all statuses. Projects to a slim DTO (no
+        // password hash) with the display name + avatar LEFT-joined from users_profile
+        // (both null when the user has no profile row, e.g. never made one or anonymized).
+        public async Task<PageResult<UserListItemDto>> GetUsersAsync(int pageNumber, int pageSize, string? status = null)
         {
             var query = context.Users.AsNoTracking(); // Better performance for Read-Only
+
+            if (!string.IsNullOrWhiteSpace(status))
+                query = query.Where(u => u.status == status);
 
             var totalCount = await query.CountAsync();
             var items = await query
@@ -182,7 +187,9 @@ namespace DataAccess.Repositories
                     Email = u.email,
                     Role = u.role,
                     Status = u.status,
-                    CreateDate = u.create_date
+                    CreateDate = u.create_date,
+                    DisplayName = u.UserProfile.display_name,
+                    ImageUrl = u.UserProfile.image_url
                 })
                 .ToListAsync();
 
