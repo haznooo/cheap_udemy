@@ -8,10 +8,9 @@ namespace DataAccess.Interfaces
     {
         //user
         Task<UserAndProfileDto> AddUserAsync(UserEntity User);
-        Task<bool> DeleteUserAsync_Anonymize(UserEntity User);
         Task<bool> DeleteUserAsync_Anonymize(int userId);
         Task<bool> UpdateUserPasswordAsync(int userId, string newHashedPassword);
-        Task<PageResult<UserListItemDto>> GetUsersAsync(int pageNumber, int pageSize, string? status = null);
+        Task<PageResult<UserListItemDto>> GetUsersAsync(int pageNumber, int pageSize, string? status = null, string? search = null);
         Task<UserAndProfileDto> GetUserByCredentialsAsync(string email, string hashed_password);
         Task<UserAndProfileDto> GetUserByEmailAsync(string email);
         Task<LoginLookupDto?> GetUserForLoginAsync(string email);

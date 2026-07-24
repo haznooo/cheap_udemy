@@ -55,56 +55,13 @@ namespace DataAccess.Repositories
             }
 
         }
-        public async Task<bool> DeleteUserAsync_Anonymize(UserEntity User)
-        {
-      //the reason i did this is because i prevented the normal delete method to use soft delete (so i can keep the id safe for referencing other stuff in the project 
-      // inside the delete trigger i have an update prcoess so i can take the old id of the user and use it for a generic gmail : delete_67@app.com
-      // i really don't remember it in detials but since there is no actual delete the trigger was only retuning null and it did not work well with EF
-      // i tried to make it return some sort of value like a bool but it seems like this is not allowed in postgre 
-            try
-            {
-                // 1. Get a direct connection to the underlying database command system
-                using var command = context.Database.GetDbConnection().CreateCommand();
-
-                command.CommandText = "DELETE FROM users WHERE user_id = @userId";
-                command.CommandType = CommandType.Text;
-
-                // Add the parameter safely to prevent SQL injection
-                var parameter = command.CreateParameter();
-                parameter.ParameterName = "@userId";
-                parameter.Value = User.user_id;
-                command.Parameters.Add(parameter);
-
-                // 2. Open connection if closed and execute BLINDLY
-                if (context.Database.GetDbConnection().State != ConnectionState.Open)
-                {
-                    await context.Database.OpenConnectionAsync();
-                }
-
-                // ExecuteNonQuery executes the SQL and doesn't check or throw errors based on row counts!
-                await command.ExecuteNonQueryAsync();
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.ToString()); return false;
-            }
-            finally
-            {
-                // Clean up connection tracking if necessary
-                await context.Database.CloseConnectionAsync();
-            }
-
-
-
-        }
+        // "Delete" is really an anonymize: the normal delete is blocked (soft-delete) so the
+        // user_id stays valid for other tables that reference it. A DB delete trigger instead
+        // rewrites the row (e.g. email → delete_67@app.com). Because that trigger returns null,
+        // it didn't play well with EF's normal SaveChanges — so this runs a raw, blind
+        // ExecuteNonQuery that doesn't inspect row counts.
         public async Task<bool> DeleteUserAsync_Anonymize(int userId)
         {
-
-            // read "DeleteUserAsync_Anonymize(UserEntity User)" to understand this 
-            UserEntity user = await context.Users.FirstOrDefaultAsync(u => u.user_id == userId);
-            if(user == null) return false;
             try
             {
                 // 1. Get a direct connection to the underlying database command system
