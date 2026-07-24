@@ -6,7 +6,6 @@ namespace DataAccess.Interfaces
 {
     public interface IReviewRepository
     {
-        Task<bool> IsEnrolledAsync(int userId, int courseId);
         Task<bool> HasAlreadyReviewedAsync(int userId, int courseId);
         Task<ReviewDto?> AddReviewAsync(ReviewEntitiy review);
         Task<PageResult<ReviewDto>> GetReviewsByCourseIdAsync(int courseId, int pageNumber, int pageSize);

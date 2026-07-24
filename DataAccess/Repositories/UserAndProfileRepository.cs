@@ -429,15 +429,6 @@ namespace DataAccess.Repositories
             return await context.UsersProfile.AnyAsync(p => p.user_id == userId);
         }
 
-        //custom elemnts
-        public async Task<string?> GetHashedPasswordByEmailAsync(string email)
-        {
-
-            string? hasshedPassword = await context.Users.Where(u => u.email == email).Select(u => u.hashed_password).FirstOrDefaultAsync();
-
-            return hasshedPassword;
-
-        }
         // Promotes a student to instructor on their first course creation (see
         // CourseService.AddNewCourse). No-op (still true) if already instructor/admin.
         public async Task<bool> PromoteUserToInstructorAsync(int userId)
@@ -501,14 +492,6 @@ namespace DataAccess.Repositories
             string? hashedPassword = await context.Users.Where(u => u.user_id == userId).Select(u => u.hashed_password).FirstOrDefaultAsync();
 
             return hashedPassword;
-        }
-
-        public async Task<int?> GetUserIdByEmail(string email)
-        {
-
-            int id = await context.Users.Where(u => u.email == email).Select(u => u.user_id).FirstOrDefaultAsync();
-
-            return id;
         }
     }
 }

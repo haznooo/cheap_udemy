@@ -41,20 +41,6 @@ namespace DataAccess.Repositories
                 return null;
             }
         }
-        public async Task<RefreshTokenEntity> GetRefreshTokenEntityByUserIdAsync(int userId)
-        {
-            try
-            {
-                var refreshToken = await context.UserRefreshToken.FirstOrDefaultAsync(rt => rt.user_id == userId);
-                return refreshToken;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex);
-                return null;
-            }
-        }
-
         // Finds the token by (user_id, token_hash) across ALL states — used, revoked and expired
         // included. Reuse detection needs to SEE a replayed, already-used token; the valid-only
         // lookup below hides it (it would just look "not found").
@@ -112,12 +98,6 @@ namespace DataAccess.Repositories
             }
         }
 
-        public async Task<string?> GetRefreshTokenByUserIdAsync(int userId)
-        {
-
-            return await context.UserRefreshToken.Where(u => u.user_id == userId).Select(u => u.token_hash).FirstOrDefaultAsync();
-
-        }
         // Bulk-revokes every still-active refresh token for a user (sets used + revoked_at) without
         // deleting the rows, so reuse-detection history survives. Used on password change so a
         // previously stolen token can't outlive the credential it was obtained under. Returns the
@@ -137,24 +117,6 @@ namespace DataAccess.Repositories
                 Console.WriteLine(ex);
                 return -1;
             }
-        }
-
-        public async Task<bool> DeleteAllRefreshTokensAsync(int userId)
-        {
-            try
-            {
-               var results =   context.UserRefreshToken
-                      .Where(t => t.user_id == userId)
-                  .ExecuteDelete();
-
-                return results > 0;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex);
-                return false;
-            }
-
         }
     }
 }
