@@ -16,7 +16,7 @@ namespace Api.Controllers
     [ApiController]
     [Route("api/admin")]
     [Authorize(Roles = "admin")]
-    public class AdminController(IAdminService adminService, IAdminActionService adminActionService, ILogger<AdminController> logger, IMediaService mediaService) : ApiControllerBase
+    public class AdminController(IAdminService adminService, IAdminActionService adminActionService, ILogger<AdminController> logger, IMediaService mediaService, IEnrollmentService enrollmentService) : ApiControllerBase
     {
         // Read the audit log (newest first, paged). Rows are immutable at the DB level.
         [HttpGet("actions")]
@@ -64,6 +64,22 @@ namespace Api.Controllers
         public async Task<ActionResult<UserAndProfileDto>> GetUser(int userId)
         {
             var result = await adminService.GetUser(userId);
+            return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
+        }
+
+        // Read any user's enrollment history — the admin audit view: full history
+        // INCLUDING enrollments in taken-down/deleted courses (the student's own
+        // library at GET api/Enrollments/me/enrollments hides those). Lives here, not
+        // on api/Enrollments, so every act-on-another-user-by-id route is under api/admin.
+        [HttpGet("users/{userId:int}/enrollments")]
+        public async Task<ActionResult<PageResult<EnrollmentDto>>> GetUserEnrollments(
+            int userId,
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10)
+        {
+            if (CallerId is not int adminId) return MissingIdentity();
+
+            var result = await enrollmentService.GetUserEnrollments(adminId, CallerRole, userId, pageNumber, pageSize, excludeDeletedCourses: false);
             return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
         }
 

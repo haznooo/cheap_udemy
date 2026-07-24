@@ -41,23 +41,9 @@ namespace Api.Controllers
             return Ok(result.Value);
         }
 
-        // Read another user's enrollments — admin only.
-        [HttpGet("user/{userId:int}")]
-        [Authorize(Roles = "admin")]
-        public async Task<ActionResult<PageResult<EnrollmentDto>>> GetUserEnrollments(
-            int userId,
-            [FromQuery] int pageNumber = 1,
-            [FromQuery] int pageSize = 10)
-        {
-            if (CallerId is not int callerId) return MissingIdentity();
-
-            // Admin audit view: full history, including enrollments in deleted courses.
-            var result = await enrollmentService.GetUserEnrollments(callerId, CallerRole, userId, pageNumber, pageSize, excludeDeletedCourses: false);
-
-            if (!result.IsSuccess) return MapFailure(result);
-
-            return Ok(result.Value);
-        }
+        // NOTE: reading ANOTHER user's enrollments is an admin-only, act-on-a-user-by-id
+        // action, so it lives on the admin controller now:
+        // GET api/admin/users/{userId}/enrollments (moved off api/Enrollments).
 
         // The course's student roster — instructor (owner) or admin only. Returns each
         // student's identity (username/display name/avatar) alongside their progress,
