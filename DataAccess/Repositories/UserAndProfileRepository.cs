@@ -157,50 +157,6 @@ namespace DataAccess.Repositories
                 PageSize = pageSize
             };
         }
-        public async Task<UserAndProfileDto> GetUserByEmailAsync(string email)
-        {
-            var R = await context.Users.Where(u => u.email == email && u.status == "active")
-             .Select(u => new
-             {
-                 // Fields from the User table
-                 UserId = u.user_id,
-                 u.username,
-                 u.email,
-                 u.role,
-                 u.status,
-
-
-                 // Fields from the UserProfile navigation property
-                 u.UserProfile.bio,
-                 u.UserProfile.image_url,
-                 u.UserProfile.display_name
-             }).FirstOrDefaultAsync();
-
-            if (R == null) return null;
-
-            UserProfileDto response = new UserProfileDto
-            {
-
-                DisplayName = R.display_name,
-                Bio = R.bio,
-                ImageUrl = R.image_url
-
-            };
-
-
-            return new UserAndProfileDto
-            {
-
-                UserId = R.UserId,
-                Username = R.username,
-                Email = R.email,
-                Role = R.role,
-                Status = R.status,
-                Profile = response
-
-            };
-
-        }
         // Single-query fetch for the login flow. Deliberately NOT filtered by status —
         // login needs to see anonymized/deleted (NULL hash) and suspended/banned accounts
         // so it can spend equal BCrypt time and return the same 401 as a wrong password,
