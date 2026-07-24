@@ -157,47 +157,6 @@ namespace DataAccess.Repositories
                 PageSize = pageSize
             };
         }
-        public async Task<UserAndProfileDto> GetUserByCredentialsAsync(string email, string hashed_password)
-        {
-
-            var User = await context.Users.Where(u => u.email == email && u.status == "active")
-           .Select(u => new
-           {
-               // Fields from the User table
-               UserId = u.user_id,
-               u.username,
-               u.email,
-               u.role,
-               u.status,
-
-
-              // Fields from the UserProfile navigation property
-             u.UserProfile.bio,
-              u.UserProfile.image_url,
-               u.UserProfile.display_name
-           }).FirstOrDefaultAsync();
-
-            if(User == null) return null;   
-
-            return new UserAndProfileDto
-            {
-                UserId = User.UserId,
-                Username = User.username,
-                Email = User.email,
-                Role = User.role,
-                Status = User.status,
-                Profile = new UserProfileDto
-                {
-                   Bio = User.bio,
-                 ImageUrl = User.image_url,
-                    DisplayName = User.display_name
-                }
-            };
-
-
-
-
-        }
         public async Task<UserAndProfileDto> GetUserByEmailAsync(string email)
         {
             var R = await context.Users.Where(u => u.email == email && u.status == "active")
