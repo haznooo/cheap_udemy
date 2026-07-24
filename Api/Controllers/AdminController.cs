@@ -28,6 +28,17 @@ namespace Api.Controllers
             return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
         }
 
+        // List all users (newest first, paged) for the admin user-management view.
+        // Slim rows — full account + profile detail is on GET users/{userId}.
+        [HttpGet("users")]
+        public async Task<ActionResult<PageResult<UserListItemDto>>> GetUsers(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10)
+        {
+            var result = await adminService.GetUsers(pageNumber, pageSize);
+            return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
+        }
+
         // Read any user's account + profile (Profile is null if they never created
         // one). Shows banned/suspended accounts; deleted (anonymized) → 404.
         [HttpGet("users/{userId:int}")]

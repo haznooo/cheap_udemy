@@ -161,17 +161,32 @@ namespace DataAccess.Repositories
             return true;
         }
 
-        public async Task<PageResult<UserEntity>> GetUsersAsync(int pageNumber, int pageSize)
+        // Paged list of every account for the admin user-management view. Ordered
+        // newest-first (create_date desc, user_id desc as a stable tiebreak so pages
+        // don't shift/repeat rows created in the same instant). Projects to a slim DTO
+        // (no password hash, no profile) — full detail is on GetUserWithProfileForAdminAsync.
+        public async Task<PageResult<UserListItemDto>> GetUsersAsync(int pageNumber, int pageSize)
         {
             var query = context.Users.AsNoTracking(); // Better performance for Read-Only
 
             var totalCount = await query.CountAsync();
             var items = await query
+                .OrderByDescending(u => u.create_date)
+                .ThenByDescending(u => u.user_id)
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
+                .Select(u => new UserListItemDto
+                {
+                    UserId = u.user_id,
+                    Username = u.username,
+                    Email = u.email,
+                    Role = u.role,
+                    Status = u.status,
+                    CreateDate = u.create_date
+                })
                 .ToListAsync();
 
-            return new PageResult<UserEntity>
+            return new PageResult<UserListItemDto>
             {
                 Items = items,
                 TotalCount = totalCount,

@@ -2,6 +2,7 @@ using Business.Common;
 using Business.Interfaces;
 using DataAccess.Dto;
 using DataAccess.Interfaces;
+using static DataAccess.Common.clsPageResult;
 
 namespace Business.Services
 {
@@ -11,6 +12,23 @@ namespace Business.Services
     // mutation, so no caller can perform an admin action and skip the audit.
     public class AdminService(IUserAndProfileRepository userRepository, IRefreshTokenService refreshTokenService, IAdminActionService adminActionService, ICoursesRepository coursesRepository, IReviewRepository reviewRepository, IMediaService mediaService) : IAdminService
     {
+        // Paged list of every account (newest-first) for the admin user-management view.
+        // Slim rows (id/username/email/role/status/create_date) — includes deleted
+        // (anonymized) accounts, since those still occupy a row; full detail per user is
+        // on GetUser below.
+        public async Task<MyResult<PageResult<UserListItemDto>>> GetUsers(int pageNumber, int pageSize)
+        {
+            if (pageNumber <= 0 || pageSize <= 0)
+                return MyResult<PageResult<UserListItemDto>>.Failure(ErrorType.BadRequest, "Invalid page number or page size.");
+
+            var users = await userRepository.GetUsersAsync(pageNumber, pageSize);
+
+            if (users == null)
+                return MyResult<PageResult<UserListItemDto>>.Failure(ErrorType.Failure, "Failed to retrieve users.");
+
+            return MyResult<PageResult<UserListItemDto>>.Success(users);
+        }
+
         // Account + optional profile view of any user. Unlike the self read
         // (UserService.GetUserProfile), this works for accounts with no profile row
         // and shows banned/suspended accounts; deleted (anonymized) stay a 404.
