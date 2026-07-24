@@ -14,23 +14,13 @@ namespace DataAccess.Repositories
     {
     
         //user
+        // Signup is account-only now — the profile is created afterwards via
+        // POST api/user/me/profile/add, so no profile is written here and Profile
+        // comes back null.
         public async Task<UserAndProfileDto> AddUserAsync(UserEntity User)
         {
             try
             {
-                UserProfileEntity userProfileEntity = null;
-                if (User.UserProfile != null)
-                {
-                    userProfileEntity = new UserProfileEntity
-                    {
-                        user_id = User.user_id,
-                        bio = User.UserProfile?.bio,
-                        image_url = User.UserProfile?.image_url,
-                        display_name = User.UserProfile?.display_name,
-
-                    };
-
-                }
                 var newUser = new UserEntity
                 {
                     user_id = 0, // Let the database generate the ID
@@ -39,11 +29,10 @@ namespace DataAccess.Repositories
                     status = User.status,
                     email = User.email,
                     hashed_password = User.hashed_password,
-                    role = User.role,
-                    UserProfile = userProfileEntity // This will be safely null if no profile was provided
+                    role = User.role
                 };
 
-      
+
                 await context.Users.AddAsync(newUser);
                 await context.SaveChangesAsync();
 
@@ -54,12 +43,7 @@ namespace DataAccess.Repositories
                     Email = newUser.email,
                     Role = newUser.role,
                     Status = newUser.status,
-                    Profile = new UserProfileDto
-                    {
-                        Bio = newUser.UserProfile?.bio,
-                        ImageUrl = newUser.UserProfile?.image_url,
-                        DisplayName = newUser.UserProfile?.display_name
-                    }
+                    Profile = null
                 };
 
             }
@@ -167,12 +151,27 @@ namespace DataAccess.Repositories
         // suspended/deleted); null/empty = all statuses. Projects to a slim DTO (no
         // password hash) with the display name + avatar LEFT-joined from users_profile
         // (both null when the user has no profile row, e.g. never made one or anonymized).
-        public async Task<PageResult<UserListItemDto>> GetUsersAsync(int pageNumber, int pageSize, string? status = null)
+        public async Task<PageResult<UserListItemDto>> GetUsersAsync(int pageNumber, int pageSize, string? status = null, string? search = null)
         {
             var query = context.Users.AsNoTracking(); // Better performance for Read-Only
 
             if (!string.IsNullOrWhiteSpace(status))
                 query = query.Where(u => u.status == status);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                // Substring match across username, display name (LEFT-joined, null-safe:
+                // a null column just doesn't match) and email. Wildcards are escaped so
+                // input like "50%" or "a_b" is treated literally, not as a LIKE pattern.
+                // Plain ILIKE (no trigram index) — the admin user table is small and this
+                // is an admin-only path, so a sequential scan is fine.
+                var escaped = search.Replace(@"\", @"\\").Replace("%", @"\%").Replace("_", @"\_");
+                var pattern = $"%{escaped}%";
+                query = query.Where(u =>
+                    EF.Functions.ILike(u.username, pattern, @"\")
+                    || EF.Functions.ILike(u.UserProfile.display_name, pattern, @"\")
+                    || EF.Functions.ILike(u.email, pattern, @"\"));
+            }
 
             var totalCount = await query.CountAsync();
             var items = await query
