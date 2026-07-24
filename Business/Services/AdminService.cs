@@ -15,11 +15,16 @@ namespace Business.Services
         // The account states an admin can filter by (matches the users.status CHECK).
         private static readonly HashSet<string> ValidUserStatuses = new() { "active", "banned", "suspended", "deleted" };
 
+        // The course states an admin can filter by (matches the courses.status CHECK).
+        // Soft-deleted courses are a separate deleted_at column, not a status value, so
+        // they aren't filterable here — they still show up when no status is given.
+        private static readonly HashSet<string> ValidCourseStatuses = new() { "published", "draft", "retired", "suspended" };
+
         // Paged list of accounts (newest-first) for the admin user-management view. Slim
         // rows (id/username/email/role/status/create_date + display name/avatar) — includes
         // deleted (anonymized) accounts, since those still occupy a row; full detail per
         // user is on GetUser below. Optional status filter; null/empty = all statuses.
-        public async Task<MyResult<PageResult<UserListItemDto>>> GetUsers(int pageNumber, int pageSize, string? status = null)
+        public async Task<MyResult<PageResult<UserListItemDto>>> GetUsers(int pageNumber, int pageSize, string? status = null, string? search = null)
         {
             if (pageNumber <= 0 || pageSize <= 0)
                 return MyResult<PageResult<UserListItemDto>>.Failure(ErrorType.BadRequest, "Invalid page number or page size.");
@@ -27,12 +32,32 @@ namespace Business.Services
             if (!string.IsNullOrWhiteSpace(status) && !ValidUserStatuses.Contains(status))
                 return MyResult<PageResult<UserListItemDto>>.Failure(ErrorType.BadRequest, "Invalid status filter.");
 
-            var users = await userRepository.GetUsersAsync(pageNumber, pageSize, status);
+            var users = await userRepository.GetUsersAsync(pageNumber, pageSize, status, search?.Trim());
 
             if (users == null)
                 return MyResult<PageResult<UserListItemDto>>.Failure(ErrorType.Failure, "Failed to retrieve users.");
 
             return MyResult<PageResult<UserListItemDto>>.Success(users);
+        }
+
+        // Paged list of courses (newest-first) for the admin moderation view. Unlike the
+        // public catalog (published-only), this shows ALL statuses incl. suspended and
+        // soft-deleted/tombstoned, so an admin can find any course to moderate. Optional
+        // search (title + instructor username) and status filter (a courses.status value).
+        public async Task<MyResult<PageResult<CourseDto>>> GetCourses(int pageNumber, int pageSize, string? status = null, string? search = null)
+        {
+            if (pageNumber <= 0 || pageSize <= 0)
+                return MyResult<PageResult<CourseDto>>.Failure(ErrorType.BadRequest, "Invalid page number or page size.");
+
+            if (!string.IsNullOrWhiteSpace(status) && !ValidCourseStatuses.Contains(status))
+                return MyResult<PageResult<CourseDto>>.Failure(ErrorType.BadRequest, "Invalid status filter.");
+
+            var courses = await coursesRepository.GetAllCoursesForAdminAsync(pageNumber, pageSize, status, search?.Trim());
+
+            if (courses == null)
+                return MyResult<PageResult<CourseDto>>.Failure(ErrorType.Failure, "Failed to retrieve courses.");
+
+            return MyResult<PageResult<CourseDto>>.Success(courses);
         }
 
         // Account + optional profile view of any user. Unlike the self read

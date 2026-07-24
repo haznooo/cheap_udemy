@@ -6,7 +6,8 @@ namespace Business.Interfaces
 {
     public interface IAdminService
     {
-        Task<MyResult<PageResult<UserListItemDto>>> GetUsers(int pageNumber, int pageSize, string? status = null);
+        Task<MyResult<PageResult<UserListItemDto>>> GetUsers(int pageNumber, int pageSize, string? status = null, string? search = null);
+        Task<MyResult<PageResult<CourseDto>>> GetCourses(int pageNumber, int pageSize, string? status = null, string? search = null);
         Task<MyResult<UserAndProfileDto>> GetUser(int userId);
         Task<MyResult<string?>> DeleteUser(int adminId, int targetUserId);
         Task<MyResult<bool>> SetUserStatus(int adminId, int targetUserId, string newStatus);

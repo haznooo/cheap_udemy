@@ -30,15 +30,31 @@ namespace Api.Controllers
 
         // List all users (newest first, paged) for the admin user-management view.
         // Slim rows (incl. display name + avatar) — full account detail is on
-        // GET users/{userId}. Optional status filter (active/banned/suspended/deleted);
-        // omit for all.
+        // GET users/{userId}. Optional status filter (active/banned/suspended/deleted)
+        // and free-text search (matches username, display name or email); omit for all.
         [HttpGet("users")]
         public async Task<ActionResult<PageResult<UserListItemDto>>> GetUsers(
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10,
-            [FromQuery] string? status = null)
+            [FromQuery] string? status = null,
+            [FromQuery] string? search = null)
         {
-            var result = await adminService.GetUsers(pageNumber, pageSize, status);
+            var result = await adminService.GetUsers(pageNumber, pageSize, status, search);
+            return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
+        }
+
+        // List all courses (newest first, paged) for the admin moderation view. Shows
+        // every status incl. suspended and soft-deleted/tombstoned (unlike the public
+        // catalog). Optional status filter (published/draft/retired/suspended) and
+        // free-text search (matches course title or instructor username); omit for all.
+        [HttpGet("courses")]
+        public async Task<ActionResult<PageResult<CourseDto>>> GetCourses(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? status = null,
+            [FromQuery] string? search = null)
+        {
+            var result = await adminService.GetCourses(pageNumber, pageSize, status, search);
             return result.IsSuccess ? Ok(result.Value) : MapFailure(result);
         }
 

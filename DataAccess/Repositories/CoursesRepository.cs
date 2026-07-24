@@ -109,6 +109,74 @@ namespace DataAccess.Repositories
             }
         }
 
+        // Admin moderation list: every course regardless of status, INCLUDING
+        // soft-deleted/tombstoned ones (unlike the public GetAllCourses, which is
+        // published + non-deleted only). Newest-first by created_date. Optional
+        // substring search over title + instructor username, and an optional
+        // courses.status filter. Plain ILIKE (admin-only path).
+        public async Task<PageResult<CourseDto>> GetAllCoursesForAdminAsync(
+            int pageNumber, int pageSize, string? status = null, string? search = null)
+        {
+            try
+            {
+                var query = context.Courses.AsQueryable();
+
+                if (!string.IsNullOrWhiteSpace(status))
+                    query = query.Where(c => c.status == status);
+
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    var escaped = search.Replace(@"\", @"\\").Replace("%", @"\%").Replace("_", @"\_");
+                    var pattern = $"%{escaped}%";
+                    query = query.Where(c =>
+                        EF.Functions.ILike(c.title, pattern, @"\")
+                        || EF.Functions.ILike(c.instructor.username, pattern, @"\"));
+                }
+
+                var totalCount = await query.CountAsync();
+
+                var items = await query
+                    .OrderByDescending(c => c.created_date)
+                    .ThenByDescending(c => c.course_id)
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .AsNoTracking()
+                    .Select(c => new CourseDto
+                    {
+                        CourseId = c.course_id,
+                        Title = c.title,
+                        CategoryId = c.category_id,
+                        CategoryName = c.category.name,
+                        InstructorId = c.instructor_id,
+                        InstructorName = c.instructor.username,
+                        code = c.code,
+                        description = c.description,
+                        thumbnail_url = c.thumbnail_url,
+                        price = c.price,
+                        status = c.status,
+                        level = c.level,
+                        estimated_duration_minutes = c.estimated_duration_minutes,
+                        avg_rating = c.avg_rating,
+                        reviews_count = c.reviews_count,
+                        published_date = c.published_date,
+                    })
+                    .ToListAsync();
+
+                return new PageResult<CourseDto>
+                {
+                    Items = items,
+                    TotalCount = totalCount,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                return null;
+            }
+        }
+
         // Single course with full detail. Returns null if it does not exist, has been
         // soft-deleted, or (for a draft/retired course) the caller is neither the
         // owning instructor nor an admin — anonymous/other callers only see published.
