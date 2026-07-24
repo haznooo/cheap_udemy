@@ -10,10 +10,8 @@ namespace DataAccess.Interfaces
         Task<UserAndProfileDto> AddUserAsync(UserEntity User);
         Task<bool> DeleteUserAsync_Anonymize(int userId);
         Task<bool> UpdateUserPasswordAsync(int userId, string newHashedPassword);
-        Task<PageResult<UserListItemDto>> GetUsersAsync(int pageNumber, int pageSize, string? status = null, string? search = null);
         Task<LoginLookupDto?> GetUserForLoginAsync(string email);
         Task<UserAndProfileDto> GetUserByIdAsync(int userId);
-        Task<UserAndProfileDto?> GetUserWithProfileForAdminAsync(int userId);
 
         Task<PublicUserDto?> GetPublicUserInfoAsync(int userId);
 
@@ -28,14 +26,11 @@ namespace DataAccess.Interfaces
         Task<bool> IsEmailUsedAsync(string email);
         Task<bool> IsUsernameUsedAsync(string username);
         Task<bool> IsUserActiveAsync(int userId);
-        Task<bool> DoesUserExistByIdAsync(int userId);
         Task<bool> DoesUserProfileExistAsync(int userId);
 
         //custom elemnts
         Task<bool> PromoteUserToInstructorAsync(int userId);
         Task<string?> GetUserRoleAsync(int userId);
-        Task<UserStatusRoleDto?> GetUserStatusAndRoleAsync(int userId);
-        Task<bool> UpdateUserStatusAsync(int userId, string status);
         Task<string?> GetHashedPasswordByIdAsync(int userId);
     }
 }

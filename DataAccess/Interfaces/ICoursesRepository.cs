@@ -11,8 +11,6 @@ namespace DataAccess.Interfaces
             int pageNumber, int pageSize,
             string? search = null, int? categoryId = null, string? level = null,
             decimal? minPrice = null, decimal? maxPrice = null, string? sortBy = null);
-        Task<PageResult<CourseDto>> GetAllCoursesForAdminAsync(
-            int pageNumber, int pageSize, string? status = null, string? search = null);
         Task<CourseDto> GetCourseById(int courseId, int? callerId = null, bool isAdmin = false);
         Task<int?> GetCourseInstructorId(int courseId);
         Task<int?> GetCourseIdBySection(int sectionId);
@@ -29,8 +27,6 @@ namespace DataAccess.Interfaces
         Task<CourseEntitiy?> GetRawCourseAsync(int courseId);
         Task<CourseDto?> UpdateCourseStatusAsync(int courseId, string newStatus);
         Task<bool> SoftDeleteCourseAsync(int courseId, string? removalReason);
-        Task<List<List<ContentBlock>>> GetCourseLessonContentBlocksAsync(int courseId);
-        Task<bool> PurgeCourseContentAsync(int courseId, string? removalReason);
         Task<bool> DoesCategoryExistAsync(int categoryId);
     }
 }

@@ -109,74 +109,6 @@ namespace DataAccess.Repositories
             }
         }
 
-        // Admin moderation list: every course regardless of status, INCLUDING
-        // soft-deleted/tombstoned ones (unlike the public GetAllCourses, which is
-        // published + non-deleted only). Newest-first by created_date. Optional
-        // substring search over title + instructor username, and an optional
-        // courses.status filter. Plain ILIKE (admin-only path).
-        public async Task<PageResult<CourseDto>> GetAllCoursesForAdminAsync(
-            int pageNumber, int pageSize, string? status = null, string? search = null)
-        {
-            try
-            {
-                var query = context.Courses.AsQueryable();
-
-                if (!string.IsNullOrWhiteSpace(status))
-                    query = query.Where(c => c.status == status);
-
-                if (!string.IsNullOrWhiteSpace(search))
-                {
-                    var escaped = search.Replace(@"\", @"\\").Replace("%", @"\%").Replace("_", @"\_");
-                    var pattern = $"%{escaped}%";
-                    query = query.Where(c =>
-                        EF.Functions.ILike(c.title, pattern, @"\")
-                        || EF.Functions.ILike(c.instructor.username, pattern, @"\"));
-                }
-
-                var totalCount = await query.CountAsync();
-
-                var items = await query
-                    .OrderByDescending(c => c.created_date)
-                    .ThenByDescending(c => c.course_id)
-                    .Skip((pageNumber - 1) * pageSize)
-                    .Take(pageSize)
-                    .AsNoTracking()
-                    .Select(c => new CourseDto
-                    {
-                        CourseId = c.course_id,
-                        Title = c.title,
-                        CategoryId = c.category_id,
-                        CategoryName = c.category.name,
-                        InstructorId = c.instructor_id,
-                        InstructorName = c.instructor.username,
-                        code = c.code,
-                        description = c.description,
-                        thumbnail_url = c.thumbnail_url,
-                        price = c.price,
-                        status = c.status,
-                        level = c.level,
-                        estimated_duration_minutes = c.estimated_duration_minutes,
-                        avg_rating = c.avg_rating,
-                        reviews_count = c.reviews_count,
-                        published_date = c.published_date,
-                    })
-                    .ToListAsync();
-
-                return new PageResult<CourseDto>
-                {
-                    Items = items,
-                    TotalCount = totalCount,
-                    PageNumber = pageNumber,
-                    PageSize = pageSize
-                };
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.ToString());
-                return null;
-            }
-        }
-
         // Single course with full detail. Returns null if it does not exist, has been
         // soft-deleted, or (for a draft/retired course) the caller is neither the
         // owning instructor nor an admin — anonymous/other callers only see published.
@@ -530,62 +462,6 @@ namespace DataAccess.Repositories
 
                 course.deleted_at = DateTime.UtcNow;
                 course.removal_reason = removalReason;
-                course.updated_at = DateTime.UtcNow;
-
-                var results = await context.SaveChangesAsync();
-                return results > 0;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.ToString());
-                return false;
-            }
-        }
-
-        // Every lesson's content blocks across the whole course — so a caller (the admin
-        // takedown) can gather the referenced media file names BEFORE the rows are gone.
-        public async Task<List<List<ContentBlock>>> GetCourseLessonContentBlocksAsync(int courseId)
-        {
-            try
-            {
-                // Materialize the lesson rows (content_blocks deserializes as part of
-                // normal entity materialization — the proven jsonb read path here) and
-                // pull the blocks in memory, rather than projecting the jsonb column.
-                var lessons = await context.Lessons
-                    .Where(l => l.section.course_id == courseId)
-                    .AsNoTracking()
-                    .ToListAsync();
-
-                return lessons
-                    .Select(l => l.content_blocks)
-                    .Where(b => b != null)
-                    .ToList()!;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.ToString());
-                return new List<List<ContentBlock>>();
-            }
-        }
-
-        // Admin takedown (permanent content purge): hard-deletes the course's sections —
-        // the DB CASCADE (fk_lessons_sections / fk_user_lesson_progress_lessons) removes
-        // their lessons and progress rows, and being a real SQL DELETE the sync triggers
-        // still fire — then tombstones the course row via deleted_at so it 404s everywhere
-        // while its FK-protected payment/enrollment records survive. thumbnail_url is
-        // nulled here; the caller best-effort deletes the actual bucket object.
-        public async Task<bool> PurgeCourseContentAsync(int courseId, string? removalReason)
-        {
-            try
-            {
-                var course = await context.Courses.FirstOrDefaultAsync(c => c.course_id == courseId && c.deleted_at == null);
-                if (course == null) return false;
-
-                await context.Sections.Where(s => s.course_id == courseId).ExecuteDeleteAsync();
-
-                course.deleted_at = DateTime.UtcNow;
-                course.removal_reason = removalReason;
-                course.thumbnail_url = null;
                 course.updated_at = DateTime.UtcNow;
 
                 var results = await context.SaveChangesAsync();

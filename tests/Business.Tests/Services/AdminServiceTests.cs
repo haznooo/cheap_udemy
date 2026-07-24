@@ -18,18 +18,20 @@ namespace Business.Tests.Services
             out Mock<IRefreshTokenService> refreshTokenService,
             out Mock<IAdminActionService> adminActionService)
         {
-            var userRepository = new Mock<IUserAndProfileRepository>();
+            var adminRepository = new Mock<IAdminRepository>();
             refreshTokenService = new Mock<IRefreshTokenService>();
             adminActionService = new Mock<IAdminActionService>();
 
-            userRepository
+            // GetUserStatusAndRoleAsync / UpdateUserStatusAsync are admin-exclusive now,
+            // so they live on IAdminRepository (see the AdminRepository extraction).
+            adminRepository
                 .Setup(r => r.GetUserStatusAndRoleAsync(7))
                 .ReturnsAsync(new UserStatusRoleDto { Status = targetCurrentStatus, Role = "student" });
-            userRepository
+            adminRepository
                 .Setup(r => r.UpdateUserStatusAsync(7, newStatus))
                 .ReturnsAsync(true);
 
-            return new AdminService(userRepository.Object, refreshTokenService.Object, adminActionService.Object, new Mock<ICoursesRepository>().Object, new Mock<IReviewRepository>().Object, new Mock<IMediaService>().Object);
+            return new AdminService(adminRepository.Object, new Mock<IUserAndProfileRepository>().Object, refreshTokenService.Object, adminActionService.Object, new Mock<ICoursesRepository>().Object, new Mock<IMediaService>().Object);
         }
 
         [Fact]

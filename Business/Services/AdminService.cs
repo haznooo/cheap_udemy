@@ -6,11 +6,14 @@ using static DataAccess.Common.clsPageResult;
 
 namespace Business.Services
 {
-    // Admin-only cross-user actions (the api/admin use cases). Sits on the same
-    // user repository as UserService/AuthenticationService — repos stay per-table,
-    // services per-use-case. The audit row is written HERE, right next to the
-    // mutation, so no caller can perform an admin action and skip the audit.
-    public class AdminService(IUserAndProfileRepository userRepository, IRefreshTokenService refreshTokenService, IAdminActionService adminActionService, ICoursesRepository coursesRepository, IReviewRepository reviewRepository, IMediaService mediaService) : IAdminService
+    // Admin-only cross-user actions (the api/admin use cases). Admin-EXCLUSIVE data
+    // access lives in IAdminRepository (organized by actor, not table); the SHARED
+    // table access it still needs — self-delete anonymize + avatar-name read, and the
+    // course publish-status read/write — stays in the per-table repos it injects
+    // alongside (userRepository/coursesRepository), never the reverse. The audit row is
+    // written HERE, right next to the mutation, so no caller can perform an admin action
+    // and skip the audit.
+    public class AdminService(IAdminRepository adminRepository, IUserAndProfileRepository userRepository, IRefreshTokenService refreshTokenService, IAdminActionService adminActionService, ICoursesRepository coursesRepository, IMediaService mediaService) : IAdminService
     {
         // The account states an admin can filter by (matches the users.status CHECK).
         private static readonly HashSet<string> ValidUserStatuses = new() { "active", "banned", "suspended", "deleted" };
@@ -32,7 +35,7 @@ namespace Business.Services
             if (!string.IsNullOrWhiteSpace(status) && !ValidUserStatuses.Contains(status))
                 return MyResult<PageResult<UserListItemDto>>.Failure(ErrorType.BadRequest, "Invalid status filter.");
 
-            var users = await userRepository.GetUsersAsync(pageNumber, pageSize, status, search?.Trim());
+            var users = await adminRepository.GetUsersAsync(pageNumber, pageSize, status, search?.Trim());
 
             if (users == null)
                 return MyResult<PageResult<UserListItemDto>>.Failure(ErrorType.Failure, "Failed to retrieve users.");
@@ -52,7 +55,7 @@ namespace Business.Services
             if (!string.IsNullOrWhiteSpace(status) && !ValidCourseStatuses.Contains(status))
                 return MyResult<PageResult<CourseDto>>.Failure(ErrorType.BadRequest, "Invalid status filter.");
 
-            var courses = await coursesRepository.GetAllCoursesForAdminAsync(pageNumber, pageSize, status, search?.Trim());
+            var courses = await adminRepository.GetAllCoursesForAdminAsync(pageNumber, pageSize, status, search?.Trim());
 
             if (courses == null)
                 return MyResult<PageResult<CourseDto>>.Failure(ErrorType.Failure, "Failed to retrieve courses.");
@@ -67,7 +70,7 @@ namespace Business.Services
         {
             if (userId <= 0) return MyResult<UserAndProfileDto>.Failure(ErrorType.BadRequest, "user id can not be zero or negative");
 
-            var user = await userRepository.GetUserWithProfileForAdminAsync(userId);
+            var user = await adminRepository.GetUserWithProfileForAdminAsync(userId);
 
             if (user == null || user.Status == "deleted")
                 return MyResult<UserAndProfileDto>.Failure(ErrorType.NotFound, "user not found");
@@ -86,7 +89,7 @@ namespace Business.Services
 
             // Reject a missing / already-deleted target with a clean 404 instead of
             // silently "succeeding" on a no-op anonymize.
-            if (!await userRepository.DoesUserExistByIdAsync(targetUserId))
+            if (!await adminRepository.DoesUserExistByIdAsync(targetUserId))
                 return MyResult<string?>.Failure(ErrorType.NotFound, "user not found");
 
             // Capture the avatar name BEFORE the delete wipes the profile row.
@@ -115,7 +118,7 @@ namespace Business.Services
             // An admin locking themselves out (or "unbanning" themselves) makes no sense.
             if (adminId == targetUserId) return MyResult<bool>.Failure(ErrorType.BadRequest, "you cannot change your own account status");
 
-            var target = await userRepository.GetUserStatusAndRoleAsync(targetUserId);
+            var target = await adminRepository.GetUserStatusAndRoleAsync(targetUserId);
 
             // Deleted accounts are anonymized and can't come back — treat like missing.
             if (target == null || target.Status == "deleted")
@@ -128,7 +131,7 @@ namespace Business.Services
             if (target.Status == newStatus)
                 return MyResult<bool>.Failure(ErrorType.Conflict, $"user is already {newStatus}");
 
-            var updated = await userRepository.UpdateUserStatusAsync(targetUserId, newStatus);
+            var updated = await adminRepository.UpdateUserStatusAsync(targetUserId, newStatus);
 
             if (!updated) return MyResult<bool>.Failure(ErrorType.Failure, "failed to update user status");
 
@@ -218,16 +221,16 @@ namespace Business.Services
             // data pointing at those files) are gone — same pattern as the avatar name
             // captured before the anonymize trigger in DeleteUser.
             string? thumbnail = course.thumbnail_url;
-            var lessonBlocks = await coursesRepository.GetCourseLessonContentBlocksAsync(courseId);
+            var lessonBlocks = await adminRepository.GetCourseLessonContentBlocksAsync(courseId);
             var mediaNames = new HashSet<string>();
             foreach (var blocks in lessonBlocks)
                 mediaNames.UnionWith(ContentBlockMedia.ExtractFileNames(blocks));
 
             // Reviews are destroyed too. Best-effort: a stray review would 404 with the
             // tombstoned course anyway, so a failure here must not block the takedown.
-            await reviewRepository.DeleteAllReviewsForCourseAsync(courseId);
+            await adminRepository.DeleteAllReviewsForCourseAsync(courseId);
 
-            if (!await coursesRepository.PurgeCourseContentAsync(courseId, removalReason))
+            if (!await adminRepository.PurgeCourseContentAsync(courseId, removalReason))
                 return MyResult<bool>.Failure(ErrorType.Failure, "failed to take down course");
 
             await adminActionService.LogAsync(
