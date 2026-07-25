@@ -43,14 +43,18 @@ namespace DataAccess.Repositories
             var info = await GetCourseEnrollmentInfoAsync(courseId);
             if (info == null) return false;
 
+            // A soft-deleted/tombstoned course is gone for EVERYONE, including the owner and
+            // admins (its content is purged) — so this is checked BEFORE the owner/admin
+            // bypass, mirroring GetCourseById which 404s a deleted course for every caller.
+            if (info.IsDeleted) return false;
+
             if (isAdmin || info.InstructorId == callerId) return true;
 
             // Deliberately NOT gated on info.Status == "published": an existing active/completed
             // enrollment keeps content access even after the instructor unpublishes the course.
-            // The two exceptions that DO cut off enrolled students: a hard-deleted course, and
-            // an admin-suspended one (suspension is the moderation hammer — unlike unpublish,
-            // it blocks everyone but the owner/admin, who bypassed above).
-            if (info.IsDeleted || info.Status == "suspended") return false;
+            // Suspension, however, DOES cut off enrolled students (it's the moderation hammer —
+            // unlike unpublish, it blocks everyone but the owner/admin, who bypassed above).
+            if (info.Status == "suspended") return false;
 
             string? status = await GetEnrollmentStatusAsync(callerId, courseId);
             return status is "active" or "completed";

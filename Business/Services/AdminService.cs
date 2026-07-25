@@ -18,10 +18,12 @@ namespace Business.Services
         // The account states an admin can filter by (matches the users.status CHECK).
         private static readonly HashSet<string> ValidUserStatuses = new() { "active", "banned", "suspended", "deleted" };
 
-        // The course states an admin can filter by (matches the courses.status CHECK).
-        // Soft-deleted courses are a separate deleted_at column, not a status value, so
-        // they aren't filterable here — they still show up when no status is given.
-        private static readonly HashSet<string> ValidCourseStatuses = new() { "published", "draft", "retired", "suspended" };
+        // The values an admin can filter courses by. The first four are courses.status
+        // CHECK values; "deleted" is a PSEUDO-status (soft-delete is a separate deleted_at
+        // column, not a status value) that the repo maps to deleted_at != null. A real
+        // status filter excludes tombstoned rows (a taken-down course keeps its old status
+        // value); "deleted" selects only them; omitting the filter returns everything.
+        private static readonly HashSet<string> ValidCourseStatuses = new() { "published", "draft", "retired", "suspended", "deleted" };
 
         // Paged list of accounts (newest-first) for the admin user-management view. Slim
         // rows (id/username/email/role/status/create_date + display name/avatar) — includes
@@ -47,20 +49,20 @@ namespace Business.Services
         // public catalog (published-only), this shows ALL statuses incl. suspended and
         // soft-deleted/tombstoned, so an admin can find any course to moderate. Optional
         // search (title + instructor username) and status filter (a courses.status value).
-        public async Task<MyResult<PageResult<CourseDto>>> GetCourses(int pageNumber, int pageSize, string? status = null, string? search = null)
+        public async Task<MyResult<PageResult<AdminCourseDto>>> GetCourses(int pageNumber, int pageSize, string? status = null, string? search = null)
         {
             if (pageNumber <= 0 || pageSize <= 0)
-                return MyResult<PageResult<CourseDto>>.Failure(ErrorType.BadRequest, "Invalid page number or page size.");
+                return MyResult<PageResult<AdminCourseDto>>.Failure(ErrorType.BadRequest, "Invalid page number or page size.");
 
             if (!string.IsNullOrWhiteSpace(status) && !ValidCourseStatuses.Contains(status))
-                return MyResult<PageResult<CourseDto>>.Failure(ErrorType.BadRequest, "Invalid status filter.");
+                return MyResult<PageResult<AdminCourseDto>>.Failure(ErrorType.BadRequest, "Invalid status filter.");
 
             var courses = await adminRepository.GetAllCoursesForAdminAsync(pageNumber, pageSize, status, search?.Trim());
 
             if (courses == null)
-                return MyResult<PageResult<CourseDto>>.Failure(ErrorType.Failure, "Failed to retrieve courses.");
+                return MyResult<PageResult<AdminCourseDto>>.Failure(ErrorType.Failure, "Failed to retrieve courses.");
 
-            return MyResult<PageResult<CourseDto>>.Success(courses);
+            return MyResult<PageResult<AdminCourseDto>>.Success(courses);
         }
 
         // Account + optional profile view of any user. Unlike the self read

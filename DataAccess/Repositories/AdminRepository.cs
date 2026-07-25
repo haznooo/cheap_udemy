@@ -150,9 +150,16 @@ namespace DataAccess.Repositories
         // Admin moderation list: every course regardless of status, INCLUDING
         // soft-deleted/tombstoned ones (unlike the public GetAllCourses, which is
         // published + non-deleted only). Newest-first by created_date. Optional
-        // substring search over title + instructor username, and an optional
-        // courses.status filter. Plain ILIKE (admin-only path).
-        public async Task<PageResult<CourseDto>> GetAllCoursesForAdminAsync(
+        // substring search over title + instructor username, and an optional status
+        // filter. Plain ILIKE (admin-only path).
+        //
+        // The status filter: a courses.status value (published/draft/retired/suspended)
+        // matches only NON-tombstoned rows — a taken-down course keeps its pre-takedown
+        // status value, so without this a "suspended" filter would hand back dead courses.
+        // The pseudo-value "deleted" selects tombstones instead (deleted_at != null),
+        // since soft-delete is a separate column, not a status value. Unfiltered (null)
+        // still returns every course, tombstoned included.
+        public async Task<PageResult<AdminCourseDto>> GetAllCoursesForAdminAsync(
             int pageNumber, int pageSize, string? status = null, string? search = null)
         {
             try
@@ -160,7 +167,12 @@ namespace DataAccess.Repositories
                 var query = context.Courses.AsQueryable();
 
                 if (!string.IsNullOrWhiteSpace(status))
-                    query = query.Where(c => c.status == status);
+                {
+                    if (status == "deleted")
+                        query = query.Where(c => c.deleted_at != null);
+                    else
+                        query = query.Where(c => c.status == status && c.deleted_at == null);
+                }
 
                 if (!string.IsNullOrWhiteSpace(search))
                 {
@@ -179,7 +191,7 @@ namespace DataAccess.Repositories
                     .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
                     .AsNoTracking()
-                    .Select(c => new CourseDto
+                    .Select(c => new AdminCourseDto
                     {
                         CourseId = c.course_id,
                         Title = c.title,
@@ -197,10 +209,12 @@ namespace DataAccess.Repositories
                         avg_rating = c.avg_rating,
                         reviews_count = c.reviews_count,
                         published_date = c.published_date,
+                        deleted_at = c.deleted_at,
+                        removal_reason = c.removal_reason,
                     })
                     .ToListAsync();
 
-                return new PageResult<CourseDto>
+                return new PageResult<AdminCourseDto>
                 {
                     Items = items,
                     TotalCount = totalCount,

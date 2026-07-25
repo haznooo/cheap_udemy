@@ -20,7 +20,7 @@ namespace DataAccess.Interfaces
         Task<bool> UpdateUserStatusAsync(int userId, string status);
 
         // courses
-        Task<PageResult<CourseDto>> GetAllCoursesForAdminAsync(int pageNumber, int pageSize, string? status = null, string? search = null);
+        Task<PageResult<AdminCourseDto>> GetAllCoursesForAdminAsync(int pageNumber, int pageSize, string? status = null, string? search = null);
         Task<List<List<ContentBlock>>> GetCourseLessonContentBlocksAsync(int courseId);
         Task<bool> PurgeCourseContentAsync(int courseId, string? removalReason);
 

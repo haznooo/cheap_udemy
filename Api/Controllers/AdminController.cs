@@ -45,10 +45,12 @@ namespace Api.Controllers
 
         // List all courses (newest first, paged) for the admin moderation view. Shows
         // every status incl. suspended and soft-deleted/tombstoned (unlike the public
-        // catalog). Optional status filter (published/draft/retired/suspended) and
-        // free-text search (matches course title or instructor username); omit for all.
+        // catalog), and — unlike CourseDto — carries deleted_at/removal_reason so a
+        // tombstoned course is distinguishable from a live one. Optional status filter
+        // (published/draft/retired/suspended, or the pseudo-value "deleted" for tombstones)
+        // and free-text search (course title or instructor username); omit for all.
         [HttpGet("courses")]
-        public async Task<ActionResult<PageResult<CourseDto>>> GetCourses(
+        public async Task<ActionResult<PageResult<AdminCourseDto>>> GetCourses(
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10,
             [FromQuery] string? status = null,
