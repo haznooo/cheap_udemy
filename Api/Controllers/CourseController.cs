@@ -96,6 +96,10 @@ namespace Api.Controllers
 
             // Ownership confirmed; upload then persist the returned file name.
             var fileName = await mediaService.UploadCourseThumbnailAsync(file);
+            if (fileName is null)
+            {
+                return Problem(statusCode: StatusCodes.Status503ServiceUnavailable, detail: "File storage is temporarily unavailable. Please try again later.");
+            }
             var Result = await courseService.SetThumbnail(courseId, callerId, isAdmin, fileName);
 
             if (!Result.IsSuccess) return MapFailure(Result);
@@ -148,6 +152,10 @@ namespace Api.Controllers
             if (!permission.IsSuccess) return MapFailure(permission);
 
             var fileName = await mediaService.UploadCourseMediaAsync(file);
+            if (fileName is null)
+            {
+                return Problem(statusCode: StatusCodes.Status503ServiceUnavailable, detail: "File storage is temporarily unavailable. Please try again later.");
+            }
             return Ok(new MediaUploadResponse(fileName));
         }
 

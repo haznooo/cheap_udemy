@@ -27,9 +27,13 @@ namespace Business.Services
     // latter when i start having proper DI i will move this to somewhere else
     public interface IMediaService
     {
-        Task<string> UploadAvatarAsync(IFormFile file);
-        Task<string> UploadCourseThumbnailAsync(IFormFile file);
-        Task<string> UploadCourseMediaAsync(IFormFile file);
+        // Upload methods return the stored file name, or null when storage is
+        // unreachable/errors (same swallow-and-signal style as the repos). Callers
+        // must treat null as "storage unavailable" and fail the request cleanly
+        // instead of letting a Supabase outage surface as an unhandled 500.
+        Task<string?> UploadAvatarAsync(IFormFile file);
+        Task<string?> UploadCourseThumbnailAsync(IFormFile file);
+        Task<string?> UploadCourseMediaAsync(IFormFile file);
 
         // Best-effort deletes: they never throw. A leaked file is harmless, so a
         // storage hiccup during cleanup must never fail the caller's request.
@@ -47,13 +51,13 @@ namespace Business.Services
             _supabaseClient = supabaseClient;
         }
 
-        public Task<string> UploadAvatarAsync(IFormFile file) =>
+        public Task<string?> UploadAvatarAsync(IFormFile file) =>
             UploadToBucketAsync(file, MediaBuckets.Avatars);
 
-        public Task<string> UploadCourseThumbnailAsync(IFormFile file) =>
+        public Task<string?> UploadCourseThumbnailAsync(IFormFile file) =>
             UploadToBucketAsync(file, MediaBuckets.CourseThumbnails);
 
-        public Task<string> UploadCourseMediaAsync(IFormFile file) =>
+        public Task<string?> UploadCourseMediaAsync(IFormFile file) =>
             UploadToBucketAsync(file, MediaBuckets.CourseMedia);
 
         public Task<bool> DeleteAvatarAsync(string fileName) =>
@@ -65,32 +69,42 @@ namespace Business.Services
         public Task<bool> DeleteCourseMediaAsync(string fileName) =>
             DeleteFromBucketAsync(fileName, MediaBuckets.CourseMedia);
 
-        private async Task<string> UploadToBucketAsync(IFormFile file, string bucketName)
+        private async Task<string?> UploadToBucketAsync(IFormFile file, string bucketName)
         {
-            // 1. Read the file into a byte array
-            using var memoryStream = new MemoryStream();
-            await file.CopyToAsync(memoryStream);
-            var fileBytes = memoryStream.ToArray();
+            try
+            {
+                // 1. Read the file into a byte array
+                using var memoryStream = new MemoryStream();
+                await file.CopyToAsync(memoryStream);
+                var fileBytes = memoryStream.ToArray();
 
-            // 2. Generate a unique file name so we don't overwrite existing files
-            var extension = Path.GetExtension(file.FileName);
-            var uniqueFileName = $"{Guid.NewGuid()}{extension}";
+                // 2. Generate a unique file name so we don't overwrite existing files
+                var extension = Path.GetExtension(file.FileName);
+                var uniqueFileName = $"{Guid.NewGuid()}{extension}";
 
-            // 3. Upload. The real content type must be sent explicitly: the library
-            // defaults to "text/plain", which buckets with MIME restrictions (avatar)
-            // would reject, and which breaks image rendering from public URLs.
-            await _supabaseClient.Storage
-                .From(bucketName)
-                .Upload(fileBytes, uniqueFileName, new Supabase.Storage.FileOptions
-                {
-                    Upsert = false,
-                    ContentType = file.ContentType
-                });
+                // 3. Upload. The real content type must be sent explicitly: the library
+                // defaults to "text/plain", which buckets with MIME restrictions (avatar)
+                // would reject, and which breaks image rendering from public URLs.
+                await _supabaseClient.Storage
+                    .From(bucketName)
+                    .Upload(fileBytes, uniqueFileName, new Supabase.Storage.FileOptions
+                    {
+                        Upsert = false,
+                        ContentType = file.ContentType
+                    });
 
-            // 4. Instead of returning a public URL, return ONLY the unique file name!
-            // This is what gets saved to the DB (profile image_url, thumbnail_url,
-            // lesson content blocks).
-            return uniqueFileName;
+                // 4. Instead of returning a public URL, return ONLY the unique file name!
+                // This is what gets saved to the DB (profile image_url, thumbnail_url,
+                // lesson content blocks).
+                return uniqueFileName;
+            }
+            catch (Exception ex)
+            {
+                // Storage is down/unreachable. Signal failure (null) so the caller can
+                // return a clean 503 instead of letting the exception bubble to a raw 500.
+                Console.WriteLine($"Failed to upload to bucket '{bucketName}': {ex.Message}");
+                return null;
+            }
         }
 
         private async Task<bool> DeleteFromBucketAsync(string fileName, string bucketName)

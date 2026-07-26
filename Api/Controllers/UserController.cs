@@ -58,6 +58,10 @@ namespace Api.Controllers
             }
 
             var fileName = await mediaService.UploadAvatarAsync(file);
+            if (fileName is null)
+            {
+                return Problem(statusCode: StatusCodes.Status503ServiceUnavailable, detail: "File storage is temporarily unavailable. Please try again later.");
+            }
 
             var result = await userService.SetAvatar(callerId, fileName);
             if (!result.IsSuccess)
