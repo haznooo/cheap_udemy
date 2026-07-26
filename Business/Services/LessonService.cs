@@ -507,12 +507,19 @@ namespace Business.Services
                 return "Rich text node is missing a string 'type'.";
             var type = typeEl.GetString()!;
 
-            // Allowlist which node types may appear inside which parent.
+            // Allowlist which node types may appear inside which parent. Mirrors
+            // RICH_TEXT_GRAMMAR in the frontend's lib/richText.ts (and RichTextView) —
+            // keep the two in sync. Parent-aware (not a flat set) so e.g. a `listItem`
+            // is only legal inside a list and `text` only inside a leaf block.
             bool allowed = parentType switch
             {
-                "doc" => type is "paragraph" or "codeBlock",
+                "doc" => type is "paragraph" or "heading" or "codeBlock" or "bulletList" or "orderedList",
                 "paragraph" => type is "text",
+                "heading" => type is "text",
                 "codeBlock" => type is "text",
+                "bulletList" => type is "listItem",
+                "orderedList" => type is "listItem",
+                "listItem" => type is "paragraph" or "bulletList" or "orderedList",
                 _ => false
             };
             if (!allowed)
@@ -524,6 +531,12 @@ namespace Business.Services
             if (type == "codeBlock")
             {
                 var attrError = ValidateCodeBlockAttrs(node);
+                if (attrError != null)
+                    return attrError;
+            }
+            else if (type == "heading")
+            {
+                var attrError = ValidateHeadingAttrs(node);
                 if (attrError != null)
                     return attrError;
             }
@@ -598,6 +611,25 @@ namespace Business.Services
 
             if (color.ValueKind != JsonValueKind.String || !HexColorRegex.IsMatch(color.GetString()!))
                 return $"Rich text '{markType}' color must be a hex value like #7048e8.";
+
+            return null;
+        }
+
+        // Heading level is a bounded enum (h2/h3 only, matching the frontend's
+        // HEADING_LEVELS) rather than a free size — a value that can be validated.
+        // Lenient like ValidateCodeBlockAttrs: missing attrs/level is accepted (the
+        // renderer defaults to h2); only a present-but-out-of-range level is rejected.
+        private static string? ValidateHeadingAttrs(JsonElement node)
+        {
+            if (!node.TryGetProperty("attrs", out var attrs) || attrs.ValueKind == JsonValueKind.Null)
+                return null;
+            if (attrs.ValueKind != JsonValueKind.Object)
+                return "Rich text 'heading' attrs must be a JSON object.";
+
+            if (!attrs.TryGetProperty("level", out var level) || level.ValueKind == JsonValueKind.Null)
+                return null;
+            if (level.ValueKind != JsonValueKind.Number || !level.TryGetInt32(out var lvl) || (lvl != 2 && lvl != 3))
+                return "Rich text 'heading' level must be 2 or 3.";
 
             return null;
         }
